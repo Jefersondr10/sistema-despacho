@@ -6,38 +6,19 @@ import { PackageFilters } from "@/app/_components/package-filters";
 import {
   Badge,
   EmptyState,
+  FeedbackMessage,
   MelhorEnvioBadge,
   OperationBadge,
 } from "@/app/_components/ui";
-import type {
-  Carrier,
-  Marketplace,
-  PackageCancellation,
-  Store,
-} from "@/app/_lib/mock-data";
 import {
   createDefaultPackageFilters,
   filterCancellations,
   formatPackageDate,
 } from "@/app/_lib/mock-data";
-import {
-  useCatalogs,
-  usePackageCancellations,
-} from "@/app/_lib/local-store";
+import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
-export function PacotesCanceladosView({
-  stores,
-  marketplaces,
-  carriers,
-  cancellations: initialCancellations,
-}: {
-  stores: Store[];
-  marketplaces: Marketplace[];
-  carriers: Carrier[];
-  cancellations: PackageCancellation[];
-}) {
-  const catalogs = useCatalogs({ stores, marketplaces, carriers });
-  const { cancellations } = usePackageCancellations(initialCancellations);
+export function PacotesCanceladosView() {
+  const { catalogs, cancellations, loading, error } = useSupabaseDispatchData();
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const filteredCancellations = useMemo(
     () => filterCancellations(cancellations, filters),
@@ -46,6 +27,14 @@ export function PacotesCanceladosView({
 
   return (
     <>
+      {loading ? (
+        <FeedbackMessage tone="neutral">
+          Carregando cancelamentos do Supabase...
+        </FeedbackMessage>
+      ) : null}
+
+      {error ? <FeedbackMessage tone="danger">{error}</FeedbackMessage> : null}
+
       <PackageFilters
         filters={filters}
         stores={catalogs.stores}

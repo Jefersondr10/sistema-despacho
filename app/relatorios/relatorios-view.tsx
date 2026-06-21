@@ -6,17 +6,12 @@ import { PackageFilters } from "@/app/_components/package-filters";
 import {
   Badge,
   EmptyState,
+  FeedbackMessage,
   MelhorEnvioBadge,
   OperationBadge,
   StatusBadge,
 } from "@/app/_components/ui";
-import type {
-  Carrier,
-  DispatchPackage,
-  Marketplace,
-  PackageCancellation,
-  Store,
-} from "@/app/_lib/mock-data";
+import type { Store } from "@/app/_lib/mock-data";
 import {
   createDefaultPackageFilters,
   describeDateFilter,
@@ -26,7 +21,7 @@ import {
   getReportSummary,
   getStoreName,
 } from "@/app/_lib/mock-data";
-import { useCatalogs, useStoredPackages } from "@/app/_lib/local-store";
+import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
 type ReportMode = "resumido" | "detalhado" | "todos";
 
@@ -36,10 +31,11 @@ function summarizeList(values: string[], allLabel: string) {
 
 function getFilterSummary(
   filters: ReturnType<typeof createDefaultPackageFilters>,
+  stores: Store[],
 ) {
   return {
     loja: filters.lojaId.length
-      ? filters.lojaId.map((lojaId) => getStoreName(lojaId)).join(", ")
+      ? filters.lojaId.map((lojaId) => getStoreName(lojaId, stores)).join(", ")
       : "Todas",
     data: describeDateFilter(filters),
     marketplace: summarizeList(filters.marketplace, "Todos"),
@@ -62,29 +58,16 @@ function getFilterSummary(
   };
 }
 
-export function RelatoriosView({
-  packages: initialPackages,
-  cancellations: initialCancellations,
-  stores,
-  marketplaces,
-  carriers,
-}: {
-  packages: DispatchPackage[];
-  cancellations: PackageCancellation[];
-  stores: Store[];
-  marketplaces: Marketplace[];
-  carriers: Carrier[];
-}) {
-  const catalogs = useCatalogs({ stores, marketplaces, carriers });
-  const { packages } = useStoredPackages(initialPackages, initialCancellations);
+export function RelatoriosView() {
+  const { catalogs, packages, loading, error } = useSupabaseDispatchData();
   const [mode, setMode] = useState<ReportMode>("resumido");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),
     [packages, filters],
   );
-  const summary = getReportSummary(filteredPackages);
-  const filterSummary = getFilterSummary(filters);
+  const summary = getReportSummary(filteredPackages, catalogs.stores);
+  const filterSummary = getFilterSummary(filters, catalogs.stores);
 
   function generatePdf() {
     window.print();
@@ -92,6 +75,12 @@ export function RelatoriosView({
 
   return (
     <>
+      {loading ? (
+        <FeedbackMessage tone="neutral">Carregando relatórios do Supabase...</FeedbackMessage>
+      ) : null}
+
+      {error ? <FeedbackMessage tone="danger">{error}</FeedbackMessage> : null}
+
       <PackageFilters
         filters={filters}
         stores={catalogs.stores}
@@ -268,7 +257,7 @@ export function RelatoriosView({
                       {formatPackageDate(item.data_hora_bipagem)}
                     </td>
                     <td className="px-5 py-4 font-medium text-slate-950">
-                      {getStoreName(item.loja_id)}
+                      {getStoreName(item.loja_id, catalogs.stores)}
                     </td>
                     <td className="px-5 py-4 text-slate-700">
                       {item.marketplace}

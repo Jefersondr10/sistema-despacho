@@ -115,8 +115,11 @@ create index if not exists idx_pacotes_marketplace_id
 create index if not exists idx_pacotes_sessao_id
   on pacotes (sessao_id);
 
-create unique index if not exists idx_pacotes_codigo_normalizado
-  on pacotes (upper(regexp_replace(codigo, '\s+', '', 'g')));
+drop index if exists idx_pacotes_codigo_normalizado;
+
+create unique index if not exists idx_pacotes_codigo_normalizado_ativos
+  on pacotes (upper(regexp_replace(codigo, '\s+', '', 'g')))
+  where status <> 'cancelado';
 
 create index if not exists idx_movimentacoes_loja_id
   on movimentacoes (loja_id);

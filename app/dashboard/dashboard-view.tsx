@@ -6,19 +6,12 @@ import { useMemo, useState } from "react";
 import { PackageFilters } from "@/app/_components/package-filters";
 import {
   Badge,
+  FeedbackMessage,
   MelhorEnvioBadge,
   OperationBadge,
   StatCard,
   StatusBadge,
 } from "@/app/_components/ui";
-import type {
-  Carrier,
-  DispatchPackage,
-  Marketplace,
-  PackageCancellation,
-  PackageMovement,
-  Store,
-} from "@/app/_lib/mock-data";
 import {
   createDefaultPackageFilters,
   filterPackages,
@@ -28,37 +21,18 @@ import {
   getReportSummary,
   getStoreName,
 } from "@/app/_lib/mock-data";
-import {
-  useCatalogs,
-  useStoredMovements,
-  useStoredPackages,
-} from "@/app/_lib/local-store";
+import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
-export function DashboardView({
-  packages: initialPackages,
-  cancellations: initialCancellations,
-  movements,
-  stores,
-  marketplaces,
-  carriers,
-}: {
-  packages: DispatchPackage[];
-  cancellations: PackageCancellation[];
-  movements: PackageMovement[];
-  stores: Store[];
-  marketplaces: Marketplace[];
-  carriers: Carrier[];
-}) {
-  const catalogs = useCatalogs({ stores, marketplaces, carriers });
-  const { packages } = useStoredPackages(initialPackages, initialCancellations);
-  const { movements: storedMovements } = useStoredMovements(movements);
+export function DashboardView() {
+  const { catalogs, packages, movements: storedMovements, loading, error } =
+    useSupabaseDispatchData();
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),
     [packages, filters],
   );
   const metrics = getDashboardMetrics(filteredPackages);
-  const summary = getReportSummary(filteredPackages).slice(0, 4);
+  const summary = getReportSummary(filteredPackages, catalogs.stores).slice(0, 4);
   const recentPackages = filteredPackages.slice(0, 6);
   const latestMovements = storedMovements
     .filter((movement) =>
@@ -68,6 +42,12 @@ export function DashboardView({
 
   return (
     <>
+      {loading ? (
+        <FeedbackMessage tone="neutral">Carregando dados do Supabase...</FeedbackMessage>
+      ) : null}
+
+      {error ? <FeedbackMessage tone="danger">{error}</FeedbackMessage> : null}
+
       <PackageFilters
         filters={filters}
         stores={catalogs.stores}
@@ -205,7 +185,7 @@ export function DashboardView({
                       {formatPackageDate(item.data_hora_bipagem)}
                     </td>
                     <td className="px-5 py-4 font-medium text-slate-950">
-                      {getStoreName(item.loja_id)}
+                      {getStoreName(item.loja_id, catalogs.stores)}
                     </td>
                     <td className="px-5 py-4 font-mono text-sm text-slate-950">
                       {item.codigo_rastreio}

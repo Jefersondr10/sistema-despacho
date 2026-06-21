@@ -12,21 +12,25 @@ import {
   StatusBadge,
 } from "@/app/_components/ui";
 import type {
-  Carrier,
-  DispatchBatch,
   DispatchPackage,
-  Marketplace,
   OperationType,
   PackageCancellation,
-  PackageMovement,
-  Store,
 } from "@/app/_lib/mock-data";
 import {
   formatPackageDate,
   getOperationLabel,
   normalizeTrackingCode,
 } from "@/app/_lib/mock-data";
-import { useCatalogs, useDispatchStorage } from "@/app/_lib/local-store";
+import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
+import {
+  cancelarPacotes,
+  createMovimentacoes,
+  createPacotes,
+  createSessaoBipagem,
+  finalizarSessao,
+  formatDatabaseError,
+  updatePacoteCanceladoJustificativa,
+} from "@/lib/database";
 
 type Notice = {
   type: "success" | "warning" | "danger" | "neutral";
@@ -84,41 +88,21 @@ function clearBipagemDraft() {
   window.localStorage.removeItem(BIPAGEM_DRAFT_KEY);
 }
 
-export function BipagemForm({
-  stores,
-  marketplaces,
-  carriers,
-  initialPackages,
-  initialBatches,
-  initialMovements,
-  initialCancellations,
-}: {
-  stores: Store[];
-  marketplaces: Marketplace[];
-  carriers: Carrier[];
-  initialPackages: DispatchPackage[];
-  initialBatches: DispatchBatch[];
-  initialMovements: PackageMovement[];
-  initialCancellations: PackageCancellation[];
-}) {
+export function BipagemForm() {
   const codeRef = useRef<HTMLInputElement>(null);
-  const catalogs = useCatalogs({ stores, marketplaces, carriers });
   const {
+    catalogs,
     packages,
-    activePackages,
+    allPackages,
     batches,
     cancellations,
-    addFinishedBatch,
-    addPackageCancellations,
-    updatePackageCancellation,
-  } = useDispatchStorage({
-    initialPackages,
-    initialBatches,
-    initialMovements,
-    initialCancellations,
-  });
-  const [lojaId, setLojaId] = useState(stores[0]?.id ?? "");
-  const [marketplace, setMarketplace] = useState(marketplaces[0]?.name ?? "");
+    loading,
+    error,
+    reload,
+  } = useSupabaseDispatchData();
+  const activePackages = packages;
+  const [lojaId, setLojaId] = useState("");
+  const [marketplace, setMarketplace] = useState("");
   const [tipoOperacao, setTipoOperacao] = useState<OperationType | "">("");
   const [melhorEnvio, setMelhorEnvio] = useState(false);
   const [transportadora, setTransportadora] = useState("");
@@ -144,6 +128,8 @@ export function BipagemForm({
   const [pendingSessionCancelPackage, setPendingSessionCancelPackage] =
     useState<DispatchPackage | null>(null);
   const [sessionCancelReason, setSessionCancelReason] = useState("");
+  const [savingSession, setSavingSession] = useState(false);
+  const [savingCancellation, setSavingCancellation] = useState(false);
 
   const activeStores = catalogs.stores.filter(
     (item) => item.status !== "Inativa",
@@ -154,14 +140,22 @@ export function BipagemForm({
   const activeCarriers = catalogs.carriers.filter(
     (item) => item.status !== "Inativa",
   );
+  const firstActiveStoreId = activeStores[0]?.id ?? "";
+  const firstActiveMarketplaceName = activeMarketplaces[0]?.name ?? "";
   const selectedLojaId = activeStores.some((item) => item.id === lojaId)
     ? lojaId
-    : activeStores[0]?.id ?? "";
+    : firstActiveStoreId;
   const selectedMarketplace = activeMarketplaces.some(
     (item) => item.name === marketplace,
   )
     ? marketplace
-    : activeMarketplaces[0]?.name ?? "";
+    : firstActiveMarketplaceName;
+  const selectedMarketplaceItem = activeMarketplaces.find(
+    (item) => item.name === selectedMarketplace,
+  );
+  const selectedCarrierItem = activeCarriers.find(
+    (item) => item.name === transportadora,
+  );
   const sessionOpen = Boolean(activeBatchId);
   const configLocked = sessionOpen || cancellationMode;
   const sortedBatches = useMemo(
@@ -177,7 +171,7 @@ export function BipagemForm({
     (batch) => batch.id === selectedHistoryBatchId,
   );
   const selectedBatchPackages = selectedBatch
-    ? packages.filter(
+    ? allPackages.filter(
         (item) =>
           item.lote_id === selectedBatch.id &&
           item.loja_id === selectedBatch.loja_id,
@@ -202,6 +196,20 @@ export function BipagemForm({
     [duplicateSessionCodes],
   );
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
+  const submitDisabled = loading || savingCancellation || savingSession;
+  const finalizeDisabled = hasSessionDuplicates || loading || savingSession;
+
+  useEffect(() => {
+    window.setTimeout(() => {
+      if (!lojaId && firstActiveStoreId) {
+        setLojaId(firstActiveStoreId);
+      }
+
+      if (!marketplace && firstActiveMarketplaceName) {
+        setMarketplace(firstActiveMarketplaceName);
+      }
+    }, 0);
+  }, [firstActiveMarketplaceName, firstActiveStoreId, lojaId, marketplace]);
 
   useEffect(() => {
     const draft = readBipagemDraft();
@@ -261,8 +269,39 @@ export function BipagemForm({
     return catalogs.stores.find((store) => store.id === id)?.name ?? id;
   }
 
+  function getMarketplaceIdByName(name: string) {
+    return (
+      catalogs.marketplaces.find(
+        (item) => item.name === name || item.id === name,
+      )?.id ?? null
+    );
+  }
+
+  function getCarrierIdByName(name: string | null) {
+    if (!name) {
+      return null;
+    }
+
+    return (
+      catalogs.carriers.find((item) => item.name === name || item.id === name)
+        ?.id ?? null
+    );
+  }
+
   function focusCodeField() {
     window.setTimeout(() => codeRef.current?.focus({ preventScroll: true }), 0);
+  }
+
+  function resetSessionConfig() {
+    setSessionPackages([]);
+    setActiveBatchId("");
+    setSessionStartedAt("");
+    setLojaId(firstActiveStoreId);
+    setMarketplace(firstActiveMarketplaceName);
+    setTipoOperacao("");
+    setMelhorEnvio(false);
+    setTransportadora("");
+    setCodigoRastreio("");
   }
 
   function handleMelhorEnvioChange(active: boolean) {
@@ -305,23 +344,6 @@ export function BipagemForm({
     };
   }
 
-  function makeCancellationMovement(item: DispatchPackage, canceledAt: string) {
-    return {
-      id: makeId("mov"),
-      lote_id: item.lote_id,
-      loja_id: item.loja_id,
-      pacote_id: item.id,
-      codigo_rastreio: item.codigo_rastreio,
-      marketplace: item.marketplace,
-      melhor_envio: item.melhor_envio,
-      transportadora: item.transportadora,
-      tipo_operacao: item.tipo_operacao,
-      tipo_movimentacao: "Cancelamento" as const,
-      data_hora: canceledAt,
-      criado_em: canceledAt,
-    };
-  }
-
   function validateSessionConfig(code: string) {
     if (!selectedLojaId) {
       return "Selecione a loja antes de iniciar a bipagem.";
@@ -351,7 +373,7 @@ export function BipagemForm({
 
     const code = codigoRastreio.trim();
     if (cancellationMode) {
-      cancelPackageByCode(code);
+      void cancelPackageByCode(code);
       return;
     }
 
@@ -387,7 +409,7 @@ export function BipagemForm({
       id: makeId("pkg"),
       lote_id: batchId,
       loja_id: selectedLojaId,
-      codigo_rastreio: code,
+      codigo_rastreio: normalizedCode,
       marketplace: selectedMarketplace,
       melhor_envio: melhorEnvio,
       transportadora: melhorEnvio ? transportadora : null,
@@ -408,14 +430,18 @@ export function BipagemForm({
       text: duplicatedInSession
         ? DUPLICATE_SESSION_WARNING
         : sessionOpen
-          ? `Rastreio ${code} adicionado ao lote.`
+          ? `Rastreio ${normalizedCode} adicionado ao lote.`
           : `Sessão iniciada. Rastreio ${code} adicionado ao lote.`,
     });
     setCodigoRastreio("");
     focusCodeField();
   }
 
-  function finishSession() {
+  async function finishSession() {
+    if (savingSession) {
+      return;
+    }
+
     if (!sessionPackages.length || !activeBatchId) {
       setNotice({ type: "warning", text: "Nenhum pacote para finalizar." });
       focusCodeField();
@@ -429,61 +455,89 @@ export function BipagemForm({
       return;
     }
 
+    if (!selectedMarketplaceItem) {
+      setNotice({
+        type: "warning",
+        text: "Marketplace nao encontrado nos cadastros.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    if (melhorEnvio && !selectedCarrierItem) {
+      setNotice({
+        type: "warning",
+        text: "Transportadora nao encontrada nos cadastros.",
+      });
+      focusCodeField();
+      return;
+    }
+
     const timestamp = nowIso();
     const firstPackage = sessionPackages[sessionPackages.length - 1];
-    const finishedPackages = sessionPackages.map((item) => ({
-      ...item,
-      status: "Bipado" as const,
-    }));
-    const batch: DispatchBatch = {
-      id: activeBatchId,
-      loja_id: firstPackage.loja_id,
-      marketplace: firstPackage.marketplace,
-      melhor_envio: firstPackage.melhor_envio,
-      transportadora: firstPackage.transportadora,
-      tipo_operacao: firstPackage.tipo_operacao,
-      status: "finalizada",
-      total_pacotes: finishedPackages.length,
-      criado_em: sessionStartedAt || firstPackage.criado_em,
-      finalizado_em: timestamp,
-    };
-    const movements: PackageMovement[] = finishedPackages.map((item) => ({
-      id: makeId("mov"),
-      lote_id: item.lote_id,
-      loja_id: item.loja_id,
-      pacote_id: item.id,
-      codigo_rastreio: item.codigo_rastreio,
-      marketplace: item.marketplace,
-      melhor_envio: item.melhor_envio,
-      transportadora: item.transportadora,
-      tipo_operacao: item.tipo_operacao,
-      tipo_movimentacao: "Bipagem",
-      data_hora: item.data_hora_bipagem,
-      criado_em: item.criado_em,
-    }));
-    const result = addFinishedBatch({
-      batch,
-      batchPackages: finishedPackages,
-      batchMovements: movements,
-    });
 
-    setNotice({
-      type: result.added ? "success" : "warning",
-      text: `${result.added} pacotes finalizados no lote ${activeBatchId}.`,
-    });
-    if (result.batch) {
-      setSelectedHistoryBatchId(result.batch.id);
+    setSavingSession(true);
+
+    try {
+      const sessao = await createSessaoBipagem({
+        loja_id: firstPackage.loja_id,
+        marketplace_id: selectedMarketplaceItem.id,
+        tipo_operacao: firstPackage.tipo_operacao,
+        melhor_envio: firstPackage.melhor_envio,
+        transportadora_id: firstPackage.melhor_envio
+          ? selectedCarrierItem?.id ?? null
+          : null,
+        status: "aberta",
+        iniciada_em: sessionStartedAt || firstPackage.criado_em,
+      });
+      const createdPackages = await createPacotes(
+        sessionPackages.map((item) => ({
+          codigo: item.codigo_rastreio,
+          loja_id: item.loja_id,
+          marketplace_id: selectedMarketplaceItem.id,
+          transportadora_id: item.melhor_envio
+            ? selectedCarrierItem?.id ?? null
+            : null,
+          sessao_id: sessao.id,
+          tipo_operacao: item.tipo_operacao,
+          melhor_envio: item.melhor_envio,
+          status: "bipado",
+          bipado_em: item.data_hora_bipagem,
+        })),
+      );
+
+      await createMovimentacoes(
+        createdPackages.map((item) => ({
+          pacote_id: item.id,
+          loja_id: item.loja_id,
+          sessao_id: sessao.id,
+          tipo_movimentacao: "Bipagem",
+          descricao: `Pacote ${item.codigo} bipado.`,
+          criada_em: item.bipado_em,
+        })),
+      );
+      await finalizarSessao({
+        sessaoId: sessao.id,
+        finalizadaEm: timestamp,
+      });
+      await reload();
+
+      setNotice({
+        type: "success",
+        text: `${createdPackages.length} pacotes finalizados no lote ${sessao.id}.`,
+      });
+      setSelectedHistoryBatchId(sessao.id);
+      resetSessionConfig();
+      clearBipagemDraft();
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao finalizar bipagem: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingSession(false);
+      focusCodeField();
     }
-    setSessionPackages([]);
-    setActiveBatchId("");
-    setSessionStartedAt("");
-    setLojaId(activeStores[0]?.id ?? "");
-    setMarketplace(activeMarketplaces[0]?.name ?? "");
-    setTipoOperacao("");
-    setMelhorEnvio(false);
-    setTransportadora("");
-    setCodigoRastreio("");
-    focusCodeField();
   }
 
   function clearSession() {
@@ -499,15 +553,8 @@ export function BipagemForm({
   }
 
   function confirmClearSession() {
-    setSessionPackages([]);
-    setActiveBatchId("");
-    setSessionStartedAt("");
-    setLojaId(activeStores[0]?.id ?? "");
-    setMarketplace(activeMarketplaces[0]?.name ?? "");
-    setTipoOperacao("");
-    setMelhorEnvio(false);
-    setTransportadora("");
-    setCodigoRastreio("");
+    resetSessionConfig();
+    clearBipagemDraft();
     setShowClearSessionConfirm(false);
     setNotice({ type: "neutral", text: "Sessão atual cancelada." });
     focusCodeField();
@@ -561,7 +608,11 @@ export function BipagemForm({
     focusCodeField();
   }
 
-  function cancelPackageByCode(code: string) {
+  async function cancelPackageByCode(code: string) {
+    if (savingCancellation) {
+      return;
+    }
+
     const cleanGeneralReason = cancellationReason.trim();
     if (!cleanGeneralReason) {
       setNotice({
@@ -585,7 +636,7 @@ export function BipagemForm({
     const activePackage = activePackages.find(
       (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
     );
-    const anyPackage = packages.find(
+    const anyPackage = allPackages.find(
       (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
     );
     const alreadyCanceled = cancellations.some(
@@ -613,14 +664,62 @@ export function BipagemForm({
     }
 
     const canceledAt = nowIso();
-    const record = makeCancellationRecord({
-      item: activePackage,
-      generalReason: cleanGeneralReason,
-      individualReason: nextIndividualReason.trim(),
-      canceledAt,
-    });
-    const movement = makeCancellationMovement(activePackage, canceledAt);
-    const result = addPackageCancellations([record], [movement]);
+    setSavingCancellation(true);
+    let record: PackageCancellation;
+    let result = { added: false };
+
+    try {
+      const savedRows = await cancelarPacotes({
+        cancelamentos: [
+          {
+            pacote_id: activePackage.id,
+            codigo_pacote: activePackage.codigo_rastreio,
+            loja_id: activePackage.loja_id,
+            marketplace_id: getMarketplaceIdByName(activePackage.marketplace),
+            transportadora_id: getCarrierIdByName(activePackage.transportadora),
+            sessao_id: activePackage.lote_id || null,
+            tipo_operacao: activePackage.tipo_operacao,
+            melhor_envio: activePackage.melhor_envio,
+            justificativa_geral: cleanGeneralReason,
+            justificativa_individual: nextIndividualReason.trim(),
+            bipado_em: activePackage.data_hora_bipagem,
+            cancelado_em: canceledAt,
+          },
+        ],
+        movimentacoes: [
+          {
+            pacote_id: activePackage.id,
+            loja_id: activePackage.loja_id,
+            sessao_id: activePackage.lote_id || null,
+            tipo_movimentacao: "Cancelamento",
+            descricao: `Pacote ${activePackage.codigo_rastreio} cancelado.`,
+            criada_em: canceledAt,
+          },
+        ],
+      });
+
+      record = {
+        ...makeCancellationRecord({
+          item: activePackage,
+          generalReason: cleanGeneralReason,
+          individualReason: nextIndividualReason.trim(),
+          canceledAt,
+        }),
+        id: savedRows[0]?.id ?? makeId("can"),
+      };
+      result = { added: true };
+      await reload();
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao cancelar pacote: ${formatDatabaseError(error)}`,
+      });
+      setSavingCancellation(false);
+      focusCodeField();
+      return;
+    }
+
+    setSavingCancellation(false);
 
     if (!result.added) {
       setNotice({
@@ -664,22 +763,67 @@ export function BipagemForm({
     focusCodeField();
   }
 
-  function confirmSessionPackageCancellation() {
-    if (!pendingSessionCancelPackage) {
+  async function confirmSessionPackageCancellation() {
+    if (!pendingSessionCancelPackage || savingCancellation) {
       return;
     }
 
     const canceledAt = nowIso();
-    const record = makeCancellationRecord({
+    let record = makeCancellationRecord({
       item: pendingSessionCancelPackage,
       generalReason: "Cancelamento realizado na sessão de bipagem.",
       individualReason: sessionCancelReason.trim(),
       canceledAt,
     });
-    addPackageCancellations(
-      [record],
-      [makeCancellationMovement(pendingSessionCancelPackage, canceledAt)],
-    );
+    setSavingCancellation(true);
+
+    try {
+      const savedRows = await cancelarPacotes({
+        cancelamentos: [
+          {
+            pacote_id: null,
+            codigo_pacote: pendingSessionCancelPackage.codigo_rastreio,
+            loja_id: pendingSessionCancelPackage.loja_id,
+            marketplace_id: getMarketplaceIdByName(
+              pendingSessionCancelPackage.marketplace,
+            ),
+            transportadora_id: getCarrierIdByName(
+              pendingSessionCancelPackage.transportadora,
+            ),
+            sessao_id: null,
+            tipo_operacao: pendingSessionCancelPackage.tipo_operacao,
+            melhor_envio: pendingSessionCancelPackage.melhor_envio,
+            justificativa_geral: record.justificativa_geral,
+            justificativa_individual: record.justificativa_individual,
+            bipado_em: pendingSessionCancelPackage.data_hora_bipagem,
+            cancelado_em: canceledAt,
+          },
+        ],
+        movimentacoes: [
+          {
+            pacote_id: null,
+            loja_id: pendingSessionCancelPackage.loja_id,
+            sessao_id: null,
+            tipo_movimentacao: "Cancelamento",
+            descricao: `Pacote ${pendingSessionCancelPackage.codigo_rastreio} cancelado na sessao de bipagem.`,
+            criada_em: canceledAt,
+          },
+        ],
+      });
+
+      record = { ...record, id: savedRows[0]?.id ?? record.id };
+      await reload();
+      setRecentCancellations((current) => [record, ...current].slice(0, 8));
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao cancelar pacote: ${formatDatabaseError(error)}`,
+      });
+      setSavingCancellation(false);
+      focusCodeField();
+      return;
+    }
+    setSavingCancellation(false);
     setSessionPackages((current) =>
       current.filter(
         (packageItem) => packageItem.id !== pendingSessionCancelPackage.id,
@@ -705,7 +849,14 @@ export function BipagemForm({
           : item,
       ),
     );
-    updatePackageCancellation(cancellationId, justification);
+    void updatePacoteCanceladoJustificativa(cancellationId, justification).catch(
+      (error) => {
+        setNotice({
+          type: "danger",
+          text: `Erro ao atualizar justificativa: ${formatDatabaseError(error)}`,
+        });
+      },
+    );
   }
 
   const sessionHeader = (
@@ -742,6 +893,20 @@ export function BipagemForm({
           : ""
       }`}
     >
+      {loading ? (
+        <div className="xl:col-span-2">
+          <FeedbackMessage tone="neutral">
+            Carregando dados do Supabase...
+          </FeedbackMessage>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="xl:col-span-2">
+          <FeedbackMessage tone="danger">{error}</FeedbackMessage>
+        </div>
+      ) : null}
+
       {cancellationMode ? (
         <div className="xl:col-span-2 rounded-lg border border-rose-300 bg-rose-100 px-5 py-4 text-rose-950">
           <p className="text-lg font-bold tracking-normal">
@@ -983,11 +1148,12 @@ export function BipagemForm({
           <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
             <button
               type="submit"
+              disabled={submitDisabled}
               className={`inline-flex min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 ${
                 cancellationMode
                   ? "bg-rose-700 hover:bg-rose-800 focus:ring-rose-100"
                   : "bg-slate-950 hover:bg-slate-800 focus:ring-slate-200"
-              }`}
+              } ${submitDisabled ? "cursor-not-allowed opacity-70" : ""}`}
             >
               {cancellationMode ? "Cancelar pacote" : "Bipar pacote"}
             </button>
@@ -1004,9 +1170,9 @@ export function BipagemForm({
                 <button
                   type="button"
                   onClick={finishSession}
-                  disabled={hasSessionDuplicates}
+                  disabled={finalizeDisabled}
                   className={`inline-flex min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 ${
-                    hasSessionDuplicates
+                    finalizeDisabled
                       ? "cursor-not-allowed bg-slate-300 focus:ring-slate-100"
                       : "bg-teal-700 hover:bg-teal-800 focus:ring-teal-100"
                   }`}
@@ -1340,7 +1506,8 @@ export function BipagemForm({
               <button
                 type="button"
                 onClick={confirmSessionPackageCancellation}
-                className="inline-flex min-h-11 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white transition hover:bg-rose-800 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                disabled={savingCancellation}
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white transition hover:bg-rose-800 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 Cancelar pacote
               </button>

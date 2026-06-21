@@ -512,8 +512,8 @@ export function createDefaultPackageFilters(): PackageFilterValues {
   };
 }
 
-export function getStoreName(lojaId: string) {
-  return stores.find((store) => store.id === lojaId)?.name ?? lojaId;
+export function getStoreName(lojaId: string, catalogStores: Store[] = stores) {
+  return catalogStores.find((store) => store.id === lojaId)?.name ?? lojaId;
 }
 
 export function normalizeTrackingCode(code: string) {
@@ -572,6 +572,7 @@ export function describeDateFilter(filters: PackageFilterValues) {
 
 export function getReportSummary(
   packages: DispatchPackage[] = dispatchPackages,
+  catalogStores: Store[] = stores,
 ): ReportSummaryItem[] {
   const grouped = new Map<string, ReportSummaryItem>();
 
@@ -593,7 +594,7 @@ export function getReportSummary(
     grouped.set(id, {
       id,
       label: [
-        getStoreName(item.loja_id),
+        getStoreName(item.loja_id, catalogStores),
         item.marketplace,
         getOperationLabel(item.tipo_operacao),
         item.melhor_envio ? "Melhor Envio" : "Sem Melhor Envio",
@@ -602,7 +603,7 @@ export function getReportSummary(
         .filter(Boolean)
         .join(" · "),
       loja_id: item.loja_id,
-      loja_nome: getStoreName(item.loja_id),
+      loja_nome: getStoreName(item.loja_id, catalogStores),
       marketplace: item.marketplace,
       tipo_operacao: item.tipo_operacao,
       melhor_envio: item.melhor_envio,

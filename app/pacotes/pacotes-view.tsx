@@ -6,18 +6,12 @@ import { PackageFilters } from "@/app/_components/package-filters";
 import {
   Badge,
   EmptyState,
+  FeedbackMessage,
   MelhorEnvioBadge,
   OperationBadge,
   StatCard,
   StatusBadge,
 } from "@/app/_components/ui";
-import type {
-  Carrier,
-  DispatchPackage,
-  Marketplace,
-  PackageCancellation,
-  Store,
-} from "@/app/_lib/mock-data";
 import {
   createDefaultPackageFilters,
   filterPackages,
@@ -25,23 +19,10 @@ import {
   getDashboardMetrics,
   getStoreName,
 } from "@/app/_lib/mock-data";
-import { useCatalogs, useStoredPackages } from "@/app/_lib/local-store";
+import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
-export function PacotesView({
-  packages: initialPackages,
-  cancellations: initialCancellations,
-  stores,
-  marketplaces,
-  carriers,
-}: {
-  packages: DispatchPackage[];
-  cancellations: PackageCancellation[];
-  stores: Store[];
-  marketplaces: Marketplace[];
-  carriers: Carrier[];
-}) {
-  const catalogs = useCatalogs({ stores, marketplaces, carriers });
-  const { packages } = useStoredPackages(initialPackages, initialCancellations);
+export function PacotesView() {
+  const { catalogs, packages, loading, error } = useSupabaseDispatchData();
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),
@@ -51,6 +32,12 @@ export function PacotesView({
 
   return (
     <>
+      {loading ? (
+        <FeedbackMessage tone="neutral">Carregando pacotes do Supabase...</FeedbackMessage>
+      ) : null}
+
+      {error ? <FeedbackMessage tone="danger">{error}</FeedbackMessage> : null}
+
       <PackageFilters
         filters={filters}
         stores={catalogs.stores}
@@ -120,7 +107,7 @@ export function PacotesView({
                       {formatPackageDate(item.data_hora_bipagem)}
                     </td>
                     <td className="px-5 py-4 font-medium text-slate-950">
-                      {getStoreName(item.loja_id)}
+                      {getStoreName(item.loja_id, catalogs.stores)}
                     </td>
                     <td className="px-5 py-4 font-mono text-sm font-semibold text-slate-950">
                       {item.codigo_rastreio}
