@@ -35,6 +35,10 @@ type Notice = {
 
 const nowIso = () => new Date().toISOString();
 const BIPAGEM_DRAFT_KEY = "sistema-despacho-bipagem-draft-v1";
+const DUPLICATE_SESSION_WARNING =
+  "Existem pacotes duplicados nesta sessão. Remova os duplicados para finalizar.";
+const DUPLICATE_FINALIZE_MESSAGE =
+  "Não é possível finalizar a bipagem com pacotes duplicados. Exclua os pacotes repetidos antes de finalizar.";
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -122,7 +126,6 @@ export function BipagemForm({
   const [activeBatchId, setActiveBatchId] = useState("");
   const [sessionStartedAt, setSessionStartedAt] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
-  const [duplicateCode, setDuplicateCode] = useState("");
   const [sessionPackages, setSessionPackages] = useState<DispatchPackage[]>([]);
   const [selectedHistoryBatchId, setSelectedHistoryBatchId] = useState("");
   const [cancellationMode, setCancellationMode] = useState(false);
@@ -134,6 +137,8 @@ export function BipagemForm({
   >([]);
   const [draftLoaded, setDraftLoaded] = useState(false);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
+  const [showDuplicateFinalizeDialog, setShowDuplicateFinalizeDialog] =
+    useState(false);
   const [showExitCancellationConfirm, setShowExitCancellationConfirm] =
     useState(false);
   const [pendingSessionCancelPackage, setPendingSessionCancelPackage] =
@@ -178,6 +183,25 @@ export function BipagemForm({
           item.loja_id === selectedBatch.loja_id,
       )
     : [];
+  const duplicateSessionCodes = useMemo(() => {
+    const counts = new Map<string, number>();
+
+    for (const item of sessionPackages) {
+      const normalizedCode = normalizeTrackingCode(item.codigo_rastreio);
+      counts.set(normalizedCode, (counts.get(normalizedCode) ?? 0) + 1);
+    }
+
+    return new Set(
+      Array.from(counts)
+        .filter(([, count]) => count > 1)
+        .map(([code]) => code),
+    );
+  }, [sessionPackages]);
+  const duplicateSessionCodeList = useMemo(
+    () => Array.from(duplicateSessionCodes).sort(),
+    [duplicateSessionCodes],
+  );
+  const hasSessionDuplicates = duplicateSessionCodes.size > 0;
 
   useEffect(() => {
     const draft = readBipagemDraft();
@@ -340,15 +364,17 @@ export function BipagemForm({
 
     const selectedOperation = tipoOperacao as OperationType;
     const normalizedCode = normalizeTrackingCode(code);
-    const duplicated = [...packages, ...sessionPackages].find(
+    const duplicatedSavedPackage = packages.find(
+      (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
+    );
+    const duplicatedInSession = sessionPackages.some(
       (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
     );
 
-    if (duplicated) {
-      setDuplicateCode(normalizedCode);
+    if (duplicatedSavedPackage) {
       setNotice({
         type: "danger",
-        text: "Pacote duplicado: este código já foi bipado.",
+        text: "Pacote duplicado: este código já foi bipado em outro lote.",
       });
       setCodigoRastreio("");
       focusCodeField();
@@ -378,12 +404,13 @@ export function BipagemForm({
 
     setSessionPackages((current) => [newPackage, ...current]);
     setNotice({
-      type: "success",
-      text: sessionOpen
-        ? `Rastreio ${code} adicionado ao lote.`
-        : `Sessão iniciada. Rastreio ${code} adicionado ao lote.`,
+      type: duplicatedInSession ? "warning" : "success",
+      text: duplicatedInSession
+        ? DUPLICATE_SESSION_WARNING
+        : sessionOpen
+          ? `Rastreio ${code} adicionado ao lote.`
+          : `Sessão iniciada. Rastreio ${code} adicionado ao lote.`,
     });
-    setDuplicateCode("");
     setCodigoRastreio("");
     focusCodeField();
   }
@@ -391,6 +418,13 @@ export function BipagemForm({
   function finishSession() {
     if (!sessionPackages.length || !activeBatchId) {
       setNotice({ type: "warning", text: "Nenhum pacote para finalizar." });
+      focusCodeField();
+      return;
+    }
+
+    if (hasSessionDuplicates) {
+      setNotice({ type: "danger", text: DUPLICATE_SESSION_WARNING });
+      setShowDuplicateFinalizeDialog(true);
       focusCodeField();
       return;
     }
@@ -449,7 +483,6 @@ export function BipagemForm({
     setMelhorEnvio(false);
     setTransportadora("");
     setCodigoRastreio("");
-    setDuplicateCode("");
     focusCodeField();
   }
 
@@ -475,7 +508,6 @@ export function BipagemForm({
     setMelhorEnvio(false);
     setTransportadora("");
     setCodigoRastreio("");
-    setDuplicateCode("");
     setShowClearSessionConfirm(false);
     setNotice({ type: "neutral", text: "Sessão atual cancelada." });
     focusCodeField();
@@ -613,6 +645,23 @@ export function BipagemForm({
   function cancelSessionPackage(item: DispatchPackage) {
     setPendingSessionCancelPackage(item);
     setSessionCancelReason("");
+  }
+
+  function removeSessionPackage(item: DispatchPackage) {
+    const nextPackages = sessionPackages.filter(
+      (packageItem) => packageItem.id !== item.id,
+    );
+
+    setSessionPackages(nextPackages);
+    if (!nextPackages.length) {
+      setActiveBatchId("");
+      setSessionStartedAt("");
+    }
+    setNotice({
+      type: "neutral",
+      text: `Pacote ${item.codigo_rastreio} removido da sessão.`,
+    });
+    focusCodeField();
   }
 
   function confirmSessionPackageCancellation() {
@@ -955,7 +1004,12 @@ export function BipagemForm({
                 <button
                   type="button"
                   onClick={finishSession}
-                  className="inline-flex min-h-12 items-center justify-center rounded-md bg-teal-700 px-5 text-sm font-semibold text-white transition hover:bg-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-100"
+                  disabled={hasSessionDuplicates}
+                  className={`inline-flex min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 ${
+                    hasSessionDuplicates
+                      ? "cursor-not-allowed bg-slate-300 focus:ring-slate-100"
+                      : "bg-teal-700 hover:bg-teal-800 focus:ring-teal-100"
+                  }`}
                 >
                   Finalizar Bipagem
                 </button>
@@ -1031,35 +1085,60 @@ export function BipagemForm({
           {sessionPackages.length ? (
             <div className="space-y-4">
               {sessionHeader}
+              {hasSessionDuplicates ? (
+                <FeedbackMessage tone="danger">
+                  {DUPLICATE_SESSION_WARNING} Códigos:{" "}
+                  {duplicateSessionCodeList.join(", ")}.
+                </FeedbackMessage>
+              ) : null}
               <div className="max-h-[520px] overflow-y-auto pr-1">
                 <ol className="space-y-2">
-                  {sessionPackages.map((item, index) => (
-                    <li
-                      key={item.id}
-                      className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-3 ${
-                        normalizeTrackingCode(item.codigo_rastreio) ===
-                        duplicateCode
-                          ? "border-rose-300 bg-rose-50"
-                          : "border-slate-200"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <span className="mr-3 text-sm font-semibold text-slate-400">
-                          {index + 1}.
-                        </span>
-                        <span className="font-mono text-sm font-semibold text-slate-950">
-                          {item.codigo_rastreio}
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => cancelSessionPackage(item)}
-                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                  {sessionPackages.map((item, index) => {
+                    const isDuplicate = duplicateSessionCodes.has(
+                      normalizeTrackingCode(item.codigo_rastreio),
+                    );
+
+                    return (
+                      <li
+                        key={item.id}
+                        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-3 ${
+                          isDuplicate
+                            ? "border-rose-300 bg-rose-50"
+                            : "border-slate-200"
+                        }`}
                       >
-                        Cancelar
-                      </button>
-                    </li>
-                  ))}
+                        <div className="min-w-0">
+                          <span className="mr-3 text-sm font-semibold text-slate-400">
+                            {index + 1}.
+                          </span>
+                          <span className="font-mono text-sm font-semibold text-slate-950">
+                            {item.codigo_rastreio}
+                          </span>
+                          {isDuplicate ? (
+                            <span className="ml-3 inline-flex min-h-7 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700">
+                              Duplicado
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => removeSessionPackage(item)}
+                            className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                          >
+                            Remover
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cancelSessionPackage(item)}
+                            className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ol>
               </div>
             </div>
@@ -1169,6 +1248,23 @@ export function BipagemForm({
           focusCodeField();
         }}
         onConfirm={confirmClearSession}
+      />
+
+      <ConfirmDialog
+        open={showDuplicateFinalizeDialog}
+        title="Duplicados na sessão"
+        message={DUPLICATE_FINALIZE_MESSAGE}
+        cancelLabel="Voltar"
+        confirmLabel="Entendi"
+        tone="danger"
+        onCancel={() => {
+          setShowDuplicateFinalizeDialog(false);
+          focusCodeField();
+        }}
+        onConfirm={() => {
+          setShowDuplicateFinalizeDialog(false);
+          focusCodeField();
+        }}
       />
 
       <ConfirmDialog

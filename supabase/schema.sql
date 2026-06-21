@@ -1,6 +1,6 @@
 -- Sistema de Despacho - schema inicial para Supabase
 -- Execute este arquivo no SQL Editor do Supabase.
--- Nesta fase nao ha login, usuarios, perfis ou RLS.
+-- Nesta fase ha login via Supabase Auth, sem tabela manual de usuarios, perfis ou RLS.
 
 create extension if not exists pgcrypto;
 

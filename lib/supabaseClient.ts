@@ -26,10 +26,13 @@ export function getSupabaseClient() {
   }
 
   if (!cachedClient) {
+    const isBrowser = typeof window !== "undefined";
+
     cachedClient = createClient(url, publishableKey, {
       auth: {
-        autoRefreshToken: false,
-        persistSession: false,
+        autoRefreshToken: isBrowser,
+        detectSessionInUrl: isBrowser,
+        persistSession: isBrowser,
       },
     });
   }
