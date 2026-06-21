@@ -29,6 +29,7 @@ import {
   createSessaoBipagem,
   finalizarSessao,
   formatDatabaseError,
+  getPacoteAtivoPorCodigo,
   updatePacoteCanceladoJustificativa,
 } from "@/lib/database";
 
@@ -128,6 +129,8 @@ export function BipagemForm() {
   const [pendingSessionCancelPackage, setPendingSessionCancelPackage] =
     useState<DispatchPackage | null>(null);
   const [sessionCancelReason, setSessionCancelReason] = useState("");
+  const [sessionCancelError, setSessionCancelError] = useState("");
+  const [checkingPackage, setCheckingPackage] = useState(false);
   const [savingSession, setSavingSession] = useState(false);
   const [savingCancellation, setSavingCancellation] = useState(false);
 
@@ -195,9 +198,22 @@ export function BipagemForm() {
     () => Array.from(duplicateSessionCodes).sort(),
     [duplicateSessionCodes],
   );
+  const sessionPackageOrder = useMemo(() => {
+    return new Map(
+      [...sessionPackages]
+        .sort(
+          (first, second) =>
+            first.data_hora_bipagem.localeCompare(second.data_hora_bipagem) ||
+            first.id.localeCompare(second.id),
+        )
+        .map((item, index) => [item.id, index + 1]),
+    );
+  }, [sessionPackages]);
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
-  const submitDisabled = loading || savingCancellation || savingSession;
-  const finalizeDisabled = hasSessionDuplicates || loading || savingSession;
+  const submitDisabled =
+    loading || savingCancellation || savingSession || checkingPackage;
+  const finalizeDisabled =
+    hasSessionDuplicates || loading || savingSession || checkingPackage;
 
   useEffect(() => {
     window.setTimeout(() => {
@@ -368,7 +384,22 @@ export function BipagemForm() {
     return "";
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function findActiveDuplicateCodeInSupabase(items: DispatchPackage[]) {
+    const codes = Array.from(
+      new Set(items.map((item) => normalizeTrackingCode(item.codigo_rastreio))),
+    );
+
+    for (const code of codes) {
+      const duplicatedPackage = await getPacoteAtivoPorCodigo(code);
+      if (duplicatedPackage) {
+        return code;
+      }
+    }
+
+    return null;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     const code = codigoRastreio.trim();
@@ -386,12 +417,24 @@ export function BipagemForm() {
 
     const selectedOperation = tipoOperacao as OperationType;
     const normalizedCode = normalizeTrackingCode(code);
-    const duplicatedSavedPackage = packages.find(
-      (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
-    );
     const duplicatedInSession = sessionPackages.some(
       (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
     );
+
+    let duplicatedSavedPackage = null;
+    setCheckingPackage(true);
+    try {
+      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(normalizedCode);
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao verificar duplicidade: ${formatDatabaseError(error)}`,
+      });
+      focusCodeField();
+      return;
+    } finally {
+      setCheckingPackage(false);
+    }
 
     if (duplicatedSavedPackage) {
       setNotice({
@@ -479,6 +522,17 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
+      const duplicatedCode =
+        await findActiveDuplicateCodeInSupabase(sessionPackages);
+
+      if (duplicatedCode) {
+        setNotice({
+          type: "danger",
+          text: `Pacote duplicado: o codigo ${duplicatedCode} ja foi bipado em outro lote.`,
+        });
+        return;
+      }
+
       const sessao = await createSessaoBipagem({
         loja_id: firstPackage.loja_id,
         marketplace_id: selectedMarketplaceItem.id,
@@ -744,6 +798,7 @@ export function BipagemForm() {
   function cancelSessionPackage(item: DispatchPackage) {
     setPendingSessionCancelPackage(item);
     setSessionCancelReason("");
+    setSessionCancelError("");
   }
 
   function removeSessionPackage(item: DispatchPackage) {
@@ -768,73 +823,91 @@ export function BipagemForm() {
       return;
     }
 
+    const cleanReason = sessionCancelReason.trim();
+    if (!cleanReason) {
+      setSessionCancelError("Informe a justificativa para cancelar o pacote.");
+      return;
+    }
+
+    const targetPackage = pendingSessionCancelPackage;
     const canceledAt = nowIso();
     let record = makeCancellationRecord({
-      item: pendingSessionCancelPackage,
-      generalReason: "Cancelamento realizado na sessão de bipagem.",
-      individualReason: sessionCancelReason.trim(),
+      item: targetPackage,
+      generalReason: cleanReason,
+      individualReason: "",
       canceledAt,
     });
     setSavingCancellation(true);
+    setSessionCancelError("");
 
     try {
+      const savedPackage = await getPacoteAtivoPorCodigo(
+        targetPackage.codigo_rastreio,
+      );
       const savedRows = await cancelarPacotes({
         cancelamentos: [
           {
-            pacote_id: null,
-            codigo_pacote: pendingSessionCancelPackage.codigo_rastreio,
-            loja_id: pendingSessionCancelPackage.loja_id,
-            marketplace_id: getMarketplaceIdByName(
-              pendingSessionCancelPackage.marketplace,
-            ),
-            transportadora_id: getCarrierIdByName(
-              pendingSessionCancelPackage.transportadora,
-            ),
-            sessao_id: null,
-            tipo_operacao: pendingSessionCancelPackage.tipo_operacao,
-            melhor_envio: pendingSessionCancelPackage.melhor_envio,
-            justificativa_geral: record.justificativa_geral,
-            justificativa_individual: record.justificativa_individual,
-            bipado_em: pendingSessionCancelPackage.data_hora_bipagem,
+            pacote_id: savedPackage?.id ?? null,
+            codigo_pacote: savedPackage?.codigo ?? targetPackage.codigo_rastreio,
+            loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+            marketplace_id:
+              savedPackage?.marketplace_id ??
+              getMarketplaceIdByName(targetPackage.marketplace),
+            transportadora_id:
+              savedPackage?.transportadora_id ??
+              getCarrierIdByName(targetPackage.transportadora),
+            sessao_id: savedPackage?.sessao_id ?? null,
+            tipo_operacao: savedPackage?.tipo_operacao ?? targetPackage.tipo_operacao,
+            melhor_envio: savedPackage?.melhor_envio ?? targetPackage.melhor_envio,
+            justificativa_geral: cleanReason,
+            justificativa_individual: null,
+            bipado_em: savedPackage?.bipado_em ?? targetPackage.data_hora_bipagem,
             cancelado_em: canceledAt,
           },
         ],
         movimentacoes: [
           {
-            pacote_id: null,
-            loja_id: pendingSessionCancelPackage.loja_id,
-            sessao_id: null,
+            pacote_id: savedPackage?.id ?? null,
+            loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+            sessao_id: savedPackage?.sessao_id ?? null,
             tipo_movimentacao: "Cancelamento",
-            descricao: `Pacote ${pendingSessionCancelPackage.codigo_rastreio} cancelado na sessao de bipagem.`,
+            descricao: `Pacote ${savedPackage?.codigo ?? targetPackage.codigo_rastreio} cancelado na sessao de bipagem.`,
             criada_em: canceledAt,
           },
         ],
       });
 
-      record = { ...record, id: savedRows[0]?.id ?? record.id };
+      record = {
+        ...record,
+        id: savedRows[0]?.id ?? record.id,
+        pacote_id: savedRows[0]?.pacote_id ?? targetPackage.id,
+      };
       await reload();
       setRecentCancellations((current) => [record, ...current].slice(0, 8));
     } catch (error) {
-      setNotice({
-        type: "danger",
-        text: `Erro ao cancelar pacote: ${formatDatabaseError(error)}`,
-      });
+      setSessionCancelError(
+        `Erro ao cancelar pacote: ${formatDatabaseError(error)}`,
+      );
       setSavingCancellation(false);
-      focusCodeField();
       return;
     }
     setSavingCancellation(false);
-    setSessionPackages((current) =>
-      current.filter(
-        (packageItem) => packageItem.id !== pendingSessionCancelPackage.id,
-      ),
+    const nextPackages = sessionPackages.filter(
+      (packageItem) => packageItem.id !== targetPackage.id,
     );
+
+    setSessionPackages(nextPackages);
+    if (!nextPackages.length) {
+      setActiveBatchId("");
+      setSessionStartedAt("");
+    }
     setNotice({
-      type: "neutral",
-      text: `Pacote ${pendingSessionCancelPackage.codigo_rastreio} cancelado e enviado ao histórico.`,
+      type: "success",
+      text: `Pacote ${targetPackage.codigo_rastreio} cancelado e enviado ao histórico.`,
     });
     setPendingSessionCancelPackage(null);
     setSessionCancelReason("");
+    setSessionCancelError("");
     focusCodeField();
   }
 
@@ -1259,10 +1332,11 @@ export function BipagemForm() {
               ) : null}
               <div className="max-h-[520px] overflow-y-auto pr-1">
                 <ol className="space-y-2">
-                  {sessionPackages.map((item, index) => {
+                  {sessionPackages.map((item) => {
                     const isDuplicate = duplicateSessionCodes.has(
                       normalizeTrackingCode(item.codigo_rastreio),
                     );
+                    const packageNumber = sessionPackageOrder.get(item.id) ?? 1;
 
                     return (
                       <li
@@ -1275,7 +1349,7 @@ export function BipagemForm() {
                       >
                         <div className="min-w-0">
                           <span className="mr-3 text-sm font-semibold text-slate-400">
-                            {index + 1}.
+                            {packageNumber}.
                           </span>
                           <span className="font-mono text-sm font-semibold text-slate-950">
                             {item.codigo_rastreio}
@@ -1486,17 +1560,27 @@ export function BipagemForm() {
               Justificativa
               <textarea
                 value={sessionCancelReason}
-                onChange={(event) => setSessionCancelReason(event.target.value)}
+                onChange={(event) => {
+                  setSessionCancelReason(event.target.value);
+                  setSessionCancelError("");
+                }}
                 className="min-h-28 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                placeholder="Opcional"
+                placeholder="Obrigatória"
+                required
               />
             </label>
+            {sessionCancelError ? (
+              <FeedbackMessage tone="warning">
+                {sessionCancelError}
+              </FeedbackMessage>
+            ) : null}
             <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={() => {
                   setPendingSessionCancelPackage(null);
                   setSessionCancelReason("");
+                  setSessionCancelError("");
                   focusCodeField();
                 }}
                 className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
