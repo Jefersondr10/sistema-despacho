@@ -1,3 +1,4 @@
+import type { Carrier, Marketplace, Store } from "@/app/_lib/mock-data";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export type TipoOperacao = "coleta" | "postagem";
@@ -8,6 +9,7 @@ export type LojaRow = {
   slug: string;
   ativo: boolean;
   created_at: string;
+  updated_at: string | null;
 };
 
 export type MarketplaceRow = {
@@ -16,6 +18,7 @@ export type MarketplaceRow = {
   slug: string;
   ativo: boolean;
   created_at: string;
+  updated_at: string | null;
 };
 
 export type TransportadoraRow = {
@@ -24,6 +27,7 @@ export type TransportadoraRow = {
   slug: string;
   ativo: boolean;
   created_at: string;
+  updated_at: string | null;
 };
 
 export type SessaoBipagemRow = {
@@ -89,6 +93,8 @@ export type CreateCatalogInput = {
   slug?: string;
 };
 
+type CatalogInput = CreateCatalogInput | string;
+
 export type CreateSessaoInput = {
   loja_id: string;
   marketplace_id: string;
@@ -148,6 +154,62 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function getCatalogInput(input: CatalogInput): CreateCatalogInput {
+  return typeof input === "string" ? { nome: input } : input;
+}
+
+function getCatalogPayload(input: CatalogInput) {
+  const normalized = getCatalogInput(input);
+  const nome = normalized.nome.trim();
+
+  return {
+    nome,
+    slug: normalized.slug?.trim() || slugify(nome),
+    ativo: true,
+  };
+}
+
+export function formatDatabaseError(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === "object" && error !== null && "message" in error) {
+    const message = String((error as { message?: unknown }).message || "");
+    if (message) return message;
+  }
+
+  return "Nao foi possivel concluir a operacao no Supabase.";
+}
+
+export function mapLojaRowToStore(row: LojaRow): Store {
+  return {
+    id: row.id,
+    name: row.nome,
+    document: row.slug,
+    city: "",
+    status: row.ativo ? "Ativa" : "Inativa",
+  };
+}
+
+export function mapMarketplaceRowToMarketplace(row: MarketplaceRow): Marketplace {
+  return {
+    id: row.id,
+    name: row.nome,
+    code: row.slug.replace(/[^a-z0-9]/gi, "").slice(0, 3).toUpperCase(),
+    status: row.ativo ? "Ativo" : "Inativo",
+  };
+}
+
+export function mapTransportadoraRowToCarrier(row: TransportadoraRow): Carrier {
+  return {
+    id: row.id,
+    name: row.nome,
+    service: row.slug,
+    status: row.ativo ? "Ativa" : "Inativa",
+  };
+}
+
 export async function getLojas(options?: ListOptions) {
   const supabase = getSupabaseClient();
   let query = supabase.from("lojas").select("*").order("nome");
@@ -169,12 +231,13 @@ export async function getLojas(options?: ListOptions) {
   return data ?? [];
 }
 
-export async function createLoja(input: CreateCatalogInput) {
+export async function createLoja(input: CatalogInput) {
   const supabase = getSupabaseClient();
-  const payload = {
-    nome: input.nome.trim(),
-    slug: input.slug ?? slugify(input.nome),
-  };
+  const payload = getCatalogPayload(input);
+  if (!payload.nome) {
+    throw new Error("Informe um nome valido.");
+  }
+
   const { data, error } = await supabase
     .from("lojas")
     .insert(payload)
@@ -208,6 +271,22 @@ export async function updateLoja(id: string, values: Partial<CreateCatalogInput>
   return data;
 }
 
+export async function ativarLoja(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("lojas")
+    .update({ ativo: true })
+    .eq("id", id)
+    .select("*")
+    .single<LojaRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function inativarLoja(id: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
@@ -224,13 +303,17 @@ export async function inativarLoja(id: string) {
   return data;
 }
 
-export async function excluirLoja(id: string) {
+export async function excluirLojaDefinitivamente(id: string) {
   const supabase = getSupabaseClient();
   const { error } = await supabase.from("lojas").delete().eq("id", id);
 
   if (error) {
     throw error;
   }
+}
+
+export async function excluirLoja(id: string) {
+  return excluirLojaDefinitivamente(id);
 }
 
 export async function getMarketplaces(options?: ListOptions) {
@@ -254,14 +337,16 @@ export async function getMarketplaces(options?: ListOptions) {
   return data ?? [];
 }
 
-export async function createMarketplace(input: CreateCatalogInput) {
+export async function createMarketplace(input: CatalogInput) {
   const supabase = getSupabaseClient();
+  const payload = getCatalogPayload(input);
+  if (!payload.nome) {
+    throw new Error("Informe um nome valido.");
+  }
+
   const { data, error } = await supabase
     .from("marketplaces")
-    .insert({
-      nome: input.nome.trim(),
-      slug: input.slug ?? slugify(input.nome),
-    })
+    .insert(payload)
     .select("*")
     .single<MarketplaceRow>();
 
@@ -294,6 +379,22 @@ export async function updateMarketplace(
   return data;
 }
 
+export async function ativarMarketplace(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("marketplaces")
+    .update({ ativo: true })
+    .eq("id", id)
+    .select("*")
+    .single<MarketplaceRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function inativarMarketplace(id: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
@@ -310,13 +411,17 @@ export async function inativarMarketplace(id: string) {
   return data;
 }
 
-export async function excluirMarketplace(id: string) {
+export async function excluirMarketplaceDefinitivamente(id: string) {
   const supabase = getSupabaseClient();
   const { error } = await supabase.from("marketplaces").delete().eq("id", id);
 
   if (error) {
     throw error;
   }
+}
+
+export async function excluirMarketplace(id: string) {
+  return excluirMarketplaceDefinitivamente(id);
 }
 
 export async function getTransportadoras(options?: ListOptions) {
@@ -340,14 +445,16 @@ export async function getTransportadoras(options?: ListOptions) {
   return data ?? [];
 }
 
-export async function createTransportadora(input: CreateCatalogInput) {
+export async function createTransportadora(input: CatalogInput) {
   const supabase = getSupabaseClient();
+  const payload = getCatalogPayload(input);
+  if (!payload.nome) {
+    throw new Error("Informe um nome valido.");
+  }
+
   const { data, error } = await supabase
     .from("transportadoras")
-    .insert({
-      nome: input.nome.trim(),
-      slug: input.slug ?? slugify(input.nome),
-    })
+    .insert(payload)
     .select("*")
     .single<TransportadoraRow>();
 
@@ -380,6 +487,22 @@ export async function updateTransportadora(
   return data;
 }
 
+export async function ativarTransportadora(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("transportadoras")
+    .update({ ativo: true })
+    .eq("id", id)
+    .select("*")
+    .single<TransportadoraRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function inativarTransportadora(id: string) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
@@ -396,13 +519,17 @@ export async function inativarTransportadora(id: string) {
   return data;
 }
 
-export async function excluirTransportadora(id: string) {
+export async function excluirTransportadoraDefinitivamente(id: string) {
   const supabase = getSupabaseClient();
   const { error } = await supabase.from("transportadoras").delete().eq("id", id);
 
   if (error) {
     throw error;
   }
+}
+
+export async function excluirTransportadora(id: string) {
+  return excluirTransportadoraDefinitivamente(id);
 }
 
 export async function createSessaoBipagem(input: CreateSessaoInput) {

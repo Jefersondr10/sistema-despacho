@@ -4,12 +4,23 @@
 
 create extension if not exists pgcrypto;
 
+create or replace function set_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+  new.updated_at = now();
+  return new;
+end;
+$$;
+
 create table if not exists lojas (
   id uuid primary key default gen_random_uuid(),
   nome text not null,
   slug text not null unique,
   ativo boolean not null default true,
-  created_at timestamp with time zone not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
 );
 
 create table if not exists marketplaces (
@@ -17,7 +28,8 @@ create table if not exists marketplaces (
   nome text not null,
   slug text not null unique,
   ativo boolean not null default true,
-  created_at timestamp with time zone not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
 );
 
 create table if not exists transportadoras (
@@ -25,8 +37,13 @@ create table if not exists transportadoras (
   nome text not null,
   slug text not null unique,
   ativo boolean not null default true,
-  created_at timestamp with time zone not null default now()
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
 );
+
+alter table lojas add column if not exists updated_at timestamptz;
+alter table marketplaces add column if not exists updated_at timestamptz;
+alter table transportadoras add column if not exists updated_at timestamptz;
 
 create table if not exists sessoes_bipagem (
   id uuid primary key default gen_random_uuid(),
@@ -112,6 +129,24 @@ create index if not exists idx_pacotes_cancelados_loja_id
 
 create index if not exists idx_pacotes_cancelados_pacote_id
   on pacotes_cancelados (pacote_id);
+
+drop trigger if exists set_lojas_updated_at on lojas;
+create trigger set_lojas_updated_at
+  before update on lojas
+  for each row
+  execute function set_updated_at();
+
+drop trigger if exists set_marketplaces_updated_at on marketplaces;
+create trigger set_marketplaces_updated_at
+  before update on marketplaces
+  for each row
+  execute function set_updated_at();
+
+drop trigger if exists set_transportadoras_updated_at on transportadoras;
+create trigger set_transportadoras_updated_at
+  before update on transportadoras
+  for each row
+  execute function set_updated_at();
 
 insert into lojas (nome, slug)
 values
