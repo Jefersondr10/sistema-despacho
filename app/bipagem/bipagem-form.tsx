@@ -210,6 +210,7 @@ export function BipagemForm() {
     );
   }, [sessionPackages]);
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
+  const latestSessionPackage = sessionPackages[0] ?? null;
   const submitDisabled =
     loading || savingCancellation || savingSession || checkingPackage;
   const finalizeDisabled =
@@ -960,7 +961,7 @@ export function BipagemForm() {
 
   return (
     <section
-      className={`grid items-start gap-6 rounded-lg p-0 transition xl:grid-cols-[minmax(360px,0.95fr)_minmax(420px,1.05fr)] ${
+      className={`grid items-start gap-6 rounded-lg p-0 transition xl:grid-cols-[minmax(360px,0.92fr)_minmax(420px,1.08fr)] ${
         cancellationMode
           ? "border border-rose-200 bg-rose-50/70 p-4"
           : ""
@@ -994,9 +995,9 @@ export function BipagemForm() {
 
       <form
         onSubmit={handleSubmit}
-        className="grid gap-6 self-start xl:sticky xl:top-6"
+        className="grid gap-6 self-start xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
       >
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:min-h-0 xl:overflow-y-auto">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
@@ -1165,7 +1166,7 @@ export function BipagemForm() {
         </div>
 
         <div
-          className={`rounded-lg border bg-white p-5 shadow-sm ${
+          className={`rounded-lg border bg-white p-5 shadow-sm xl:sticky xl:bottom-6 xl:z-10 ${
             cancellationMode ? "border-rose-300" : "border-slate-200"
           }`}
         >
@@ -1307,9 +1308,9 @@ export function BipagemForm() {
         </div>
       </form>
 
-      <div className="grid gap-6 self-start">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="grid min-h-0 gap-6 self-start xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:grid-rows-[auto_minmax(0,1fr)]">
+        <div className="flex max-h-[640px] min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:max-h-[52vh]">
+          <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
                 Pacotes bipados nesta sessão
@@ -1321,8 +1322,27 @@ export function BipagemForm() {
             <StatusBadge status="Pendente na sessão" />
           </div>
 
+          <div
+            className={`mb-4 shrink-0 rounded-lg border px-4 py-3 ${
+              latestSessionPackage
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-slate-200 bg-slate-50"
+            }`}
+          >
+            <p
+              className={`text-xs font-semibold uppercase tracking-[0.14em] ${
+                latestSessionPackage ? "text-emerald-700" : "text-slate-500"
+              }`}
+            >
+              {"\u00daltimo pacote bipado"}
+            </p>
+            <p className="mt-1 truncate font-mono text-lg font-semibold text-slate-950">
+              {latestSessionPackage?.codigo_rastreio ?? "Aguardando bipagem"}
+            </p>
+          </div>
+
           {sessionPackages.length ? (
-            <div className="space-y-4">
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
               {sessionHeader}
               {hasSessionDuplicates ? (
                 <FeedbackMessage tone="danger">
@@ -1330,7 +1350,7 @@ export function BipagemForm() {
                   {duplicateSessionCodeList.join(", ")}.
                 </FeedbackMessage>
               ) : null}
-              <div className="max-h-[520px] overflow-y-auto pr-1">
+              <div className="min-h-0 overflow-y-auto pr-1">
                 <ol className="space-y-2">
                   {sessionPackages.map((item) => {
                     const isDuplicate = duplicateSessionCodes.has(
@@ -1387,8 +1407,8 @@ export function BipagemForm() {
           )}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="mb-4">
+        <div className="flex min-h-[320px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:min-h-0">
+          <div className="mb-4 shrink-0">
             <h2 className="text-lg font-semibold text-slate-950">
               Histórico de lotes
             </h2>
@@ -1397,6 +1417,7 @@ export function BipagemForm() {
             </p>
           </div>
 
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {sortedBatches.length ? (
             <div className="space-y-3">
               {sortedBatches.map((batch) => (
@@ -1472,6 +1493,7 @@ export function BipagemForm() {
             ) : (
               <EmptyState>Selecione um lote finalizado para abrir.</EmptyState>
             )}
+          </div>
           </div>
         </div>
       </div>
