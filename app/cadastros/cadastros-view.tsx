@@ -3,7 +3,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
-  Badge,
   ConfirmDialog,
   EmptyState,
   FeedbackMessage,
@@ -125,6 +124,104 @@ function getConfirmLabel(action: PendingAction["action"]) {
   return "Excluir definitivamente";
 }
 
+function CatalogItemActions({
+  inactive,
+  disabled,
+  saving,
+  onActivate,
+  onDeactivate,
+  onDelete,
+}: {
+  inactive: boolean;
+  disabled?: boolean;
+  saving?: boolean;
+  onActivate: () => void;
+  onDeactivate: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.45fr)]">
+      {inactive ? (
+        <button
+          type="button"
+          disabled={disabled || saving}
+          onClick={onActivate}
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Ativar
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={disabled || saving}
+          onClick={onDeactivate}
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Inativar
+        </button>
+      )}
+      <button
+        type="button"
+        disabled={disabled || saving}
+        onClick={onDelete}
+        className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+      >
+        Excluir definitivo
+      </button>
+    </div>
+  );
+}
+
+function CatalogListItem({
+  name,
+  email,
+  status,
+  inactive,
+  disabled,
+  saving,
+  onActivate,
+  onDeactivate,
+  onDelete,
+}: {
+  name: string;
+  email?: string;
+  status?: string;
+  inactive: boolean;
+  disabled?: boolean;
+  saving?: boolean;
+  onActivate: () => void;
+  onDeactivate: () => void;
+  onDelete: () => void;
+}) {
+  return (
+    <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4">
+      <div className="min-w-0">
+        <p className="break-words text-sm font-semibold leading-6 text-slate-950">
+          {name}
+        </p>
+        {email ? (
+          <p className="mt-1 break-all text-sm leading-6 text-slate-500">
+            {email}
+          </p>
+        ) : null}
+        {status ? (
+          <div className="mt-3 flex">
+            <StatusBadge status={status} />
+          </div>
+        ) : null}
+      </div>
+      <CatalogItemActions
+        inactive={inactive}
+        disabled={disabled}
+        saving={saving}
+        onActivate={onActivate}
+        onDeactivate={onDeactivate}
+        onDelete={onDelete}
+      />
+    </div>
+  );
+}
+
 function CatalogSection({
   title,
   description,
@@ -166,18 +263,21 @@ function CatalogSection({
       </div>
 
       <div className="p-5">
-        <form onSubmit={submit} className="flex flex-col gap-3 sm:flex-row">
+        <form
+          onSubmit={submit}
+          className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
+        >
           <input
             value={name}
             onChange={(event) => setName(event.target.value)}
             disabled={disabled || saving}
-            className="min-h-11 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="min-h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
             placeholder={placeholder}
           />
           <button
             type="submit"
             disabled={disabled || saving}
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-32"
           >
             {saving ? "Salvando..." : "Cadastrar"}
           </button>
@@ -189,49 +289,17 @@ function CatalogSection({
               {items.map((item) => {
                 const inactive = isInactive(item);
                 return (
-                  <div
+                  <CatalogListItem
                     key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-950">
-                        {item.name}
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Badge tone="neutral">{item.id}</Badge>
-                        {item.status ? <StatusBadge status={item.status} /> : null}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                      {inactive ? (
-                        <button
-                          type="button"
-                          disabled={disabled || saving}
-                          onClick={() => onActivate(item)}
-                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                        >
-                          Ativar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={disabled || saving}
-                          onClick={() => onDeactivate(item)}
-                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                        >
-                          Inativar
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={disabled || saving}
-                        onClick={() => onDelete(item)}
-                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        Excluir definitivo
-                      </button>
-                    </div>
-                  </div>
+                    name={item.name}
+                    status={item.status}
+                    inactive={inactive}
+                    disabled={disabled}
+                    saving={saving}
+                    onActivate={() => onActivate(item)}
+                    onDeactivate={() => onDeactivate(item)}
+                    onDelete={() => onDelete(item)}
+                  />
                 );
               })}
             </div>
@@ -285,7 +353,10 @@ function ReportEmailSection({
       </div>
 
       <div className="p-5">
-        <form onSubmit={submit} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_auto]">
+        <form
+          onSubmit={submit}
+          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_auto]"
+        >
           <label className="grid gap-1.5">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
               Nome/apelido
@@ -294,7 +365,7 @@ function ReportEmailSection({
               value={nome}
               onChange={(event) => setNome(event.target.value)}
               disabled={disabled || saving}
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              className="min-h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               placeholder="Financeiro"
             />
           </label>
@@ -307,14 +378,14 @@ function ReportEmailSection({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               disabled={disabled || saving}
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              className="min-h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               placeholder="financeiro@empresa.com"
             />
           </label>
           <button
             type="submit"
             disabled={disabled || saving}
-            className="inline-flex min-h-11 items-center justify-center self-end rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            className="inline-flex min-h-11 w-full items-center justify-center self-end rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 lg:w-auto lg:min-w-32"
           >
             {saving ? "Salvando..." : "Cadastrar"}
           </button>
@@ -326,51 +397,18 @@ function ReportEmailSection({
               {items.map((item) => {
                 const inactive = !item.ativo;
                 return (
-                  <div
+                  <CatalogListItem
                     key={item.id}
-                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-slate-950">
-                        {item.nome?.trim() || "Sem apelido"}
-                      </p>
-                      <p className="mt-1 truncate text-sm text-slate-500">
-                        {item.email}
-                      </p>
-                      <div className="mt-2">
-                        <StatusBadge status={item.ativo ? "Ativo" : "Inativo"} />
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
-                      {inactive ? (
-                        <button
-                          type="button"
-                          disabled={disabled || saving}
-                          onClick={() => onActivate(item)}
-                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                        >
-                          Ativar
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          disabled={disabled || saving}
-                          onClick={() => onDeactivate(item)}
-                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                        >
-                          Inativar
-                        </button>
-                      )}
-                      <button
-                        type="button"
-                        disabled={disabled || saving}
-                        onClick={() => onDelete(item)}
-                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                      >
-                        Excluir definitivo
-                      </button>
-                    </div>
-                  </div>
+                    name={item.nome?.trim() || "Sem apelido"}
+                    email={item.email}
+                    status={item.ativo ? "Ativo" : "Inativo"}
+                    inactive={inactive}
+                    disabled={disabled}
+                    saving={saving}
+                    onActivate={() => onActivate(item)}
+                    onDeactivate={() => onDeactivate(item)}
+                    onDelete={() => onDelete(item)}
+                  />
                 );
               })}
             </div>
@@ -583,7 +621,7 @@ export function CadastrosView() {
         </section>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-3">
+      <div className="grid gap-6 xl:grid-cols-2">
         <CatalogSection
           title="Lojas"
           description="Use para separar a operacao, como Brasilia e Sao Paulo."
