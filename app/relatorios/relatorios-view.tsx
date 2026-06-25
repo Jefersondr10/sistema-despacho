@@ -457,48 +457,58 @@ export function RelatoriosView() {
             </h3>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {summary.map((item) => (
-                <div
+                <article
                   key={item.id}
-                  className="rounded-lg border border-slate-200 p-4"
+                  className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
                 >
-                  <div className="mb-4 flex items-center justify-between gap-3">
-                    <span className="font-semibold text-slate-950">
-                      {item.loja_nome}
-                    </span>
-                    <OperationBadge operation={item.tipo_operacao} />
-                  </div>
-                  <div className="space-y-2 text-sm text-slate-600">
-                    <p>
-                      Marketplace:{" "}
-                      <span className="font-semibold text-slate-950">
-                        {item.marketplace}
-                      </span>
+                  <div className="min-w-0">
+                    <p className="break-words text-base font-semibold text-slate-950">
+                      {item.marketplace}
                     </p>
-                    <p>
-                      Operação:{" "}
-                      <span className="font-semibold text-slate-950">
-                        {getOperationLabel(item.tipo_operacao)}
-                      </span>
-                    </p>
-                    <p>
-                      Melhor Envio:{" "}
-                      <span className="font-semibold text-slate-950">
-                        {item.melhor_envio ? "Sim" : "Não"}
-                      </span>
-                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <OperationBadge operation={item.tipo_operacao} />
+                      <MelhorEnvioBadge active={item.melhor_envio} />
+                    </div>
                     {item.melhor_envio ? (
-                      <p>
-                        Transportadora:{" "}
-                        <span className="font-semibold text-slate-950">
-                          {item.transportadora || "Não informada"}
-                        </span>
+                      <p className="mt-3 text-sm text-slate-600">
+                        <span className="font-semibold text-slate-700">
+                          Transportadora:
+                        </span>{" "}
+                        {item.transportadora || "Não informada"}
                       </p>
                     ) : null}
                   </div>
-                  <p className="mt-4 text-3xl font-semibold text-slate-950">
-                    {item.packages} pacotes
-                  </p>
-                </div>
+
+                  <div>
+                    <p className="text-3xl font-semibold text-slate-950">
+                      {item.packages} pacotes
+                    </p>
+                    <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                      Total do agrupamento
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      Por loja
+                    </p>
+                    <div className="mt-3 grid gap-2">
+                      {item.lojas.map((loja) => (
+                        <div
+                          key={loja.loja_id}
+                          className="flex items-center justify-between gap-3 text-sm"
+                        >
+                          <span className="min-w-0 break-words text-slate-600">
+                            {loja.loja_nome}
+                          </span>
+                          <span className="shrink-0 font-semibold text-slate-950">
+                            {loja.packages}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </article>
               ))}
             </div>
           </div>

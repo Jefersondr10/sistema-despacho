@@ -146,7 +146,7 @@ function CatalogItemActions({
           type="button"
           disabled={disabled || saving}
           onClick={onActivate}
-          className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
           Ativar
         </button>
@@ -155,7 +155,7 @@ function CatalogItemActions({
           type="button"
           disabled={disabled || saving}
           onClick={onDeactivate}
-          className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
           Inativar
         </button>
@@ -164,7 +164,7 @@ function CatalogItemActions({
         type="button"
         disabled={disabled || saving}
         onClick={onDelete}
-        className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
       >
         Excluir definitivo
       </button>
@@ -194,18 +194,18 @@ function CatalogListItem({
   onDelete: () => void;
 }) {
   return (
-    <div className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4">
+    <div className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-white p-3">
       <div className="min-w-0">
-        <p className="break-words text-sm font-semibold leading-6 text-slate-950">
+        <p className="break-words text-sm font-semibold leading-5 text-slate-950">
           {name}
         </p>
         {email ? (
-          <p className="mt-1 break-all text-sm leading-6 text-slate-500">
+          <p className="mt-1 break-all text-sm leading-5 text-slate-500">
             {email}
           </p>
         ) : null}
         {status ? (
-          <div className="mt-3 flex">
+          <div className="mt-2 flex">
             <StatusBadge status={status} />
           </div>
         ) : null}
@@ -256,13 +256,13 @@ function CatalogSection({
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-4">
         <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">{description}</p>
       </div>
 
-      <div className="p-5">
+      <div className="p-4">
         <form
           onSubmit={submit}
           className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
@@ -283,7 +283,7 @@ function CatalogSection({
           </button>
         </form>
 
-        <div className="mt-5">
+        <div className="mt-4">
           {items.length ? (
             <div className="grid gap-2">
               {items.map((item) => {
@@ -342,8 +342,8 @@ function ReportEmailSection({
   }
 
   return (
-    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 p-5">
+    <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-4">
         <h2 className="text-lg font-semibold text-slate-950">
           E-mails de Relatório
         </h2>
@@ -352,7 +352,7 @@ function ReportEmailSection({
         </p>
       </div>
 
-      <div className="p-5">
+      <div className="p-4">
         <form
           onSubmit={submit}
           className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_auto]"
@@ -391,7 +391,7 @@ function ReportEmailSection({
           </button>
         </form>
 
-        <div className="mt-5">
+        <div className="mt-4">
           {items.length ? (
             <div className="grid gap-2">
               {items.map((item) => {
@@ -612,7 +612,7 @@ export function CadastrosView() {
   }
 
   return (
-    <div className="grid gap-6">
+    <div className="grid gap-5">
       {notice ? <FeedbackMessage tone={notice.tone}>{notice.text}</FeedbackMessage> : null}
 
       {loading ? (
@@ -621,7 +621,7 @@ export function CadastrosView() {
         </section>
       ) : null}
 
-      <div className="grid gap-6 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-2">
         <CatalogSection
           title="Lojas"
           description="Use para separar a operacao, como Brasilia e Sao Paulo."

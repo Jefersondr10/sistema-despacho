@@ -21,7 +21,7 @@ function FullScreenState({ children }: { children: ReactNode }) {
   );
 }
 
-function UserSessionBox({ compact = false }: { compact?: boolean }) {
+function UserSessionBox() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const [signingOut, setSigningOut] = useState(false);
@@ -47,13 +47,7 @@ function UserSessionBox({ compact = false }: { compact?: boolean }) {
   }
 
   return (
-    <div
-      className={
-        compact
-          ? "flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3"
-          : "absolute inset-x-5 bottom-6 rounded-lg border border-slate-200 bg-slate-50 p-4"
-      }
-    >
+    <div className="flex min-w-0 items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
           Usuario
@@ -78,9 +72,9 @@ function UserSessionBox({ compact = false }: { compact?: boolean }) {
 function ProtectedAppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f5f7fb] text-slate-950">
-      <aside className="fixed inset-y-0 left-0 hidden w-72 border-r border-slate-200 bg-white px-5 py-6 lg:block">
-        <div className="mb-8">
-          <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-4 shadow-sm backdrop-blur">
+        <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 sm:px-2 lg:flex-row lg:items-center">
+          <div className="flex shrink-0 items-center gap-3">
             <div className="grid size-10 place-items-center rounded-lg bg-slate-950 text-sm font-semibold text-white">
               SD
             </div>
@@ -91,36 +85,20 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
               <p className="text-xs text-slate-500">Operacao autenticada</p>
             </div>
           </div>
-        </div>
-        <Navigation />
-        <UserSessionBox />
-      </aside>
 
-      <div className="lg:pl-72">
-        <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-4 backdrop-blur lg:hidden">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="grid size-9 place-items-center rounded-lg bg-slate-950 text-xs font-semibold text-white">
-                SD
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-950">
-                  Sistema Despacho
-                </p>
-                <p className="text-xs text-slate-500">Operacao autenticada</p>
-              </div>
-            </div>
-          </div>
-          <div className="grid gap-3">
-            <UserSessionBox compact />
+          <div className="min-w-0 flex-1">
             <Navigation compact />
           </div>
-        </header>
 
-        <main className="mx-auto flex min-h-screen w-full max-w-7xl flex-col gap-8 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-          {children}
-        </main>
-      </div>
+          <div className="shrink-0 lg:w-72">
+            <UserSessionBox />
+          </div>
+        </div>
+      </header>
+
+      <main className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
+        {children}
+      </main>
     </div>
   );
 }

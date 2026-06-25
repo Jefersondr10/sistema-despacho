@@ -119,13 +119,16 @@ export type PackageFilterValues = {
 export type ReportSummaryItem = {
   id: string;
   label: string;
-  loja_id: string;
-  loja_nome: string;
   marketplace: string;
   tipo_operacao: OperationType;
   melhor_envio: boolean;
   transportadora: string | null;
   packages: number;
+  lojas: Array<{
+    loja_id: string;
+    loja_nome: string;
+    packages: number;
+  }>;
 };
 
 export const stores: Store[] = [
@@ -577,47 +580,73 @@ export function getReportSummary(
   const grouped = new Map<string, ReportSummaryItem>();
 
   for (const item of packages) {
+    const transportadoraKey = item.melhor_envio
+      ? item.transportadora ?? "sem-transportadora"
+      : "sem-transportadora";
     const id = [
-      item.loja_id,
       item.marketplace,
       item.tipo_operacao,
       item.melhor_envio ? "melhor-envio" : "sem-melhor-envio",
-      item.transportadora ?? "sem-transportadora",
+      transportadoraKey,
     ].join("-");
     const current = grouped.get(id);
+    const lojaNome = getStoreName(item.loja_id, catalogStores);
 
     if (current) {
       current.packages += 1;
+      const loja = current.lojas.find((store) => store.loja_id === item.loja_id);
+      if (loja) {
+        loja.packages += 1;
+      } else {
+        current.lojas.push({
+          loja_id: item.loja_id,
+          loja_nome: lojaNome,
+          packages: 1,
+        });
+      }
       continue;
     }
 
     grouped.set(id, {
       id,
       label: [
-        getStoreName(item.loja_id, catalogStores),
         item.marketplace,
         getOperationLabel(item.tipo_operacao),
         item.melhor_envio ? "Melhor Envio" : "Sem Melhor Envio",
-        item.transportadora,
+        item.melhor_envio ? item.transportadora : null,
       ]
         .filter(Boolean)
         .join(" · "),
-      loja_id: item.loja_id,
-      loja_nome: getStoreName(item.loja_id, catalogStores),
       marketplace: item.marketplace,
       tipo_operacao: item.tipo_operacao,
       melhor_envio: item.melhor_envio,
-      transportadora: item.transportadora,
+      transportadora: item.melhor_envio ? item.transportadora : null,
       packages: 1,
+      lojas: [
+        {
+          loja_id: item.loja_id,
+          loja_nome: lojaNome,
+          packages: 1,
+        },
+      ],
     });
   }
 
-  return Array.from(grouped.values()).sort((a, b) =>
-    `${a.loja_nome}-${a.marketplace}-${a.tipo_operacao}`.localeCompare(
-      `${b.loja_nome}-${b.marketplace}-${b.tipo_operacao}`,
-      "pt-BR",
-    ),
-  );
+  return Array.from(grouped.values())
+    .map((item) => ({
+      ...item,
+      lojas: [...item.lojas].sort(
+        (a, b) =>
+          b.packages - a.packages ||
+          a.loja_nome.localeCompare(b.loja_nome, "pt-BR"),
+      ),
+    }))
+    .sort((a, b) =>
+      `${a.marketplace}-${a.tipo_operacao}-${a.melhor_envio}-${a.transportadora ?? ""}`.localeCompare(
+        `${b.marketplace}-${b.tipo_operacao}-${b.melhor_envio}-${b.transportadora ?? ""}`,
+        "pt-BR",
+      ),
+    );
 }
 
 export function getDashboardMetrics(packages: DispatchPackage[]) {

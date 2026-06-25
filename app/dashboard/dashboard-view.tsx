@@ -17,7 +17,6 @@ import {
   filterPackages,
   formatPackageDate,
   getDashboardMetrics,
-  getOperationLabel,
   getReportSummary,
   getStoreName,
 } from "@/app/_lib/mock-data";
@@ -135,19 +134,30 @@ export function DashboardView() {
             {summary.map((item) => (
               <div
                 key={item.id}
-                className="flex items-center justify-between gap-4 rounded-lg border border-slate-200 px-4 py-3"
+                className="flex flex-col gap-4 rounded-lg border border-slate-200 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
               >
-                <div>
-                  <p className="font-medium text-slate-950">
+                <div className="min-w-0">
+                  <p className="break-words font-medium text-slate-950">
                     {item.marketplace}
                   </p>
-                  <p className="text-sm text-slate-500">
-                    {getOperationLabel(item.tipo_operacao)}
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <OperationBadge operation={item.tipo_operacao} />
+                    <MelhorEnvioBadge active={item.melhor_envio} />
+                  </div>
+                  {item.melhor_envio ? (
+                    <p className="mt-2 text-sm text-slate-500">
+                      {item.transportadora || "Não informada"}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="shrink-0 sm:text-right">
+                  <p className="text-2xl font-semibold text-slate-950">
+                    {item.packages}
+                  </p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    pacotes
                   </p>
                 </div>
-                <p className="text-2xl font-semibold text-slate-950">
-                  {item.packages}
-                </p>
               </div>
             ))}
           </div>
@@ -166,43 +176,31 @@ export function DashboardView() {
             <Badge tone="neutral">{latestMovements.length} movimentações</Badge>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[960px] text-left text-sm">
-              <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Data</th>
-                  <th className="px-5 py-3 font-semibold">Loja</th>
-                  <th className="px-5 py-3 font-semibold">Rastreio</th>
-                  <th className="px-5 py-3 font-semibold">Melhor Envio</th>
-                  <th className="px-5 py-3 font-semibold">Coleta/Postagem</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {recentPackages.map((item) => (
-                  <tr key={item.id} className="align-middle">
-                    <td className="px-5 py-4 text-slate-600">
-                      {formatPackageDate(item.data_hora_bipagem)}
-                    </td>
-                    <td className="px-5 py-4 font-medium text-slate-950">
-                      {getStoreName(item.loja_id, catalogs.stores)}
-                    </td>
-                    <td className="px-5 py-4 font-mono text-sm text-slate-950">
-                      {item.codigo_rastreio}
-                    </td>
-                    <td className="px-5 py-4">
-                      <MelhorEnvioBadge active={item.melhor_envio} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <OperationBadge operation={item.tipo_operacao} />
-                    </td>
-                    <td className="px-5 py-4">
-                      <StatusBadge status={item.status} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
+            {recentPackages.map((item) => (
+              <article
+                key={item.id}
+                className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+              >
+                <div className="min-w-0">
+                  <p className="break-all font-mono text-sm font-semibold text-slate-950">
+                    {item.codigo_rastreio}
+                  </p>
+                  <p className="mt-2 text-sm font-medium text-slate-700">
+                    {getStoreName(item.loja_id, catalogs.stores)}
+                  </p>
+                  <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                    {formatPackageDate(item.data_hora_bipagem)}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  <MelhorEnvioBadge active={item.melhor_envio} />
+                  <OperationBadge operation={item.tipo_operacao} />
+                  <StatusBadge status={item.status} />
+                </div>
+              </article>
+            ))}
           </div>
         </div>
       </section>

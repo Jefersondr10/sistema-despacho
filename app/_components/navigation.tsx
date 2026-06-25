@@ -19,15 +19,15 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
     <nav
       className={
         compact
-          ? "flex gap-2 overflow-x-auto pb-1"
-          : "flex flex-col gap-1"
+          ? "flex flex-wrap gap-2 pb-1"
+          : "flex flex-wrap items-center gap-2"
       }
       aria-label="Navegação principal"
     >
       {navItems.map((item) => {
         const isActive =
           pathname === item.href ||
-          (item.href !== "/dashboard" && pathname.startsWith(item.href));
+          (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
 
         return (
           <Link
@@ -36,7 +36,7 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
             className={`group flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 text-sm font-medium transition ${
               isActive
                 ? "border-teal-200 bg-teal-50 text-teal-800"
-                : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950"
+                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
             } ${compact ? "min-w-max" : ""}`}
           >
             <span

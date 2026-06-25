@@ -47,6 +47,22 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, "&#039;");
 }
 
+function getOperationLabel(value: unknown) {
+  if (value === "coleta") return "Coleta";
+  if (value === "postagem") return "Postagem";
+
+  return String(value ?? "");
+}
+
+function getSummaryStores(item: Record<string, unknown>) {
+  const lojas = Array.isArray(item.lojas) ? item.lojas.filter(isRecord) : [];
+
+  return lojas.map((loja) => ({
+    nome: getOptionalString(loja.loja_nome) || "Loja nao informada",
+    packages: typeof loja.packages === "number" ? loja.packages : 0,
+  }));
+}
+
 function buildReportEmail(payload: Record<string, unknown>): EmailContent {
   const subject =
     getOptionalString(payload.assunto) || "Relatório de Despacho";
@@ -72,18 +88,26 @@ function buildReportEmail(payload: Record<string, unknown>): EmailContent {
 
   const summaryRowsHtml = resumoRows.length
     ? resumoRows
-        .map(
-          (item) => `
+        .map((item) => {
+          const lojasHtml =
+            getSummaryStores(item)
+              .map(
+                (loja) =>
+                  `${escapeHtml(loja.nome)}: <strong>${escapeHtml(loja.packages)}</strong>`,
+              )
+              .join("<br />") || "Sem detalhamento";
+
+          return `
             <tr>
-              <td>${escapeHtml(item.loja_nome)}</td>
               <td>${escapeHtml(item.marketplace)}</td>
-              <td>${escapeHtml(item.tipo_operacao)}</td>
+              <td>${escapeHtml(getOperationLabel(item.tipo_operacao))}</td>
               <td>${escapeHtml(item.melhor_envio ? "Sim" : "Não")}</td>
-              <td>${escapeHtml(item.transportadora || "Sem transportadora")}</td>
+              <td>${escapeHtml(item.melhor_envio ? item.transportadora || "Não informada" : "Sem Melhor Envio")}</td>
               <td style="text-align:right">${escapeHtml(item.packages)}</td>
+              <td>${lojasHtml}</td>
             </tr>
-          `,
-        )
+          `;
+        })
         .join("")
     : `
         <tr>
@@ -104,12 +128,12 @@ function buildReportEmail(payload: Record<string, unknown>): EmailContent {
       <table cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px">
         <thead>
           <tr style="background: #f8fafc">
-            <th align="left">Loja</th>
             <th align="left">Marketplace</th>
             <th align="left">Operação</th>
             <th align="left">Melhor Envio</th>
             <th align="left">Transportadora</th>
             <th align="right">Pacotes</th>
+            <th align="left">Por loja</th>
           </tr>
         </thead>
         <tbody>${summaryRowsHtml}</tbody>
@@ -126,10 +150,14 @@ function buildReportEmail(payload: Record<string, unknown>): EmailContent {
     ...filterItems.map(([key, value]) => `${key}: ${String(value ?? "")}`),
     "",
     "Resumo agrupado:",
-    ...resumoRows.map(
-      (item) =>
-        `${String(item.loja_nome ?? "")} | ${String(item.marketplace ?? "")} | ${String(item.tipo_operacao ?? "")} | ${String(item.packages ?? 0)} pacotes`,
-    ),
+    ...resumoRows.map((item) => {
+      const lojasText =
+        getSummaryStores(item)
+          .map((loja) => `${loja.nome}: ${loja.packages}`)
+          .join(", ") || "Sem detalhamento";
+
+      return `${String(item.marketplace ?? "")} | ${getOperationLabel(item.tipo_operacao)} | Melhor Envio: ${item.melhor_envio ? "Sim" : "Não"} | Transportadora: ${String(item.melhor_envio ? item.transportadora || "Não informada" : "Sem Melhor Envio")} | ${String(item.packages ?? 0)} pacotes | Por loja: ${lojasText}`;
+    }),
   ].join("\n");
 
   return { subject, html, text };
