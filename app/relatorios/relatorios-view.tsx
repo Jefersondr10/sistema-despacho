@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PackageFilters } from "@/app/_components/package-filters";
 import {
@@ -22,8 +22,20 @@ import {
   getStoreName,
 } from "@/app/_lib/mock-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
+import {
+  formatDatabaseError,
+  getRelatorioDestinatarios,
+  validateEmailAddress,
+  type RelatorioDestinatarioRow,
+} from "@/lib/database";
+import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type ReportMode = "resumido" | "detalhado" | "todos";
+
+type Notice = {
+  tone: "success" | "warning" | "danger" | "neutral";
+  text: string;
+};
 
 function summarizeList(values: string[], allLabel: string) {
   return values.length ? values.join(", ") : allLabel;
@@ -58,19 +70,175 @@ function getFilterSummary(
   };
 }
 
+function parseManualEmails(value: string) {
+  if (!value.trim()) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      value
+        .split(/[\s,;]+/)
+        .map((email) => email.trim())
+        .filter(Boolean)
+        .map((email) => validateEmailAddress(email)),
+    ),
+  );
+}
+
 export function RelatoriosView() {
   const { catalogs, packages, loading, error } = useSupabaseDispatchData();
   const [mode, setMode] = useState<ReportMode>("resumido");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
+  const [recipients, setRecipients] = useState<RelatorioDestinatarioRow[]>([]);
+  const [recipientsLoading, setRecipientsLoading] = useState(true);
+  const [recipientsError, setRecipientsError] = useState("");
+  const [selectedRecipientIds, setSelectedRecipientIds] = useState<string[]>([]);
+  const [manualEmail, setManualEmail] = useState("");
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [sendNotice, setSendNotice] = useState<Notice | null>(null);
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),
     [packages, filters],
   );
   const summary = getReportSummary(filteredPackages, catalogs.stores);
   const filterSummary = getFilterSummary(filters, catalogs.stores);
+  const allRecipientIds = useMemo(
+    () => recipients.map((item) => item.id),
+    [recipients],
+  );
+  const manualEmailCount = useMemo(() => {
+    try {
+      return parseManualEmails(manualEmail).length;
+    } catch {
+      return 0;
+    }
+  }, [manualEmail]);
+  const allRecipientsSelected =
+    Boolean(allRecipientIds.length) &&
+    allRecipientIds.every((id) => selectedRecipientIds.includes(id));
+
+  const loadRecipients = useCallback(async () => {
+    setRecipientsLoading(true);
+    setRecipientsError("");
+
+    try {
+      const rows = await getRelatorioDestinatarios();
+      setRecipients(rows);
+      setSelectedRecipientIds((current) =>
+        current.filter((id) => rows.some((item) => item.id === id)),
+      );
+    } catch (loadError) {
+      setRecipientsError(formatDatabaseError(loadError));
+    } finally {
+      setRecipientsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (!cancelled) {
+        void loadRecipients();
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [loadRecipients]);
 
   function generatePdf() {
     window.print();
+  }
+
+  function toggleRecipient(id: string) {
+    setSelectedRecipientIds((current) =>
+      current.includes(id)
+        ? current.filter((currentId) => currentId !== id)
+        : [...current, id],
+    );
+  }
+
+  function toggleAllRecipients() {
+    setSelectedRecipientIds(allRecipientsSelected ? [] : allRecipientIds);
+  }
+
+  async function sendReportByEmail() {
+    setSendNotice(null);
+
+    let manualEmails: string[];
+    try {
+      manualEmails = parseManualEmails(manualEmail);
+    } catch (validationError) {
+      setSendNotice({
+        tone: "warning",
+        text: formatDatabaseError(validationError),
+      });
+      return;
+    }
+
+    if (!selectedRecipientIds.length && !manualEmails.length) {
+      setSendNotice({
+        tone: "warning",
+        text: "Selecione ao menos um destinatario para enviar o relatorio.",
+      });
+      return;
+    }
+
+    setSendingEmail(true);
+
+    try {
+      const { data } = await getSupabaseClient().auth.getSession();
+      const token = data.session?.access_token;
+
+      if (!token) {
+        throw new Error("Sessao nao encontrada. Entre novamente no sistema.");
+      }
+
+      const response = await fetch("/api/relatorios/enviar-email", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          destinatarioIds: selectedRecipientIds,
+          emailsManuais: manualEmails,
+          assunto: "Relatório de Despacho",
+          filtros: filters,
+          filtrosResumo: filterSummary,
+          relatorio: {
+            modo: mode,
+            totalPacotes: filteredPackages.length,
+            resumo: summary,
+          },
+        }),
+      });
+
+      const result = (await response.json().catch(() => null)) as {
+        ok?: boolean;
+        message?: string;
+        totalDestinatarios?: number;
+      } | null;
+
+      if (!response.ok || !result?.ok) {
+        throw new Error(result?.message || "Nao foi possivel enviar o relatorio.");
+      }
+
+      setSendNotice({
+        tone: "success",
+        text: `Relatorio enviado para ${result.totalDestinatarios ?? 0} destinatario(s).`,
+      });
+    } catch (sendError) {
+      setSendNotice({
+        tone: "danger",
+        text: formatDatabaseError(sendError),
+      });
+    } finally {
+      setSendingEmail(false);
+    }
   }
 
   return (
@@ -89,6 +257,116 @@ export function RelatoriosView() {
         chipControls
         onChange={setFilters}
       />
+
+      <section className="no-print rounded-lg border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 p-5">
+          <h2 className="text-lg font-semibold text-slate-950">
+            Envio por e-mail
+          </h2>
+          <p className="mt-1 text-sm text-slate-500">
+            Selecione destinatários ativos cadastrados para receber o relatório atual.
+          </p>
+        </div>
+
+        <div className="grid gap-5 p-5">
+          {sendNotice ? (
+            <FeedbackMessage tone={sendNotice.tone}>{sendNotice.text}</FeedbackMessage>
+          ) : null}
+
+          {recipientsError ? (
+            <FeedbackMessage tone="danger">
+              Erro ao carregar destinatários: {recipientsError}
+            </FeedbackMessage>
+          ) : null}
+
+          <div>
+            <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <h3 className="text-sm font-semibold text-slate-950">
+                Destinatários cadastrados
+              </h3>
+              <button
+                type="button"
+                disabled={!recipients.length || recipientsLoading || sendingEmail}
+                onClick={toggleAllRecipients}
+                className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {allRecipientsSelected ? "Limpar seleção" : "Selecionar todos"}
+              </button>
+            </div>
+
+            {recipientsLoading ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
+                Carregando destinatários...
+              </div>
+            ) : recipients.length ? (
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                {recipients.map((item) => {
+                  const checked = selectedRecipientIds.includes(item.id);
+
+                  return (
+                    <label
+                      key={item.id}
+                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                        checked
+                          ? "border-teal-300 bg-teal-50"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={sendingEmail}
+                        onChange={() => toggleRecipient(item.id)}
+                        className="mt-1 size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
+                      />
+                      <span className="min-w-0">
+                        <span className="block truncate text-sm font-semibold text-slate-950">
+                          {item.nome?.trim() || "Sem apelido"}
+                        </span>
+                        <span className="mt-1 block truncate text-sm text-slate-500">
+                          {item.email}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            ) : (
+              <EmptyState>
+                Nenhum destinatário ativo cadastrado. Cadastre em Cadastros &gt; E-mails de Relatório.
+              </EmptyState>
+            )}
+          </div>
+
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              E-mail manual extra
+            </span>
+            <input
+              type="text"
+              value={manualEmail}
+              onChange={(event) => setManualEmail(event.target.value)}
+              disabled={sendingEmail}
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              placeholder="exemplo@email.com"
+            />
+          </label>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-sm text-slate-500">
+              Selecionados: {selectedRecipientIds.length + manualEmailCount}
+            </p>
+            <button
+              type="button"
+              onClick={sendReportByEmail}
+              disabled={sendingEmail || recipientsLoading}
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+            >
+              {sendingEmail ? "Enviando..." : "Gerar e enviar por e-mail"}
+            </button>
+          </div>
+        </div>
+      </section>
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
         <div className="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">

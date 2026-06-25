@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   Badge,
@@ -11,25 +11,31 @@ import {
 } from "@/app/_components/ui";
 import type { Carrier, Marketplace, Store } from "@/app/_lib/mock-data";
 import {
+  ativarRelatorioDestinatario,
   ativarLoja,
   ativarMarketplace,
   ativarTransportadora,
   createLoja,
   createMarketplace,
+  createRelatorioDestinatario,
   createTransportadora,
   excluirLojaDefinitivamente,
   excluirMarketplaceDefinitivamente,
+  excluirRelatorioDestinatarioDefinitivamente,
   excluirTransportadoraDefinitivamente,
   formatDatabaseError,
   getLojas,
   getMarketplaces,
+  getRelatorioDestinatarios,
   getTransportadoras,
   inativarLoja,
   inativarMarketplace,
+  inativarRelatorioDestinatario,
   inativarTransportadora,
   mapLojaRowToStore,
   mapMarketplaceRowToMarketplace,
   mapTransportadoraRowToCarrier,
+  type RelatorioDestinatarioRow,
 } from "@/lib/database";
 import {
   isSupabaseConfigured,
@@ -37,10 +43,12 @@ import {
 } from "@/lib/supabaseClient";
 
 type CatalogKind = "stores" | "marketplaces" | "carriers";
+type ActionKind = CatalogKind | "reportEmails";
 
 type CatalogItem = {
   id: string;
   name: string;
+  email?: string;
   status?: string;
 };
 
@@ -50,7 +58,7 @@ type Notice = {
 };
 
 type PendingAction = {
-  kind: CatalogKind;
+  kind: ActionKind;
   item: CatalogItem;
   action: "activate" | "deactivate" | "delete-first" | "delete-final";
 };
@@ -59,16 +67,29 @@ type CatalogState = {
   stores: Store[];
   marketplaces: Marketplace[];
   carriers: Carrier[];
+  reportEmails: RelatorioDestinatarioRow[];
 };
 
-const catalogLabels: Record<CatalogKind, string> = {
+const catalogLabels: Record<ActionKind, string> = {
   stores: "loja",
   marketplaces: "marketplace",
   carriers: "transportadora",
+  reportEmails: "e-mail de relatório",
 };
 
 function isInactive(item: CatalogItem) {
   return item.status === "Inativa" || item.status === "Inativo";
+}
+
+function mapReportEmailToCatalogItem(
+  item: RelatorioDestinatarioRow,
+): CatalogItem {
+  return {
+    id: item.id,
+    name: item.nome?.trim() || item.email,
+    email: item.email,
+    status: item.ativo ? "Ativo" : "Inativo",
+  };
 }
 
 function getActionTitle(action: PendingAction["action"]) {
@@ -80,16 +101,21 @@ function getActionTitle(action: PendingAction["action"]) {
 
 function getActionMessage(pending: PendingAction) {
   const label = catalogLabels[pending.kind];
+  const article = pending.kind === "reportEmails" ? "o" : "a";
+  const itemName = pending.item.email
+    ? `${pending.item.name} (${pending.item.email})`
+    : pending.item.name;
+
   if (pending.action === "activate") {
-    return `Deseja ativar a ${label} "${pending.item.name}"?`;
+    return `Deseja ativar ${article} ${label} "${itemName}"?`;
   }
   if (pending.action === "deactivate") {
-    return `Deseja inativar a ${label} "${pending.item.name}"? O historico sera preservado.`;
+    return `Deseja inativar ${article} ${label} "${itemName}"? O historico sera preservado.`;
   }
   if (pending.action === "delete-first") {
-    return `Esta acao tentara excluir definitivamente a ${label} "${pending.item.name}" do Supabase. Se houver vinculos, a exclusao pode ser bloqueada.`;
+    return `Esta acao tentara excluir definitivamente ${article} ${label} "${itemName}" do Supabase. Se houver vinculos, a exclusao pode ser bloqueada.`;
   }
-  return `Ultima confirmacao: excluir definitivamente a ${label} "${pending.item.name}"? Esta acao nao pode ser desfeita.`;
+  return `Ultima confirmacao: excluir definitivamente ${article} ${label} "${itemName}"? Esta acao nao pode ser desfeita.`;
 }
 
 function getConfirmLabel(action: PendingAction["action"]) {
@@ -218,30 +244,157 @@ function CatalogSection({
   );
 }
 
-export function CadastrosView({
-  stores,
-  marketplaces,
-  carriers,
+function ReportEmailSection({
+  items,
+  disabled,
+  saving,
+  onAdd,
+  onActivate,
+  onDeactivate,
+  onDelete,
 }: {
-  stores: Store[];
-  marketplaces: Marketplace[];
-  carriers: Carrier[];
+  items: RelatorioDestinatarioRow[];
+  disabled?: boolean;
+  saving?: boolean;
+  onAdd: (nome: string, email: string) => Promise<boolean>;
+  onActivate: (item: RelatorioDestinatarioRow) => void;
+  onDeactivate: (item: RelatorioDestinatarioRow) => void;
+  onDelete: (item: RelatorioDestinatarioRow) => void;
 }) {
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const saved = await onAdd(nome, email);
+    if (saved) {
+      setNome("");
+      setEmail("");
+    }
+  }
+
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+      <div className="border-b border-slate-200 p-5">
+        <h2 className="text-lg font-semibold text-slate-950">
+          E-mails de Relatório
+        </h2>
+        <p className="mt-1 text-sm text-slate-500">
+          Cadastre os destinatários que poderão receber relatórios por e-mail.
+        </p>
+      </div>
+
+      <div className="p-5">
+        <form onSubmit={submit} className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_auto]">
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Nome/apelido
+            </span>
+            <input
+              value={nome}
+              onChange={(event) => setNome(event.target.value)}
+              disabled={disabled || saving}
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              placeholder="Financeiro"
+            />
+          </label>
+          <label className="grid gap-1.5">
+            <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              E-mail
+            </span>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              disabled={disabled || saving}
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              placeholder="financeiro@empresa.com"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={disabled || saving}
+            className="inline-flex min-h-11 items-center justify-center self-end rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {saving ? "Salvando..." : "Cadastrar"}
+          </button>
+        </form>
+
+        <div className="mt-5">
+          {items.length ? (
+            <div className="grid gap-2">
+              {items.map((item) => {
+                const inactive = !item.ativo;
+                return (
+                  <div
+                    key={item.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-4 py-3"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-slate-950">
+                        {item.nome?.trim() || "Sem apelido"}
+                      </p>
+                      <p className="mt-1 truncate text-sm text-slate-500">
+                        {item.email}
+                      </p>
+                      <div className="mt-2">
+                        <StatusBadge status={item.ativo ? "Ativo" : "Inativo"} />
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                      {inactive ? (
+                        <button
+                          type="button"
+                          disabled={disabled || saving}
+                          onClick={() => onActivate(item)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Ativar
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={disabled || saving}
+                          onClick={() => onDeactivate(item)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Inativar
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        disabled={disabled || saving}
+                        onClick={() => onDelete(item)}
+                        className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                      >
+                        Excluir definitivo
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <EmptyState>Nenhum e-mail cadastrado no Supabase.</EmptyState>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+export function CadastrosView() {
   const [catalogs, setCatalogs] = useState<CatalogState>({
     stores: [],
     marketplaces: [],
     carriers: [],
+    reportEmails: [],
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [pendingAction, setPendingAction] = useState<PendingAction | null>(null);
   const supabaseConfigured = isSupabaseConfigured();
-
-  const seedSummary = useMemo(
-    () => `${stores.length} lojas, ${marketplaces.length} marketplaces e ${carriers.length} transportadoras base previstos no schema.`,
-    [stores.length, marketplaces.length, carriers.length],
-  );
 
   const loadCatalogs = useCallback(async () => {
     if (!supabaseConfigured) {
@@ -256,16 +409,23 @@ export function CadastrosView({
     setLoading(true);
 
     try {
-      const [lojasRows, marketplacesRows, transportadorasRows] = await Promise.all([
+      const [
+        lojasRows,
+        marketplacesRows,
+        transportadorasRows,
+        relatorioDestinatariosRows,
+      ] = await Promise.all([
         getLojas({ incluirInativos: true }),
         getMarketplaces({ incluirInativos: true }),
         getTransportadoras({ incluirInativos: true }),
+        getRelatorioDestinatarios({ incluirInativos: true }),
       ]);
 
       setCatalogs({
         stores: lojasRows.map(mapLojaRowToStore),
         marketplaces: marketplacesRows.map(mapMarketplaceRowToMarketplace),
         carriers: transportadorasRows.map(mapTransportadoraRowToCarrier),
+        reportEmails: relatorioDestinatariosRows,
       });
     } catch (error) {
       setNotice({
@@ -322,6 +482,24 @@ export function CadastrosView({
     }
   }
 
+  async function handleCreateReportEmail(nome: string, email: string) {
+    setSaving(true);
+    try {
+      await createRelatorioDestinatario(nome, email);
+      setNotice({ tone: "success", text: "E-mail de relatorio salvo com sucesso." });
+      await loadCatalogs();
+      return true;
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        text: `Erro ao salvar e-mail: ${formatDatabaseError(error)}`,
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function runAction(action: PendingAction) {
     setSaving(true);
     try {
@@ -329,6 +507,9 @@ export function CadastrosView({
         if (action.kind === "stores") await ativarLoja(action.item.id);
         if (action.kind === "marketplaces") await ativarMarketplace(action.item.id);
         if (action.kind === "carriers") await ativarTransportadora(action.item.id);
+        if (action.kind === "reportEmails") {
+          await ativarRelatorioDestinatario(action.item.id);
+        }
         setNotice({ tone: "success", text: "Cadastro ativado." });
       }
 
@@ -336,6 +517,9 @@ export function CadastrosView({
         if (action.kind === "stores") await inativarLoja(action.item.id);
         if (action.kind === "marketplaces") await inativarMarketplace(action.item.id);
         if (action.kind === "carriers") await inativarTransportadora(action.item.id);
+        if (action.kind === "reportEmails") {
+          await inativarRelatorioDestinatario(action.item.id);
+        }
         setNotice({ tone: "neutral", text: "Cadastro inativado." });
       }
 
@@ -343,6 +527,9 @@ export function CadastrosView({
         if (action.kind === "stores") await excluirLojaDefinitivamente(action.item.id);
         if (action.kind === "marketplaces") await excluirMarketplaceDefinitivamente(action.item.id);
         if (action.kind === "carriers") await excluirTransportadoraDefinitivamente(action.item.id);
+        if (action.kind === "reportEmails") {
+          await excluirRelatorioDestinatarioDefinitivamente(action.item.id);
+        }
         setNotice({ tone: "success", text: "Cadastro excluido definitivamente." });
       }
 
@@ -378,7 +565,9 @@ export function CadastrosView({
           <p className="mt-2">
             Configure as variaveis e rode o schema antes de cadastrar lojas, marketplaces e transportadoras.
           </p>
-          <p className="mt-2">{seedSummary}</p>
+          <p className="mt-2">
+            O schema inicial continua responsavel pelos cadastros base.
+          </p>
         </section>
       </div>
     );
@@ -430,6 +619,33 @@ export function CadastrosView({
           onActivate={(item) => setPendingAction({ kind: "carriers", item, action: "activate" })}
           onDeactivate={(item) => setPendingAction({ kind: "carriers", item, action: "deactivate" })}
           onDelete={(item) => setPendingAction({ kind: "carriers", item, action: "delete-first" })}
+        />
+        <ReportEmailSection
+          items={catalogs.reportEmails}
+          disabled={loading}
+          saving={saving}
+          onAdd={handleCreateReportEmail}
+          onActivate={(item) =>
+            setPendingAction({
+              kind: "reportEmails",
+              item: mapReportEmailToCatalogItem(item),
+              action: "activate",
+            })
+          }
+          onDeactivate={(item) =>
+            setPendingAction({
+              kind: "reportEmails",
+              item: mapReportEmailToCatalogItem(item),
+              action: "deactivate",
+            })
+          }
+          onDelete={(item) =>
+            setPendingAction({
+              kind: "reportEmails",
+              item: mapReportEmailToCatalogItem(item),
+              action: "delete-first",
+            })
+          }
         />
       </div>
 

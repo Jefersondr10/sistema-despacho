@@ -91,7 +91,7 @@ export type DispatchBatch = {
   melhor_envio: boolean;
   transportadora: string | null;
   tipo_operacao: OperationType;
-  status: "aberta" | "finalizada";
+  status: "aberta" | "finalizada" | "cancelada";
   total_pacotes: number;
   criado_em: string;
   finalizado_em: string | null;
@@ -512,7 +512,7 @@ export function createDefaultPackageFilters(): PackageFilterValues {
   };
 }
 
-export function getStoreName(lojaId: string, catalogStores: Store[] = stores) {
+export function getStoreName(lojaId: string, catalogStores: Store[] = []) {
   return catalogStores.find((store) => store.id === lojaId)?.name ?? lojaId;
 }
 
@@ -571,8 +571,8 @@ export function describeDateFilter(filters: PackageFilterValues) {
 }
 
 export function getReportSummary(
-  packages: DispatchPackage[] = dispatchPackages,
-  catalogStores: Store[] = stores,
+  packages: DispatchPackage[],
+  catalogStores: Store[] = [],
 ): ReportSummaryItem[] {
   const grouped = new Map<string, ReportSummaryItem>();
 
@@ -620,9 +620,7 @@ export function getReportSummary(
   );
 }
 
-export function getDashboardMetrics(
-  packages: DispatchPackage[] = dispatchPackages,
-) {
+export function getDashboardMetrics(packages: DispatchPackage[]) {
   const total = packages.length;
   const melhorEnvio = packages.filter((item) => item.melhor_envio).length;
   const semTransportadora = packages.filter(

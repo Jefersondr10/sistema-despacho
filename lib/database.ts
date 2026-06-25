@@ -12,7 +12,7 @@ import type {
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export type TipoOperacao = "coleta" | "postagem";
-export type SessaoBipagemStatus = "aberta" | "finalizada";
+export type SessaoBipagemStatus = "aberta" | "finalizada" | "cancelada";
 export type PacoteDatabaseStatus =
   | "pendente_sessao"
   | "bipado"
@@ -48,6 +48,27 @@ export type TransportadoraRow = {
   updated_at: string | null;
 };
 
+export type RelatorioDestinatarioRow = {
+  id: string;
+  nome: string | null;
+  email: string;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string | null;
+};
+
+export type RelatorioEnvioStatus = "sucesso" | "erro";
+
+export type RelatorioEnvioRow = {
+  id: string;
+  destinatarios: string[];
+  assunto: string;
+  filtros: Record<string, unknown>;
+  status: RelatorioEnvioStatus;
+  erro: string | null;
+  enviado_em: string;
+};
+
 export type SessaoBipagemRow = {
   id: string;
   loja_id: string;
@@ -58,6 +79,25 @@ export type SessaoBipagemRow = {
   status: SessaoBipagemStatus | string;
   iniciada_em: string;
   finalizada_em: string | null;
+  cancelada_em?: string | null;
+};
+
+export type ItemSessaoBipagemStatus =
+  | "pendente"
+  | "finalizado"
+  | "descartado"
+  | "cancelado";
+
+export type ItemSessaoBipagemRow = {
+  id: string;
+  sessao_id: string;
+  codigo: string;
+  codigo_normalizado: string;
+  ordem: number;
+  status: ItemSessaoBipagemStatus | string;
+  duplicado: boolean;
+  criado_em: string;
+  atualizado_em: string | null;
 };
 
 export type PacoteRow = {
@@ -115,6 +155,11 @@ export type SessaoComRelacionamentosRow = SessaoBipagemRow & {
   total_pacotes?: number;
 };
 
+export type SessaoBipagemAbertaComItens = {
+  sessao: SessaoComRelacionamentosRow;
+  itens: ItemSessaoBipagemRow[];
+};
+
 export type PacoteCanceladoComRelacionamentosRow = PacoteCanceladoRow & {
   loja: LojaRow | null;
   marketplace: MarketplaceRow | null;
@@ -145,6 +190,7 @@ export type SessaoBipagemFilters = {
   status?: SessaoBipagemStatus | string;
   limit?: number;
   incluirCanceladosNoTotal?: boolean;
+  incluirCanceladas?: boolean;
 };
 
 export type PacoteCanceladoFilters = {
@@ -163,6 +209,15 @@ export type CreateCatalogInput = {
 
 type CatalogInput = CreateCatalogInput | string;
 
+export type CreateRelatorioEnvioHistoricoInput = {
+  destinatarios: string[];
+  assunto: string;
+  filtros?: Record<string, unknown>;
+  status: RelatorioEnvioStatus;
+  erro?: string | null;
+  enviado_em?: string;
+};
+
 export type CreateSessaoInput = {
   loja_id: string;
   marketplace_id: string;
@@ -171,6 +226,17 @@ export type CreateSessaoInput = {
   transportadora_id?: string | null;
   status?: SessaoBipagemStatus;
   iniciada_em?: string;
+};
+
+export type CreateItemSessaoBipagemInput = {
+  sessao_id: string;
+  codigo: string;
+};
+
+export type FinalizarSessaoBipagemResult = {
+  sessao_id: string;
+  total_pacotes: number;
+  finalizada_em: string;
 };
 
 export type CreatePacoteInput = {
@@ -259,6 +325,24 @@ function optionalText(value: string | null | undefined) {
   return normalized || null;
 }
 
+function normalizeEmail(value: string) {
+  return String(value ?? "").trim().toLowerCase();
+}
+
+export function validateEmailAddress(value: string, fieldName = "E-mail") {
+  const normalized = normalizeEmail(value);
+
+  if (!normalized) {
+    throw new Error(`${fieldName} obrigatorio.`);
+  }
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw new Error(`${fieldName} invalido.`);
+  }
+
+  return normalized;
+}
+
 function validateTipoOperacao(value: unknown): TipoOperacao {
   if (value === "coleta" || value === "postagem") {
     return value;
@@ -292,6 +376,13 @@ export function formatDatabaseError(error: unknown) {
   }
 
   if (typeof error === "object" && error !== null && "message" in error) {
+    if (
+      "code" in error &&
+      String((error as { code?: unknown }).code) === "23505"
+    ) {
+      return "Este cadastro ja existe no Supabase.";
+    }
+
     const message = String((error as { message?: unknown }).message || "");
     if (message) return message;
   }
@@ -540,10 +631,34 @@ export function mapSessaoRowToDispatchBatch(
     melhor_envio: row.melhor_envio,
     transportadora: row.transportadora?.nome ?? null,
     tipo_operacao: row.tipo_operacao,
-    status: row.status === "finalizada" ? "finalizada" : "aberta",
+    status:
+      row.status === "finalizada"
+        ? "finalizada"
+        : row.status === "cancelada"
+          ? "cancelada"
+          : "aberta",
     total_pacotes: totalPacotes,
     criado_em: row.iniciada_em,
     finalizado_em: row.finalizada_em,
+  };
+}
+
+export function mapItemSessaoRowToDispatchPackage(
+  row: ItemSessaoBipagemRow,
+  sessao: SessaoComRelacionamentosRow,
+): DispatchPackage {
+  return {
+    id: row.id,
+    lote_id: row.sessao_id,
+    loja_id: sessao.loja_id,
+    codigo_rastreio: row.codigo_normalizado,
+    marketplace: sessao.marketplace?.nome ?? sessao.marketplace_id,
+    melhor_envio: sessao.melhor_envio,
+    transportadora: sessao.transportadora?.nome ?? null,
+    tipo_operacao: sessao.tipo_operacao,
+    status: "Pendente na sessão",
+    data_hora_bipagem: row.criado_em,
+    criado_em: row.criado_em,
   };
 }
 
@@ -910,6 +1025,146 @@ export async function excluirTransportadora(id: string) {
   return excluirTransportadoraDefinitivamente(id);
 }
 
+export async function getRelatorioDestinatarios(options?: ListOptions) {
+  const supabase = getSupabaseClient();
+  let query = supabase
+    .from("relatorio_destinatarios")
+    .select("*")
+    .order("nome", { ascending: true, nullsFirst: false })
+    .order("email");
+
+  if (!options?.incluirInativos) {
+    query = query.eq("ativo", true);
+  }
+
+  if (options?.limit) {
+    query = query.limit(options.limit);
+  }
+
+  const { data, error } = await query.returns<RelatorioDestinatarioRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function createRelatorioDestinatario(
+  nome: string | null | undefined,
+  email: string,
+) {
+  const supabase = getSupabaseClient();
+  const normalizedEmail = validateEmailAddress(email);
+  const normalizedName = optionalText(nome);
+
+  const { data: existing, error: existingError } = await supabase
+    .from("relatorio_destinatarios")
+    .select("id")
+    .eq("email", normalizedEmail)
+    .maybeSingle<Pick<RelatorioDestinatarioRow, "id">>();
+
+  if (existingError) {
+    throw existingError;
+  }
+
+  if (existing) {
+    throw new Error("Este e-mail ja esta cadastrado.");
+  }
+
+  const { data, error } = await supabase
+    .from("relatorio_destinatarios")
+    .insert({
+      nome: normalizedName,
+      email: normalizedEmail,
+      ativo: true,
+    })
+    .select("*")
+    .single<RelatorioDestinatarioRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function ativarRelatorioDestinatario(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("relatorio_destinatarios")
+    .update({ ativo: true })
+    .eq("id", id)
+    .select("*")
+    .single<RelatorioDestinatarioRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function inativarRelatorioDestinatario(id: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("relatorio_destinatarios")
+    .update({ ativo: false })
+    .eq("id", id)
+    .select("*")
+    .single<RelatorioDestinatarioRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
+export async function excluirRelatorioDestinatarioDefinitivamente(id: string) {
+  const supabase = getSupabaseClient();
+  const { error } = await supabase
+    .from("relatorio_destinatarios")
+    .delete()
+    .eq("id", id);
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function createRelatorioEnvioHistorico(
+  input: CreateRelatorioEnvioHistoricoInput,
+) {
+  const supabase = getSupabaseClient();
+  const destinatarios = Array.from(
+    new Set(input.destinatarios.map((email) => validateEmailAddress(email))),
+  );
+
+  if (!destinatarios.length) {
+    throw new Error("Informe ao menos um destinatario.");
+  }
+
+  const { data, error } = await supabase
+    .from("relatorio_envios")
+    .insert({
+      destinatarios,
+      assunto: requireText(input.assunto, "assunto"),
+      filtros: input.filtros ?? {},
+      status: input.status,
+      erro: input.erro ?? null,
+      enviado_em: input.enviado_em ?? nowIso(),
+    })
+    .select("*")
+    .single<RelatorioEnvioRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function createSessaoBipagem(input: CreateSessaoInput) {
   const supabase = getSupabaseClient();
   const { data, error } = await supabase
@@ -996,6 +1251,114 @@ const cancelamentoComRelacionamentosSelect = `
   pacote:pacotes(*)
 `;
 
+async function getItensSessaoBipagem(sessaoId: string) {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase
+    .from("itens_sessao_bipagem")
+    .select("*")
+    .eq("sessao_id", sessaoId)
+    .eq("status", "pendente")
+    .order("ordem", { ascending: false })
+    .order("criado_em", { ascending: false })
+    .returns<ItemSessaoBipagemRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function getSessaoBipagemAbertaComItens() {
+  const supabase = getSupabaseClient();
+  const { data: sessao, error } = await supabase
+    .from("sessoes_bipagem")
+    .select(sessaoComRelacionamentosSelect)
+    .eq("status", "aberta")
+    .order("iniciada_em", { ascending: false })
+    .limit(1)
+    .maybeSingle<SessaoComRelacionamentosRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  if (!sessao) {
+    return null;
+  }
+
+  return {
+    sessao,
+    itens: await getItensSessaoBipagem(sessao.id),
+  } satisfies SessaoBipagemAbertaComItens;
+}
+
+export async function adicionarItemSessaoBipagem(
+  input: CreateItemSessaoBipagemInput,
+): Promise<ItemSessaoBipagemRow[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("adicionar_item_sessao_bipagem", {
+    p_sessao_id: input.sessao_id,
+    p_codigo: input.codigo,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as ItemSessaoBipagemRow[];
+}
+
+export async function removerItemSessaoBipagem({
+  itemId,
+  status = "descartado",
+}: {
+  itemId: string;
+  status?: "descartado" | "cancelado";
+}): Promise<ItemSessaoBipagemRow[]> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("remover_item_sessao_bipagem", {
+    p_item_id: itemId,
+    p_status: status,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as ItemSessaoBipagemRow[];
+}
+
+export async function finalizarSessaoBipagemAberta(
+  sessaoId: string,
+): Promise<FinalizarSessaoBipagemResult> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("finalizar_sessao_bipagem", {
+    p_sessao_id: sessaoId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as FinalizarSessaoBipagemResult;
+}
+
+export async function cancelarSessaoBipagemAberta(
+  sessaoId: string,
+): Promise<{ sessao_id: string; cancelada_em: string }> {
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("cancelar_sessao_bipagem", {
+    p_sessao_id: sessaoId,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return data as { sessao_id: string; cancelada_em: string };
+}
+
 export async function getPacotesComRelacionamentos(options?: PacoteFilters) {
   const supabase = getSupabaseClient();
   let query = supabase
@@ -1072,6 +1435,8 @@ export async function getSessoesBipagemComRelacionamentos(
 
   if (options?.status) {
     query = query.eq("status", options.status);
+  } else if (!options?.incluirCanceladas) {
+    query = query.neq("status", "cancelada");
   }
 
   if (options?.limit) {
