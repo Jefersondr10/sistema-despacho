@@ -140,13 +140,13 @@ function CatalogItemActions({
   onDelete: () => void;
 }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.45fr)]">
+    <div className="flex flex-wrap gap-2 sm:justify-end">
       {inactive ? (
         <button
           type="button"
           disabled={disabled || saving}
           onClick={onActivate}
-          className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-sm font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          className="inline-flex min-h-8 items-center justify-center rounded-md border border-emerald-200 bg-emerald-50 px-3 text-xs font-semibold text-emerald-700 transition hover:border-emerald-300 hover:bg-emerald-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
           Ativar
         </button>
@@ -155,7 +155,7 @@ function CatalogItemActions({
           type="button"
           disabled={disabled || saving}
           onClick={onDeactivate}
-          className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-sm font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          className="inline-flex min-h-8 items-center justify-center rounded-md border border-amber-200 bg-amber-50 px-3 text-xs font-semibold text-amber-800 transition hover:border-amber-300 hover:bg-amber-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
         >
           Inativar
         </button>
@@ -164,7 +164,7 @@ function CatalogItemActions({
         type="button"
         disabled={disabled || saving}
         onClick={onDelete}
-        className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-sm font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        className="inline-flex min-h-8 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
       >
         Excluir definitivo
       </button>
@@ -194,8 +194,8 @@ function CatalogListItem({
   onDelete: () => void;
 }) {
   return (
-    <div className="grid min-w-0 gap-3 rounded-lg border border-slate-200 bg-white p-3">
-      <div className="min-w-0">
+    <div className="flex min-w-0 flex-col gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2.5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0 flex-1">
         <p className="break-words text-sm font-semibold leading-5 text-slate-950">
           {name}
         </p>
@@ -205,7 +205,7 @@ function CatalogListItem({
           </p>
         ) : null}
         {status ? (
-          <div className="mt-2 flex">
+          <div className="mt-1 flex">
             <StatusBadge status={status} />
           </div>
         ) : null}
@@ -257,12 +257,12 @@ function CatalogSection({
 
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 p-4">
-        <h2 className="text-lg font-semibold text-slate-950">{title}</h2>
+      <div className="border-b border-slate-200 p-3">
+        <h2 className="text-base font-semibold text-slate-950">{title}</h2>
         <p className="mt-1 text-sm text-slate-500">{description}</p>
       </div>
 
-      <div className="p-4">
+      <div className="p-3">
         <form
           onSubmit={submit}
           className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto]"
@@ -271,19 +271,19 @@ function CatalogSection({
             value={name}
             onChange={(event) => setName(event.target.value)}
             disabled={disabled || saving}
-            className="min-h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="min-h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
             placeholder={placeholder}
           />
           <button
             type="submit"
             disabled={disabled || saving}
-            className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-32"
+            className="inline-flex min-h-10 w-full items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 sm:w-auto sm:min-w-28"
           >
             {saving ? "Salvando..." : "Cadastrar"}
           </button>
         </form>
 
-        <div className="mt-4">
+        <div className="mt-3">
           {items.length ? (
             <div className="grid gap-2">
               {items.map((item) => {
@@ -343,8 +343,8 @@ function ReportEmailSection({
 
   return (
     <section className="min-w-0 rounded-lg border border-slate-200 bg-white shadow-sm">
-      <div className="border-b border-slate-200 p-4">
-        <h2 className="text-lg font-semibold text-slate-950">
+      <div className="border-b border-slate-200 p-3">
+        <h2 className="text-base font-semibold text-slate-950">
           E-mails de Relatório
         </h2>
         <p className="mt-1 text-sm text-slate-500">
@@ -352,7 +352,7 @@ function ReportEmailSection({
         </p>
       </div>
 
-      <div className="p-4">
+      <div className="p-3">
         <form
           onSubmit={submit}
           className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)_auto]"
@@ -365,7 +365,7 @@ function ReportEmailSection({
               value={nome}
               onChange={(event) => setNome(event.target.value)}
               disabled={disabled || saving}
-              className="min-h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="min-h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               placeholder="Financeiro"
             />
           </label>
@@ -378,20 +378,20 @@ function ReportEmailSection({
               value={email}
               onChange={(event) => setEmail(event.target.value)}
               disabled={disabled || saving}
-              className="min-h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+            className="min-h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               placeholder="financeiro@empresa.com"
             />
           </label>
           <button
             type="submit"
             disabled={disabled || saving}
-            className="inline-flex min-h-11 w-full items-center justify-center self-end rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 lg:w-auto lg:min-w-32"
+            className="inline-flex min-h-10 w-full items-center justify-center self-end rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300 lg:w-auto lg:min-w-28"
           >
             {saving ? "Salvando..." : "Cadastrar"}
           </button>
         </form>
 
-        <div className="mt-4">
+        <div className="mt-3">
           {items.length ? (
             <div className="grid gap-2">
               {items.map((item) => {

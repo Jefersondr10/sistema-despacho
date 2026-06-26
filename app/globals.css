@@ -54,4 +54,14 @@ textarea {
     min-height: auto !important;
     padding: 0 !important;
   }
+
+  .romaneio-sheet {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .romaneio-page-break {
+    break-after: page;
+    page-break-after: always;
+  }
 }

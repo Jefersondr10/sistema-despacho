@@ -129,6 +129,7 @@ export function PackageFilters({
   marketplaces,
   carriers,
   showSearch = false,
+  showBatchCodeSearch = false,
   chipControls = true,
   searchLabel = "Buscar rastreio bipado",
   onChange,
@@ -138,6 +139,7 @@ export function PackageFilters({
   marketplaces: Marketplace[];
   carriers: Carrier[];
   showSearch?: boolean;
+  showBatchCodeSearch?: boolean;
   chipControls?: boolean;
   searchLabel?: string;
   onChange: (filters: PackageFilterValues) => void;
@@ -349,7 +351,11 @@ export function PackageFilters({
 
       <div
         className={`mt-4 grid gap-4 md:grid-cols-2 ${
-          showSearch ? "xl:grid-cols-3" : "xl:grid-cols-2"
+          showSearch || showBatchCodeSearch
+            ? showSearch && showBatchCodeSearch
+              ? "xl:grid-cols-4"
+              : "xl:grid-cols-3"
+            : "xl:grid-cols-2"
         }`}
       >
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
@@ -418,6 +424,20 @@ export function PackageFilters({
               onChange={(event) => updateFilter("query", event.target.value)}
               className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               placeholder="Digite o código/rastreio bipado"
+            />
+          </label>
+        ) : null}
+
+        {showBatchCodeSearch ? (
+          <label className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
+            Codigo do lote
+            <input
+              value={filters.codigoLote ?? ""}
+              onChange={(event) =>
+                updateFilter("codigoLote", event.target.value)
+              }
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              placeholder="LOTE-8F3A92"
             />
           </label>
         ) : null}

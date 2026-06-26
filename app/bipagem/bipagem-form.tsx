@@ -27,6 +27,7 @@ import {
   cancelarSessaoBipagemAberta,
   cancelarPacotes,
   createSessaoBipagem,
+  finalizarCancelamentosEmLote,
   finalizarSessaoBipagemAberta,
   formatDatabaseError,
   getPacoteAtivoPorCodigo,
@@ -34,12 +35,16 @@ import {
   type ItemSessaoBipagemRow,
   mapItemSessaoRowToDispatchPackage,
   removerItemSessaoBipagem,
-  updatePacoteCanceladoJustificativa,
 } from "@/lib/database";
 
 type Notice = {
   type: "success" | "warning" | "danger" | "neutral";
   text: string;
+};
+
+type PendingCancellationItem = {
+  pacote: DispatchPackage;
+  justificativa_individual: string;
 };
 
 const nowIso = () => new Date().toISOString();
@@ -81,6 +86,9 @@ export function BipagemForm() {
   const [nextIndividualReason, setNextIndividualReason] = useState("");
   const [recentCancellations, setRecentCancellations] = useState<
     PackageCancellation[]
+  >([]);
+  const [pendingCancellations, setPendingCancellations] = useState<
+    PendingCancellationItem[]
   >([]);
   const [loadingOpenSession, setLoadingOpenSession] = useState(true);
   const [showClearSessionConfirm, setShowClearSessionConfirm] = useState(false);
@@ -139,11 +147,7 @@ export function BipagemForm() {
     (batch) => batch.id === selectedHistoryBatchId,
   );
   const selectedBatchPackages = selectedBatch
-    ? allPackages.filter(
-        (item) =>
-          item.lote_id === selectedBatch.id &&
-          item.loja_id === selectedBatch.loja_id,
-      )
+    ? allPackages.filter((item) => item.lote_id === selectedBatch.id)
     : [];
   const duplicateSessionCodes = useMemo(() => {
     const counts = new Map<string, number>();
@@ -264,6 +268,14 @@ export function BipagemForm() {
 
   function getCatalogStoreName(id: string) {
     return catalogs.stores.find((store) => store.id === id)?.name ?? id;
+  }
+
+  function getBatchCode(batch: { id: string; codigo_lote?: string | null }) {
+    return batch.codigo_lote || `LOTE-${batch.id.slice(0, 8).toUpperCase()}`;
+  }
+
+  function openBatchRomaneio(batchId: string) {
+    window.open(`/romaneio/${batchId}`, "_blank", "noopener,noreferrer");
   }
 
   function getMarketplaceIdByName(name: string) {
@@ -513,9 +525,10 @@ export function BipagemForm() {
       const result = await finalizarSessaoBipagemAberta(activeBatchId);
       await reload();
 
+      const batchCode = result?.codigo_lote || getBatchCode({ id: activeBatchId });
       setNotice({
         type: "success",
-        text: `${result?.total_pacotes ?? sessionPackages.length} pacotes finalizados no lote ${activeBatchId}.`,
+        text: `${result?.total_pacotes ?? sessionPackages.length} pacotes finalizados no lote ${batchCode}.`,
       });
       setSelectedHistoryBatchId(activeBatchId);
       resetSessionConfig();
@@ -592,7 +605,8 @@ export function BipagemForm() {
     if (
       codigoRastreio.trim() ||
       nextIndividualReason.trim() ||
-      cancellationReason.trim()
+      cancellationReason.trim() ||
+      pendingCancellations.length
     ) {
       setShowExitCancellationConfirm(true);
       return;
@@ -608,6 +622,7 @@ export function BipagemForm() {
     setCodigoRastreio("");
     setCancellationReason("");
     setNextIndividualReason("");
+    setPendingCancellations([]);
     setNotice({ type: "neutral", text: "Modo cancelamento desativado." });
     focusCodeField();
   }
@@ -646,6 +661,11 @@ export function BipagemForm() {
     const alreadyCanceled = cancellations.some(
       (item) => normalizeTrackingCode(item.codigo_pacote) === normalizedCode,
     );
+    const alreadyQueued = pendingCancellations.some(
+      (item) =>
+        item.pacote.id === activePackage?.id ||
+        normalizeTrackingCode(item.pacote.codigo_rastreio) === normalizedCode,
+    );
 
     if (!anyPackage) {
       setNotice({
@@ -667,83 +687,125 @@ export function BipagemForm() {
       return;
     }
 
-    const canceledAt = nowIso();
-    setSavingCancellation(true);
-    let record: PackageCancellation;
-    let result = { added: false };
-
-    try {
-      const savedRows = await cancelarPacotes({
-        cancelamentos: [
-          {
-            pacote_id: activePackage.id,
-            codigo_pacote: activePackage.codigo_rastreio,
-            loja_id: activePackage.loja_id,
-            marketplace_id: getMarketplaceIdByName(activePackage.marketplace),
-            transportadora_id: getCarrierIdByName(activePackage.transportadora),
-            sessao_id: activePackage.lote_id || null,
-            tipo_operacao: activePackage.tipo_operacao,
-            melhor_envio: activePackage.melhor_envio,
-            justificativa_geral: cleanGeneralReason,
-            justificativa_individual: nextIndividualReason.trim(),
-            bipado_em: activePackage.data_hora_bipagem,
-            cancelado_em: canceledAt,
-          },
-        ],
-        movimentacoes: [
-          {
-            pacote_id: activePackage.id,
-            loja_id: activePackage.loja_id,
-            sessao_id: activePackage.lote_id || null,
-            tipo_movimentacao: "Cancelamento",
-            descricao: `Pacote ${activePackage.codigo_rastreio} cancelado.`,
-            criada_em: canceledAt,
-          },
-        ],
-      });
-
-      record = {
-        ...makeCancellationRecord({
-          item: activePackage,
-          generalReason: cleanGeneralReason,
-          individualReason: nextIndividualReason.trim(),
-          canceledAt,
-        }),
-        id: savedRows[0]?.id ?? makeId("can"),
-      };
-      result = { added: true };
-      await reload();
-    } catch (error) {
-      setNotice({
-        type: "danger",
-        text: `Erro ao cancelar pacote: ${formatDatabaseError(error)}`,
-      });
-      setSavingCancellation(false);
-      focusCodeField();
-      return;
-    }
-
-    setSavingCancellation(false);
-
-    if (!result.added) {
+    if (alreadyQueued) {
       setNotice({
         type: "warning",
-        text: "Este pacote já foi cancelado anteriormente.",
+        text: "Este pacote ja esta na lista temporaria de cancelamento.",
       });
       setCodigoRastreio("");
       focusCodeField();
       return;
     }
 
-    setRecentCancellations((current) => [record, ...current].slice(0, 8));
+    setPendingCancellations((current) => [
+      {
+        pacote: activePackage,
+        justificativa_individual: nextIndividualReason.trim(),
+      },
+      ...current,
+    ]);
     setNotice({
       type: "success",
-      text: `Pacote ${activePackage.codigo_rastreio} cancelado com histórico.`,
+      text: `Pacote ${activePackage.codigo_rastreio} adicionado para cancelamento.`,
     });
     setCodigoRastreio("");
     setNextIndividualReason("");
     focusCodeField();
   }
+
+  function updatePendingCancellationReason(
+    packageId: string,
+    justification: string,
+  ) {
+    setPendingCancellations((current) =>
+      current.map((item) =>
+        item.pacote.id === packageId
+          ? { ...item, justificativa_individual: justification }
+          : item,
+      ),
+    );
+  }
+
+  function removePendingCancellation(packageId: string) {
+    setPendingCancellations((current) =>
+      current.filter((item) => item.pacote.id !== packageId),
+    );
+  }
+
+  async function finalizePendingCancellations() {
+    if (savingCancellation) {
+      return;
+    }
+
+    const cleanGeneralReason = cancellationReason.trim();
+    if (!cleanGeneralReason) {
+      setNotice({
+        type: "warning",
+        text: "Informe a justificativa geral antes de finalizar cancelamentos.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    if (!pendingCancellations.length) {
+      setNotice({
+        type: "warning",
+        text: "Adicione ao menos um pacote para cancelar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    setSavingCancellation(true);
+
+    try {
+      const savedRows = await finalizarCancelamentosEmLote(
+        pendingCancellations.map((item) => ({
+          pacote_id: item.pacote.id,
+          justificativa_geral: cleanGeneralReason,
+          justificativa_individual: item.justificativa_individual,
+        })),
+      );
+      const savedByPackageId = new Map(
+        savedRows.map((item) => [item.pacote_id ?? "", item]),
+      );
+      const records = pendingCancellations.map((item) => {
+        const saved = savedByPackageId.get(item.pacote.id);
+
+        return {
+          ...makeCancellationRecord({
+            item: item.pacote,
+            generalReason: cleanGeneralReason,
+            individualReason: item.justificativa_individual,
+            canceledAt: saved?.cancelado_em ?? nowIso(),
+          }),
+          id: saved?.id ?? makeId("can"),
+          pacote_id: saved?.pacote_id ?? item.pacote.id,
+        };
+      });
+
+      await reload();
+      setRecentCancellations((current) => [...records, ...current].slice(0, 8));
+      setPendingCancellations([]);
+      setCancellationMode(false);
+      setCancellationReason("");
+      setNextIndividualReason("");
+      setCodigoRastreio("");
+      setNotice({
+        type: "success",
+        text: `${records.length} cancelamento(s) finalizado(s).`,
+      });
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao finalizar cancelamentos: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingCancellation(false);
+      focusCodeField();
+    }
+  }
+
 
   function cancelSessionPackage(item: DispatchPackage) {
     setPendingSessionCancelPackage(item);
@@ -868,27 +930,6 @@ export function BipagemForm() {
     focusCodeField();
   }
 
-  function updateRecentIndividualReason(
-    cancellationId: string,
-    justification: string,
-  ) {
-    setRecentCancellations((current) =>
-      current.map((item) =>
-        item.id === cancellationId
-          ? { ...item, justificativa_individual: justification }
-          : item,
-      ),
-    );
-    void updatePacoteCanceladoJustificativa(cancellationId, justification).catch(
-      (error) => {
-        setNotice({
-          type: "danger",
-          text: `Erro ao atualizar justificativa: ${formatDatabaseError(error)}`,
-        });
-      },
-    );
-  }
-
   const sessionHeader = (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
       <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-950">
@@ -943,8 +984,8 @@ export function BipagemForm() {
             MODO CANCELAMENTO ATIVO
           </p>
           <p className="mt-1 text-sm font-medium leading-6">
-            Os pacotes bipados aqui serão cancelados, removidos da lista de
-            pacotes ativos e enviados para Pacotes Cancelados.
+            Bipe os pacotes, revise a lista e finalize todos os cancelamentos
+            de uma vez.
           </p>
         </div>
       ) : null}
@@ -1112,11 +1153,10 @@ export function BipagemForm() {
             </Badge>
           </div>
 
-          {sessionOpen || cancellationMode ? (
+          {sessionOpen ? (
             <div className="mt-5 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900">
-              {cancellationMode
-                ? "Modo cancelamento ativo. A configuração de bipagem fica bloqueada até sair deste modo."
-                : "Sessão aberta. Para alterar loja, marketplace, operação ou Melhor Envio, finalize ou cancele a bipagem atual."}
+              Sessão aberta. Para alterar loja, marketplace, operação ou Melhor
+              Envio, finalize ou cancele a bipagem atual.
             </div>
           ) : null}
         </div>
@@ -1185,16 +1225,26 @@ export function BipagemForm() {
                   : "bg-slate-950 hover:bg-slate-800 focus:ring-slate-200"
               } ${submitDisabled ? "cursor-not-allowed opacity-70" : ""}`}
             >
-              {cancellationMode ? "Cancelar pacote" : "Bipar pacote"}
+              {cancellationMode ? "Adicionar a lista" : "Bipar pacote"}
             </button>
             {cancellationMode ? (
-              <button
-                type="button"
-                onClick={requestExitCancellationMode}
-                className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-white px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-100"
-              >
-                Sair do modo cancelamento
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={finalizePendingCancellations}
+                  disabled={savingCancellation || !pendingCancellations.length}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md bg-rose-700 px-5 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  Finalizar cancelamentos
+                </button>
+                <button
+                  type="button"
+                  onClick={requestExitCancellationMode}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-white px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                >
+                  Sair do modo cancelamento
+                </button>
+              </>
             ) : (
               <>
                 <button
@@ -1233,30 +1283,83 @@ export function BipagemForm() {
             </div>
           ) : null}
 
-          {cancellationMode && recentCancellations.length ? (
+          {cancellationMode ? (
             <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
-              <h3 className="text-sm font-semibold text-rose-950">
-                Cancelados nesta sessão
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-rose-950">
+                  Pacotes para cancelar
+                </h3>
+                <Badge tone="red">{pendingCancellations.length} na lista</Badge>
+              </div>
+
+              {pendingCancellations.length ? (
+                <div className="mt-3 space-y-3">
+                  {pendingCancellations.map((item) => (
+                    <div
+                      key={item.pacote.id}
+                      className="grid gap-3 rounded-md border border-rose-100 bg-white p-3 text-sm text-slate-700"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-all font-mono font-semibold text-slate-950">
+                            {item.pacote.codigo_rastreio}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                            {getCatalogStoreName(item.pacote.loja_id)} ·{" "}
+                            {item.pacote.marketplace} ·{" "}
+                            {getOperationLabel(item.pacote.tipo_operacao)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Melhor Envio: {item.pacote.melhor_envio ? "Sim" : "Nao"} ·{" "}
+                            {item.pacote.transportadora || "Sem transportadora"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePendingCancellation(item.pacote.id)}
+                          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                      <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                        Justificativa individual
+                        <input
+                          value={item.justificativa_individual}
+                          onChange={(event) =>
+                            updatePendingCancellationReason(
+                              item.pacote.id,
+                              event.target.value,
+                            )
+                          }
+                          className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                          placeholder="Opcional"
+                        />
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <EmptyState>
+                    Nenhum pacote na lista. Bipe um pacote para preparar o
+                    cancelamento.
+                  </EmptyState>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {!cancellationMode && recentCancellations.length ? (
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-slate-950">
+                Ultimos cancelamentos
               </h3>
-              <div className="mt-3 space-y-3">
+              <div className="mt-3 flex flex-wrap gap-2">
                 {recentCancellations.map((item) => (
-                  <label
-                    key={item.id}
-                    className="grid gap-2 rounded-md border border-rose-100 bg-white p-3 text-sm font-medium text-slate-700"
-                  >
-                    <span className="font-mono font-semibold text-slate-950">
-                      {item.codigo_pacote}
-                    </span>
-                    Justificativa individual
-                    <input
-                      value={item.justificativa_individual}
-                      onChange={(event) =>
-                        updateRecentIndividualReason(item.id, event.target.value)
-                      }
-                      className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                      placeholder="Opcional"
-                    />
-                  </label>
+                  <Badge key={item.id} tone="red">
+                    {item.codigo_pacote}
+                  </Badge>
                 ))}
               </div>
             </div>
@@ -1374,85 +1477,165 @@ export function BipagemForm() {
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          {sortedBatches.length ? (
-            <div className="space-y-3">
-              {sortedBatches.map((batch) => (
-                <div
-                  key={batch.id}
-                  className={`rounded-lg border p-3 text-sm ${
-                    selectedHistoryBatchId === batch.id
-                      ? "border-teal-300 bg-teal-50"
-                      : "border-slate-200"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="font-semibold text-slate-950">
-                        {getCatalogStoreName(batch.loja_id)} ·{" "}
-                        {batch.total_pacotes} pacotes
-                      </p>
-                      <p className="mt-1 text-slate-500">
-                        {batch.marketplace} ·{" "}
-                        {getOperationLabel(batch.tipo_operacao)} ·{" "}
-                        {batch.finalizado_em
-                          ? formatPackageDate(batch.finalizado_em)
-                          : "em aberto"}
-                      </p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedHistoryBatchId(batch.id)}
-                      className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
-                    >
-                      Abrir lote
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <EmptyState>Nenhum lote finalizado.</EmptyState>
-          )}
-
-          <div className="mt-5 border-t border-slate-100 pt-5">
-            {selectedBatch ? (
-              <div>
-                <div className="mb-3 flex flex-wrap items-center gap-2">
-                  <Badge tone="green">Lote aberto</Badge>
-                  <Badge tone="neutral">
-                    Loja: {getCatalogStoreName(selectedBatch.loja_id)}
-                  </Badge>
-                  <Badge tone="blue">{selectedBatch.marketplace}</Badge>
-                  <OperationBadge operation={selectedBatch.tipo_operacao} />
-                </div>
-
-                {selectedBatchPackages.length ? (
-                  <div className="space-y-2">
-                    {selectedBatchPackages.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
-                      >
-                        <span className="font-mono text-sm font-semibold text-slate-950">
-                          {item.codigo_rastreio}
-                        </span>
-                        <StatusBadge status={item.status} />
+            {sortedBatches.length ? (
+              <div className="space-y-3">
+                {sortedBatches.map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="rounded-lg border border-slate-200 p-3 text-sm transition hover:border-slate-300"
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-base font-semibold text-slate-950">
+                          {getBatchCode(batch)}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {getCatalogStoreName(batch.loja_id)} · {batch.marketplace} ·{" "}
+                          {getOperationLabel(batch.tipo_operacao)}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {batch.finalizado_em
+                            ? formatPackageDate(batch.finalizado_em)
+                            : "em aberto"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {batch.total_pacotes} {batch.total_pacotes === 1 ? "pacote" : "pacotes"}
+                        </p>
                       </div>
-                    ))}
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedHistoryBatchId(batch.id)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          Abrir lote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openBatchRomaneio(batch.id)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Romaneio
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <EmptyState>
-                    Nenhum pacote encontrado para este lote e loja.
-                  </EmptyState>
-                )}
+                ))}
               </div>
             ) : (
-              <EmptyState>Selecione um lote finalizado para abrir.</EmptyState>
+              <EmptyState>Nenhum lote finalizado.</EmptyState>
             )}
-          </div>
           </div>
         </div>
       </div>
+
+      {selectedBatch ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-modal-title"
+        >
+          <div className="flex max-h-[88vh] w-full max-w-5xl flex-col rounded-lg border border-slate-200 bg-white shadow-xl">
+            <div className="flex flex-col gap-3 border-b border-slate-200 p-5 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="font-mono text-sm font-semibold text-teal-700">
+                  {getBatchCode(selectedBatch)}
+                </p>
+                <h2
+                  id="batch-modal-title"
+                  className="mt-1 text-xl font-semibold text-slate-950"
+                >
+                  Lote de bipagem
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedBatch.finalizado_em
+                    ? formatPackageDate(selectedBatch.finalizado_em)
+                    : "Lote sem finalizacao"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => openBatchRomaneio(selectedBatch.id)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Imprimir Romaneio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistoryBatchId("")}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto p-5">
+              <div className="grid gap-3 text-sm md:grid-cols-3">
+                <div>
+                  <span className="font-semibold text-slate-700">Loja:</span>{" "}
+                  {getCatalogStoreName(selectedBatch.loja_id)}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Marketplace:
+                  </span>{" "}
+                  {selectedBatch.marketplace}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Operacao:
+                  </span>{" "}
+                  {getOperationLabel(selectedBatch.tipo_operacao)}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Melhor Envio:
+                  </span>{" "}
+                  {selectedBatch.melhor_envio ? "Sim" : "Nao"}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Transportadora:
+                  </span>{" "}
+                  {selectedBatch.transportadora || "Sem transportadora"}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">Total:</span>{" "}
+                  {selectedBatchPackages.length} pacotes
+                </div>
+              </div>
+
+              <div className="mt-5">
+                {selectedBatchPackages.length ? (
+                  <ol className="space-y-2">
+                    {selectedBatchPackages.map((item, index) => (
+                      <li
+                        key={item.id}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
+                      >
+                        <div className="min-w-0">
+                          <span className="mr-3 text-sm font-semibold text-slate-400">
+                            {index + 1}.
+                          </span>
+                          <span className="break-all font-mono text-sm font-semibold text-slate-950">
+                            {item.codigo_rastreio}
+                          </span>
+                        </div>
+                        <StatusBadge status={item.status} />
+                      </li>
+                    ))}
+                  </ol>
+                ) : (
+                  <EmptyState>Nenhum pacote encontrado para este lote.</EmptyState>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <ConfirmDialog
         open={showClearSessionConfirm}

@@ -63,6 +63,112 @@ function getSummaryStores(item: Record<string, unknown>) {
   }));
 }
 
+function getRomaneioGroups(relatorio: Record<string, unknown>) {
+  const groups = Array.isArray(relatorio.romaneios)
+    ? relatorio.romaneios.filter(isRecord)
+    : [];
+
+  return groups.map((group) => ({
+    codigo_lote: getOptionalString(group.codigo_lote) || "Lote sem codigo",
+    loja_nome: getOptionalString(group.loja_nome) || "Loja nao informada",
+    marketplace:
+      getOptionalString(group.marketplace) || "Marketplace nao informado",
+    tipo_operacao: getOperationLabel(group.tipo_operacao),
+    melhor_envio: Boolean(group.melhor_envio),
+    transportadora:
+      getOptionalString(group.transportadora) || "Sem transportadora",
+    pacotes: Array.isArray(group.pacotes)
+      ? group.pacotes.filter(isRecord).map((item) => ({
+          codigo_rastreio:
+            getOptionalString(item.codigo_rastreio) || "Sem codigo",
+        }))
+      : [],
+  }));
+}
+
+function buildRomaneioEmail(
+  payload: Record<string, unknown>,
+  relatorio: Record<string, unknown>,
+): EmailContent {
+  const subject =
+    getOptionalString(payload.assunto) || "Romaneio de Entrega / Coleta";
+  const groups = getRomaneioGroups(relatorio);
+  const totalPacotes = groups.reduce(
+    (total, group) => total + group.pacotes.length,
+    0,
+  );
+  const groupsHtml = groups.length
+    ? groups
+        .map((group) => {
+          const rows = group.pacotes.length
+            ? group.pacotes
+                .map(
+                  (item, index) => `
+                    <tr>
+                      <td>${index + 1}</td>
+                      <td>${escapeHtml(item.codigo_rastreio)}</td>
+                      <td></td>
+                    </tr>
+                  `,
+                )
+                .join("")
+            : '<tr><td colspan="3">Nenhum pacote neste lote.</td></tr>';
+
+          return `
+            <section style="margin: 0 0 28px">
+              <h2 style="font-size: 18px; margin: 0 0 10px">${escapeHtml(group.codigo_lote)}</h2>
+              <p style="margin: 0 0 10px">
+                <strong>Loja:</strong> ${escapeHtml(group.loja_nome)} |
+                <strong>Marketplace:</strong> ${escapeHtml(group.marketplace)} |
+                <strong>Operacao:</strong> ${escapeHtml(group.tipo_operacao)} |
+                <strong>Melhor Envio:</strong> ${group.melhor_envio ? "Sim" : "Nao"} |
+                <strong>Transportadora:</strong> ${escapeHtml(group.transportadora)}
+              </p>
+              <p style="margin: 0 0 12px"><strong>Data:</strong> ____/____/______</p>
+              <table cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px">
+                <thead>
+                  <tr style="background: #f8fafc">
+                    <th align="left">No</th>
+                    <th align="left">Codigo/rastreio</th>
+                    <th align="left">Observacao</th>
+                  </tr>
+                </thead>
+                <tbody>${rows}</tbody>
+              </table>
+            </section>
+          `;
+        })
+        .join("")
+    : "<p>Nenhum pacote encontrado para os filtros aplicados.</p>";
+
+  const html = `
+    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5">
+      <h1 style="font-size: 22px; margin: 0 0 12px">ROMANEIO DE ENTREGA / COLETA</h1>
+      <p style="margin: 0 0 16px">Total geral: <strong>${totalPacotes}</strong> pacotes.</p>
+      ${groupsHtml}
+      <p style="margin-top: 24px">Declaro que os pacotes listados neste romaneio foram entregues/recebidos conforme relacao acima.</p>
+      <p style="margin-top: 24px"><strong>Quem entrega</strong><br />Nome: ____________________<br />Documento: _______________<br />Assinatura: ______________</p>
+      <p style="margin-top: 24px"><strong>Quem coleta/recebe</strong><br />Nome: ____________________<br />Documento: _______________<br />Assinatura: ______________</p>
+    </div>
+  `;
+
+  const text = [
+    "ROMANEIO DE ENTREGA / COLETA",
+    `Total geral: ${totalPacotes} pacotes`,
+    "",
+    ...groups.flatMap((group) => [
+      group.codigo_lote,
+      `${group.loja_nome} | ${group.marketplace} | ${group.tipo_operacao}`,
+      ...group.pacotes.map(
+        (item, index) => `${index + 1}. ${item.codigo_rastreio}`,
+      ),
+      "",
+    ]),
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
 function buildReportEmail(payload: Record<string, unknown>): EmailContent {
   const subject =
     getOptionalString(payload.assunto) || "Relatório de Despacho";
@@ -73,6 +179,10 @@ function buildReportEmail(payload: Record<string, unknown>): EmailContent {
   const totalPacotes =
     typeof relatorio.totalPacotes === "number" ? relatorio.totalPacotes : 0;
   const modo = getOptionalString(relatorio.modo) || "resumido";
+  if (modo === "romaneio") {
+    return buildRomaneioEmail(payload, relatorio);
+  }
+
   const resumo = Array.isArray(relatorio.resumo) ? relatorio.resumo : [];
   const resumoRows = resumo.filter(isRecord).slice(0, 40);
   const filterItems = Object.entries(filtrosResumo);

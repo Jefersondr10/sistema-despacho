@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PackageFilters } from "@/app/_components/package-filters";
 import {
+  RomaneioDocument,
+  type RomaneioGroup,
+} from "@/app/_components/romaneio-document";
+import {
   Badge,
   EmptyState,
   FeedbackMessage,
@@ -30,7 +34,7 @@ import {
 } from "@/lib/database";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
-type ReportMode = "resumido" | "detalhado" | "todos";
+type ReportMode = "resumido" | "detalhado" | "todos" | "romaneio";
 
 type Notice = {
   tone: "success" | "warning" | "danger" | "neutral";
@@ -67,6 +71,7 @@ function getFilterSummary(
           .join(", ")
       : "Todas",
     tipoOperacao: getOperationLabel(filters.tipoOperacao),
+    codigoLote: filters.codigoLote?.trim() || "Todos",
   };
 }
 
@@ -87,7 +92,8 @@ function parseManualEmails(value: string) {
 }
 
 export function RelatoriosView() {
-  const { catalogs, packages, loading, error } = useSupabaseDispatchData();
+  const { catalogs, packages, batches, loading, error } =
+    useSupabaseDispatchData();
   const [mode, setMode] = useState<ReportMode>("resumido");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const [recipients, setRecipients] = useState<RelatorioDestinatarioRow[]>([]);
@@ -103,6 +109,44 @@ export function RelatoriosView() {
   );
   const summary = getReportSummary(filteredPackages, catalogs.stores);
   const filterSummary = getFilterSummary(filters, catalogs.stores);
+  const batchesById = useMemo(
+    () => new Map(batches.map((batch) => [batch.id, batch])),
+    [batches],
+  );
+  const romaneioGroups = useMemo<RomaneioGroup[]>(() => {
+    const grouped = new Map<string, RomaneioGroup>();
+
+    for (const item of filteredPackages) {
+      const batch = batchesById.get(item.lote_id);
+      const batchCode =
+        batch?.codigo_lote ||
+        item.codigo_lote ||
+        `LOTE-${(item.lote_id || item.id).slice(0, 8).toUpperCase()}`;
+      const groupId = item.lote_id || item.id;
+      const current = grouped.get(groupId);
+
+      if (current) {
+        current.pacotes.push(item);
+        continue;
+      }
+
+      grouped.set(groupId, {
+        id: groupId,
+        codigo_lote: batchCode,
+        loja_nome: getStoreName(item.loja_id, catalogs.stores),
+        marketplace: item.marketplace,
+        tipo_operacao: item.tipo_operacao,
+        melhor_envio: item.melhor_envio,
+        transportadora: item.transportadora,
+        data: batch?.finalizado_em ?? item.data_hora_bipagem,
+        pacotes: [item],
+      });
+    }
+
+    return Array.from(grouped.values()).sort((first, second) =>
+      second.data.localeCompare(first.data),
+    );
+  }, [batchesById, catalogs.stores, filteredPackages]);
   const allRecipientIds = useMemo(
     () => recipients.map((item) => item.id),
     [recipients],
@@ -206,13 +250,28 @@ export function RelatoriosView() {
         body: JSON.stringify({
           destinatarioIds: selectedRecipientIds,
           emailsManuais: manualEmails,
-          assunto: "Relatório de Despacho",
+          assunto:
+            mode === "romaneio"
+              ? "Romaneio de Entrega / Coleta"
+              : "Relatório de Despacho",
           filtros: filters,
           filtrosResumo: filterSummary,
           relatorio: {
             modo: mode,
             totalPacotes: filteredPackages.length,
             resumo: summary,
+            romaneios: romaneioGroups.map((group) => ({
+              codigo_lote: group.codigo_lote,
+              loja_nome: group.loja_nome,
+              marketplace: group.marketplace,
+              tipo_operacao: group.tipo_operacao,
+              melhor_envio: group.melhor_envio,
+              transportadora: group.transportadora,
+              data: group.data,
+              pacotes: group.pacotes.map((item) => ({
+                codigo_rastreio: item.codigo_rastreio,
+              })),
+            })),
           },
         }),
       });
@@ -255,6 +314,7 @@ export function RelatoriosView() {
         marketplaces={catalogs.marketplaces}
         carriers={catalogs.carriers}
         chipControls
+        showBatchCodeSearch
         onChange={setFilters}
       />
 
@@ -380,11 +440,12 @@ export function RelatoriosView() {
           </div>
 
           <div className="no-print flex flex-col gap-3 sm:flex-row">
-            <div className="inline-grid grid-cols-3 rounded-lg border border-slate-200 bg-slate-50 p-1">
+            <div className="inline-grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:grid-cols-4">
               {[
                 { label: "Resumido", value: "resumido" },
                 { label: "Detalhado", value: "detalhado" },
                 { label: "Tudo", value: "todos" },
+                { label: "Romaneio", value: "romaneio" },
               ].map((item) => (
                 <button
                   key={item.value}
@@ -405,14 +466,16 @@ export function RelatoriosView() {
               onClick={generatePdf}
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
             >
-              Gerar PDF
+              {mode === "romaneio" ? "Imprimir" : "Gerar PDF"}
             </button>
           </div>
         </div>
 
         <div className="print-report-header border-b border-slate-100 p-5">
           <h2 className="text-xl font-semibold text-slate-950">
-            Relatório de Despacho
+            {mode === "romaneio"
+              ? "Romaneio de Entrega / Coleta"
+              : "Relatório de Despacho"}
           </h2>
           <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
             <p>
@@ -443,6 +506,12 @@ export function RelatoriosView() {
               </span>{" "}
               {filterSummary.tipoOperacao}
             </p>
+            <p>
+              <span className="font-semibold text-slate-700">
+                Código do lote:
+              </span>{" "}
+              {filterSummary.codigoLote}
+            </p>
           </div>
         </div>
 
@@ -450,7 +519,18 @@ export function RelatoriosView() {
           Total geral: {filteredPackages.length} pacotes.
         </div>
 
-        {summary.length ? (
+        {mode === "romaneio" ? (
+          <div className="p-5">
+            {romaneioGroups.length ? (
+              <RomaneioDocument
+                groups={romaneioGroups}
+                totalLabel="Total geral"
+              />
+            ) : (
+              <EmptyState>Nenhum pacote para gerar romaneio.</EmptyState>
+            )}
+          </div>
+        ) : summary.length ? (
           <div className="p-5">
             <h3 className="mb-4 text-base font-semibold text-slate-950">
               Resumo agrupado
@@ -518,7 +598,7 @@ export function RelatoriosView() {
           </div>
         )}
 
-        {mode !== "resumido" && filteredPackages.length ? (
+        {mode !== "resumido" && mode !== "romaneio" && filteredPackages.length ? (
           <div className="overflow-x-auto border-t border-slate-100">
             <table className="w-full min-w-[1220px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">

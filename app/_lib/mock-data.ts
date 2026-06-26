@@ -40,6 +40,7 @@ export type MovementType =
 export type DispatchPackage = {
   id: string;
   lote_id: string;
+  codigo_lote?: string | null;
   loja_id: Store["id"];
   codigo_rastreio: string;
   marketplace: string;
@@ -57,6 +58,7 @@ export type PackageCancellation = {
   loja_id: Store["id"];
   loja_nome: string;
   sessao_id: string;
+  codigo_lote?: string | null;
   codigo_pacote: string;
   marketplace: string;
   tipo_operacao: OperationType;
@@ -86,6 +88,7 @@ export type PackageMovement = {
 
 export type DispatchBatch = {
   id: string;
+  codigo_lote?: string | null;
   loja_id: Store["id"];
   marketplace: string;
   melhor_envio: boolean;
@@ -114,6 +117,7 @@ export type PackageFilterValues = {
   lojaId: string[];
   tipoOperacao: OperationFilter;
   query?: string;
+  codigoLote?: string;
 };
 
 export type ReportSummaryItem = {
@@ -512,6 +516,7 @@ export function createDefaultPackageFilters(): PackageFilterValues {
     lojaId: [],
     tipoOperacao: "todos",
     query: "",
+    codigoLote: "",
   };
 }
 
@@ -678,6 +683,7 @@ export function filterPackages(
   filters: PackageFilterValues,
 ) {
   const query = normalizeTrackingCode(filters.query ?? "");
+  const codigoLote = normalizeTrackingCode(filters.codigoLote ?? "");
   const { startDate, endDate } = getDateRangeFromFilters(filters);
 
   return packages.filter((item) => {
@@ -705,6 +711,11 @@ export function filterPackages(
       item.tipo_operacao === filters.tipoOperacao;
     const matchesQuery =
       !query || normalizeTrackingCode(item.codigo_rastreio).includes(query);
+    const matchesBatchCode =
+      !codigoLote ||
+      normalizeTrackingCode(item.codigo_lote ?? item.lote_id).includes(
+        codigoLote,
+      );
 
     return (
       matchesDate &&
@@ -713,7 +724,8 @@ export function filterPackages(
       matchesCarrier &&
       matchesStore &&
       matchesOperation &&
-      matchesQuery
+      matchesQuery &&
+      matchesBatchCode
     );
   });
 }

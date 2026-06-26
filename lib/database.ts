@@ -71,6 +71,7 @@ export type RelatorioEnvioRow = {
 
 export type SessaoBipagemRow = {
   id: string;
+  codigo_lote: string | null;
   loja_id: string;
   marketplace_id: string;
   tipo_operacao: TipoOperacao;
@@ -235,8 +236,15 @@ export type CreateItemSessaoBipagemInput = {
 
 export type FinalizarSessaoBipagemResult = {
   sessao_id: string;
+  codigo_lote?: string | null;
   total_pacotes: number;
   finalizada_em: string;
+};
+
+export type FinalizarCancelamentoLoteInput = {
+  pacote_id: string;
+  justificativa_geral: string;
+  justificativa_individual?: string | null;
 };
 
 export type CreatePacoteInput = {
@@ -605,6 +613,7 @@ export function mapPacoteRowToDispatchPackage(
   return {
     id: row.id,
     lote_id: row.sessao_id ?? "",
+    codigo_lote: row.sessao?.codigo_lote ?? null,
     loja_id: row.loja_id,
     codigo_rastreio: row.codigo,
     marketplace: row.marketplace?.nome ?? row.marketplace_id,
@@ -626,6 +635,7 @@ export function mapSessaoRowToDispatchBatch(
 
   return {
     id: row.id,
+    codigo_lote: row.codigo_lote,
     loja_id: row.loja_id,
     marketplace: row.marketplace?.nome ?? row.marketplace_id,
     melhor_envio: row.melhor_envio,
@@ -650,6 +660,7 @@ export function mapItemSessaoRowToDispatchPackage(
   return {
     id: row.id,
     lote_id: row.sessao_id,
+    codigo_lote: sessao.codigo_lote,
     loja_id: sessao.loja_id,
     codigo_rastreio: row.codigo_normalizado,
     marketplace: sessao.marketplace?.nome ?? sessao.marketplace_id,
@@ -671,6 +682,7 @@ export function mapCancelamentoRowToPackageCancellation(
     loja_id: row.loja_id,
     loja_nome: row.loja?.nome ?? row.loja_id,
     sessao_id: row.sessao_id ?? "",
+    codigo_lote: row.sessao?.codigo_lote ?? null,
     codigo_pacote: row.codigo_pacote,
     marketplace: row.marketplace?.nome ?? row.marketplace_id ?? "",
     tipo_operacao: row.tipo_operacao ?? "postagem",
@@ -1837,6 +1849,29 @@ export async function cancelarPacotes({
   }
 
   return data ?? [];
+}
+
+export async function finalizarCancelamentosEmLote(
+  cancelamentos: FinalizarCancelamentoLoteInput[],
+) {
+  if (!cancelamentos.length) {
+    return [];
+  }
+
+  const supabase = getSupabaseClient();
+  const { data, error } = await supabase.rpc("finalizar_cancelamentos_lote", {
+    p_cancelamentos: cancelamentos.map((item) => ({
+      pacote_id: item.pacote_id,
+      justificativa_geral: item.justificativa_geral,
+      justificativa_individual: item.justificativa_individual ?? null,
+    })),
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  return (data ?? []) as PacoteCanceladoRow[];
 }
 
 export async function cancelarPacote(input: CancelarPacoteInput) {
