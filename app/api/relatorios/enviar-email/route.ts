@@ -5,8 +5,13 @@ import {
   formatDatabaseError,
   getRelatorioDestinatarios,
   validateEmailAddress,
+  type DatabaseContext,
 } from "@/lib/database";
-import { getSupabaseClient, isSupabaseConfigured } from "@/lib/supabaseClient";
+import {
+  createSupabaseClientForAccessToken,
+  getSupabaseClient,
+  isSupabaseConfigured,
+} from "@/lib/supabaseClient";
 
 export const dynamic = "force-dynamic";
 
@@ -328,7 +333,7 @@ async function saveHistory({
   filtros: Record<string, unknown>;
   status: "sucesso" | "erro";
   erro?: string | null;
-}) {
+}, context: DatabaseContext) {
   try {
     await createRelatorioEnvioHistorico({
       destinatarios,
@@ -336,7 +341,7 @@ async function saveHistory({
       filtros,
       status,
       erro,
-    });
+    }, context);
   } catch (historyError) {
     console.error("Falha ao salvar historico de envio:", historyError);
   }
@@ -372,6 +377,11 @@ export async function POST(request: Request) {
     );
   }
 
+  const databaseContext: DatabaseContext = {
+    supabase: createSupabaseClientForAccessToken(token),
+    userId: userData.user.id,
+  };
+
   let payload: unknown;
   try {
     payload = await request.json();
@@ -406,7 +416,7 @@ export async function POST(request: Request) {
 
   let ativos: Awaited<ReturnType<typeof getRelatorioDestinatarios>>;
   try {
-    ativos = await getRelatorioDestinatarios();
+    ativos = await getRelatorioDestinatarios(undefined, databaseContext);
   } catch (databaseError) {
     return NextResponse.json(
       {
@@ -459,7 +469,7 @@ export async function POST(request: Request) {
       assunto: emailContent.subject,
       filtros,
       status: "sucesso",
-    });
+    }, databaseContext);
 
     return NextResponse.json({
       ok: true,
@@ -473,7 +483,7 @@ export async function POST(request: Request) {
       filtros,
       status: "erro",
       erro: message,
-    });
+    }, databaseContext);
 
     return NextResponse.json(
       { ok: false, message },

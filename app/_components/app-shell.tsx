@@ -140,7 +140,11 @@ function AppShellContent({ children }: { children: ReactNode }) {
     return <>{children}</>;
   }
 
-  return <ProtectedAppShell>{children}</ProtectedAppShell>;
+  return (
+    <ProtectedAppShell key={session?.user.id ?? "sem-sessao"}>
+      {children}
+    </ProtectedAppShell>
+  );
 }
 
 export function AppShell({ children }: { children: ReactNode }) {

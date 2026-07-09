@@ -39,3 +39,29 @@ export function getSupabaseClient() {
 
   return cachedClient;
 }
+
+export function createSupabaseClientForAccessToken(accessToken: string) {
+  const { url, publishableKey } = getSupabaseConfig();
+  const token = accessToken.trim();
+
+  if (!url || !publishableKey) {
+    throw new Error(SUPABASE_NOT_CONFIGURED_MESSAGE);
+  }
+
+  if (!token) {
+    throw new Error("Token de acesso obrigatorio.");
+  }
+
+  return createClient(url, publishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    },
+  });
+}

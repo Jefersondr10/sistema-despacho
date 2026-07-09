@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 
+import { useAuth } from "@/app/_lib/auth-context";
 import type {
   Carrier,
   DispatchBatch,
@@ -68,6 +69,8 @@ const initialState: DispatchDataState = {
 };
 
 export function useSupabaseDispatchData() {
+  const { loading: authLoading, user } = useAuth();
+  const userId = user?.id ?? "";
   const [state, setState] = useState<DispatchDataState>(initialState);
 
   const reload = useCallback(async () => {
@@ -80,9 +83,20 @@ export function useSupabaseDispatchData() {
       return;
     }
 
+    if (authLoading) {
+      setState((current) => ({ ...current, loading: true, error: "" }));
+      return;
+    }
+
+    if (!userId) {
+      setState({ ...initialState, loading: false });
+      return;
+    }
+
     setState((current) => ({ ...current, loading: true, error: "" }));
 
     try {
+      const databaseContext = { userId };
       const [
         lojasRows,
         marketplacesRows,
@@ -93,14 +107,17 @@ export function useSupabaseDispatchData() {
         movementRows,
         cancellationRows,
       ] = await Promise.all([
-        getLojas({ incluirInativos: true }),
-        getMarketplaces({ incluirInativos: true }),
-        getTransportadoras({ incluirInativos: true }),
-        getPacotesComRelacionamentos(),
-        getPacotesComRelacionamentos({ incluirCancelados: true }),
-        getSessoesBipagemComRelacionamentos(),
-        getMovimentacoes(),
-        getPacotesCanceladosComRelacionamentos(),
+        getLojas({ incluirInativos: true }, databaseContext),
+        getMarketplaces({ incluirInativos: true }, databaseContext),
+        getTransportadoras({ incluirInativos: true }, databaseContext),
+        getPacotesComRelacionamentos(undefined, databaseContext),
+        getPacotesComRelacionamentos(
+          { incluirCancelados: true },
+          databaseContext,
+        ),
+        getSessoesBipagemComRelacionamentos(undefined, databaseContext),
+        getMovimentacoes(databaseContext),
+        getPacotesCanceladosComRelacionamentos(undefined, databaseContext),
       ]);
 
       const packages = pacoteRows.map(mapPacoteRowToDispatchPackage);
@@ -127,7 +144,7 @@ export function useSupabaseDispatchData() {
         error: formatDatabaseError(error),
       }));
     }
-  }, []);
+  }, [authLoading, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -142,6 +159,10 @@ export function useSupabaseDispatchData() {
       cancelled = true;
     };
   }, [reload]);
+
+  useEffect(() => {
+    setState(userId ? initialState : { ...initialState, loading: false });
+  }, [userId]);
 
   return {
     ...state,

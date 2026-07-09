@@ -449,7 +449,9 @@ export function BipagemForm() {
     let duplicatedSavedPackage = null;
     setCheckingPackage(true);
     try {
-      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(normalizedCode);
+      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(normalizedCode, {
+        loja_id: selectedLojaId,
+      });
     } catch (error) {
       setNotice({
         type: "danger",
@@ -866,6 +868,7 @@ export function BipagemForm() {
     try {
       const savedPackage = await getPacoteAtivoPorCodigo(
         targetPackage.codigo_rastreio,
+        { loja_id: targetPackage.loja_id },
       );
       const savedRows = await cancelarPacotes({
         cancelamentos: [
