@@ -1,6 +1,6 @@
 -- Sistema de Despacho - schema inicial para Supabase
 -- Execute este arquivo no SQL Editor do Supabase.
--- Nesta fase ha login via Supabase Auth, sem tabela manual de usuarios, perfis ou RLS.
+-- Nesta fase nao ha controle de acesso na aplicacao; os dados sao separados por loja_id.
 
 create extension if not exists pgcrypto;
 
@@ -138,9 +138,10 @@ create index if not exists idx_pacotes_sessao_id
   on pacotes (sessao_id);
 
 drop index if exists idx_pacotes_codigo_normalizado;
+drop index if exists idx_pacotes_codigo_normalizado_ativos;
 
-create unique index if not exists idx_pacotes_codigo_normalizado_ativos
-  on pacotes (upper(regexp_replace(codigo, '\s+', '', 'g')))
+create unique index if not exists idx_pacotes_loja_codigo_normalizado_ativos
+  on pacotes (loja_id, upper(regexp_replace(codigo, '\s+', '', 'g')))
   where status <> 'cancelado';
 
 create index if not exists idx_movimentacoes_loja_id
@@ -314,17 +315,22 @@ set search_path = public
 as $$
 declare
   v_sessao_status text;
+  v_loja_id uuid;
   v_codigo_normalizado text;
   v_ordem integer;
 begin
-  select status
-    into v_sessao_status
+  select status, loja_id
+    into v_sessao_status, v_loja_id
   from public.sessoes_bipagem
   where id = p_sessao_id
   for update;
 
   if not found then
     raise exception 'Sessao de bipagem nao encontrada.';
+  end if;
+
+  if v_loja_id is null then
+    raise exception 'Selecione a loja antes de bipar.';
   end if;
 
   if v_sessao_status <> 'aberta' then
@@ -467,6 +473,7 @@ begin
   from public.itens_sessao_bipagem item
   join public.pacotes pacote
     on public.normalizar_codigo_pacote(pacote.codigo) = item.codigo_normalizado
+   and pacote.loja_id = v_sessao.loja_id
    and pacote.status <> 'cancelado'
   where item.sessao_id = p_sessao_id
     and item.status = 'pendente'
@@ -629,6 +636,10 @@ language plpgsql
 set search_path = public
 as $$
 begin
+  if new.loja_id is null then
+    raise exception 'Selecione a loja antes de iniciar a sessao.';
+  end if;
+
   if new.codigo_lote is null or btrim(new.codigo_lote) = '' then
     new.codigo_lote := public.gerar_codigo_lote(new.iniciada_em);
   else
@@ -713,6 +724,7 @@ begin
   from public.itens_sessao_bipagem item
   join public.pacotes pacote
     on public.normalizar_codigo_pacote(pacote.codigo) = item.codigo_normalizado
+   and pacote.loja_id = v_sessao.loja_id
    and pacote.status <> 'cancelado'
   where item.sessao_id = p_sessao_id
     and item.status = 'pendente'
@@ -943,3 +955,118 @@ alter table movimentacoes disable row level security;
 alter table pacotes_cancelados disable row level security;
 alter table relatorio_destinatarios disable row level security;
 alter table relatorio_envios disable row level security;
+
+-- ATENCAO DE SEGURANCA: esta primeira versao opera com a chave publica e sem
+-- controle de acesso. Nao exponha a aplicacao publicamente sem uma camada externa de
+-- protecao. A separacao operacional e feita exclusivamente por loja_id.
+
+create or replace function public.validar_loja_pacote()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.loja_id is null then
+    raise exception 'loja_id obrigatorio em pacotes.';
+  end if;
+
+  if new.sessao_id is not null and not exists (
+    select 1 from public.sessoes_bipagem sessao
+    where sessao.id = new.sessao_id
+      and sessao.loja_id = new.loja_id
+  ) then
+    raise exception 'A loja do pacote deve ser a mesma loja da sessao.';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.validar_loja_movimentacao()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.loja_id is null then
+    raise exception 'loja_id obrigatorio em movimentacoes.';
+  end if;
+
+  if new.pacote_id is not null and not exists (
+    select 1 from public.pacotes pacote
+    where pacote.id = new.pacote_id
+      and pacote.loja_id = new.loja_id
+  ) then
+    raise exception 'A loja da movimentacao deve ser a mesma loja do pacote.';
+  end if;
+
+  if new.sessao_id is not null and not exists (
+    select 1 from public.sessoes_bipagem sessao
+    where sessao.id = new.sessao_id
+      and sessao.loja_id = new.loja_id
+  ) then
+    raise exception 'A loja da movimentacao deve ser a mesma loja da sessao.';
+  end if;
+
+  return new;
+end;
+$$;
+
+create or replace function public.validar_loja_cancelamento()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  if new.loja_id is null then
+    raise exception 'loja_id obrigatorio em pacotes_cancelados.';
+  end if;
+
+  if new.pacote_id is not null and not exists (
+    select 1 from public.pacotes pacote
+    where pacote.id = new.pacote_id
+      and pacote.loja_id = new.loja_id
+  ) then
+    raise exception 'A loja do cancelamento deve ser a mesma loja do pacote.';
+  end if;
+
+  if new.sessao_id is not null and not exists (
+    select 1 from public.sessoes_bipagem sessao
+    where sessao.id = new.sessao_id
+      and sessao.loja_id = new.loja_id
+  ) then
+    raise exception 'A loja do cancelamento deve ser a mesma loja da sessao.';
+  end if;
+
+  return new;
+end;
+$$;
+
+drop trigger if exists validar_loja_pacote on public.pacotes;
+create trigger validar_loja_pacote
+  before insert or update of loja_id, sessao_id on public.pacotes
+  for each row execute function public.validar_loja_pacote();
+
+drop trigger if exists validar_loja_movimentacao on public.movimentacoes;
+create trigger validar_loja_movimentacao
+  before insert or update of loja_id, pacote_id, sessao_id on public.movimentacoes
+  for each row execute function public.validar_loja_movimentacao();
+
+drop trigger if exists validar_loja_cancelamento on public.pacotes_cancelados;
+create trigger validar_loja_cancelamento
+  before insert or update of loja_id, pacote_id, sessao_id on public.pacotes_cancelados
+  for each row execute function public.validar_loja_cancelamento();
+
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on table
+  public.lojas,
+  public.marketplaces,
+  public.transportadoras,
+  public.relatorio_destinatarios,
+  public.relatorio_envios,
+  public.sessoes_bipagem,
+  public.itens_sessao_bipagem,
+  public.pacotes,
+  public.movimentacoes,
+  public.pacotes_cancelados
+to anon, authenticated;

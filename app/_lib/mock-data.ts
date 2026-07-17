@@ -135,373 +135,51 @@ export type ReportSummaryItem = {
   }>;
 };
 
-export const stores: Store[] = [
-  {
-    id: "brasilia",
-    name: "Brasília",
-    document: "11.222.333/0001-44",
-    city: "Brasília, DF",
-    status: "Ativa",
-  },
-  {
-    id: "sao-paulo",
-    name: "São Paulo",
-    document: "55.666.777/0001-88",
-    city: "São Paulo, SP",
-    status: "Ativa",
-  },
-];
+export const stores: Store[] = [];
 
-export const marketplaces: Marketplace[] = [
-  {
-    id: "amazon",
-    name: "Amazon",
-    code: "AMZ",
-    status: "Ativo",
-  },
-  {
-    id: "shopee",
-    name: "Shopee",
-    code: "SHP",
-    status: "Ativo",
-  },
-  {
-    id: "mercado-livre",
-    name: "Mercado Livre",
-    code: "MLB",
-    status: "Ativo",
-  },
-  {
-    id: "tiktok-shop",
-    name: "TikTok Shop",
-    code: "TIK",
-    status: "Ativo",
-  },
-  {
-    id: "olx",
-    name: "OLX",
-    code: "OLX",
-    status: "Ativo",
-  },
-];
+export const marketplaces: Marketplace[] = [];
 
-export const carriers: Carrier[] = [
-  {
-    id: "correios",
-    name: "Correios",
-    service: "PAC e Sedex",
-    status: "Ativa",
-  },
-  {
-    id: "jadlog",
-    name: "Jadlog",
-    service: "Expresso",
-    status: "Ativa",
-  },
-  {
-    id: "loggi",
-    name: "Loggi",
-    service: "Coleta urbana",
-    status: "Ativa",
-  },
-  {
-    id: "azul-cargo",
-    name: "Azul Cargo",
-    service: "Aéreo",
-    status: "Pendente",
-  },
-];
+export const carriers: Carrier[] = [];
 
-export function getTodayDateString() {
-  const now = new Date();
-  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+export const SAO_PAULO_TIME_ZONE = "America/Sao_Paulo";
 
-  return local.toISOString().slice(0, 10);
+const saoPauloDateFormatter = new Intl.DateTimeFormat("en-US", {
+  timeZone: SAO_PAULO_TIME_ZONE,
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+export function getSaoPauloDateString(isoDate: string) {
+  const date = new Date(isoDate);
+
+  if (Number.isNaN(date.getTime())) {
+    throw new Error("Data ISO invalida.");
+  }
+
+  const parts = saoPauloDateFormatter.formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value;
+  const month = parts.find((part) => part.type === "month")?.value;
+  const day = parts.find((part) => part.type === "day")?.value;
+
+  if (!year || !month || !day) {
+    throw new Error("Nao foi possivel calcular a data em Sao Paulo.");
+  }
+
+  return `${year}-${month}-${day}`;
 }
 
-function addDays(dateString: string, days: number) {
-  const date = new Date(`${dateString}T12:00:00`);
-  date.setDate(date.getDate() + days);
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-
-  return local.toISOString().slice(0, 10);
+export function getTodayDateString(referenceIso = new Date().toISOString()) {
+  return getSaoPauloDateString(referenceIso);
 }
 
-function atTime(dateString: string, time: string) {
-  return `${dateString}T${time}-03:00`;
-}
+export const dispatchPackages: DispatchPackage[] = [];
 
-const today = getTodayDateString();
-const yesterday = addDays(today, -1);
-const twoDaysAgo = addDays(today, -2);
+export const dispatchBatches: DispatchBatch[] = [];
 
-export const dispatchPackages: DispatchPackage[] = [
-  {
-    id: "pkg-001",
-    lote_id: "lote-bsb-amazon-hoje",
-    loja_id: "brasilia",
-    codigo_rastreio: "BSB-AMZ-845713",
-    marketplace: "Amazon",
-    melhor_envio: true,
-    transportadora: "Correios",
-    tipo_operacao: "postagem",
-    status: "Bipado",
-    data_hora_bipagem: atTime(today, "08:15:00"),
-    criado_em: atTime(today, "08:15:05"),
-  },
-  {
-    id: "pkg-002",
-    lote_id: "lote-bsb-amazon-hoje",
-    loja_id: "brasilia",
-    codigo_rastreio: "BSB-AMZ-845714",
-    marketplace: "Amazon",
-    melhor_envio: true,
-    transportadora: "Jadlog",
-    tipo_operacao: "postagem",
-    status: "Pronto para envio",
-    data_hora_bipagem: atTime(today, "08:22:00"),
-    criado_em: atTime(today, "08:22:04"),
-  },
-  {
-    id: "pkg-003",
-    lote_id: "lote-bsb-shopee-hoje",
-    loja_id: "brasilia",
-    codigo_rastreio: "BSB-SHP-220198",
-    marketplace: "Shopee",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "coleta",
-    status: "Em separação",
-    data_hora_bipagem: atTime(today, "09:05:00"),
-    criado_em: atTime(today, "09:05:02"),
-  },
-  {
-    id: "pkg-004",
-    lote_id: "lote-bsb-mercado-livre-hoje",
-    loja_id: "brasilia",
-    codigo_rastreio: "BSB-MLB-991204",
-    marketplace: "Mercado Livre",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "postagem",
-    status: "Bipado",
-    data_hora_bipagem: atTime(today, "09:18:00"),
-    criado_em: atTime(today, "09:18:07"),
-  },
-  {
-    id: "pkg-005",
-    lote_id: "lote-bsb-tiktok-ontem",
-    loja_id: "brasilia",
-    codigo_rastreio: "BSB-TIK-338871",
-    marketplace: "TikTok Shop",
-    melhor_envio: true,
-    transportadora: "Loggi",
-    tipo_operacao: "coleta",
-    status: "Finalizado",
-    data_hora_bipagem: atTime(yesterday, "16:40:00"),
-    criado_em: atTime(yesterday, "16:40:02"),
-  },
-  {
-    id: "pkg-006",
-    lote_id: "lote-bsb-shopee-ontem",
-    loja_id: "brasilia",
-    codigo_rastreio: "BSB-SHP-220199",
-    marketplace: "Shopee",
-    melhor_envio: true,
-    transportadora: "Correios",
-    tipo_operacao: "postagem",
-    status: "Bipado",
-    data_hora_bipagem: atTime(yesterday, "17:12:00"),
-    criado_em: atTime(yesterday, "17:12:05"),
-  },
-  {
-    id: "pkg-007",
-    lote_id: "lote-sp-amazon-hoje",
-    loja_id: "sao-paulo",
-    codigo_rastreio: "SP-AMZ-845715",
-    marketplace: "Amazon",
-    melhor_envio: true,
-    transportadora: "Correios",
-    tipo_operacao: "postagem",
-    status: "Pronto para envio",
-    data_hora_bipagem: atTime(today, "10:03:00"),
-    criado_em: atTime(today, "10:03:05"),
-  },
-  {
-    id: "pkg-008",
-    lote_id: "lote-sp-shopee-hoje",
-    loja_id: "sao-paulo",
-    codigo_rastreio: "SP-SHP-220200",
-    marketplace: "Shopee",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "coleta",
-    status: "Em separação",
-    data_hora_bipagem: atTime(today, "10:17:00"),
-    criado_em: atTime(today, "10:17:03"),
-  },
-  {
-    id: "pkg-009",
-    lote_id: "lote-sp-mercado-livre-ontem",
-    loja_id: "sao-paulo",
-    codigo_rastreio: "SP-MLB-991205",
-    marketplace: "Mercado Livre",
-    melhor_envio: true,
-    transportadora: "Azul Cargo",
-    tipo_operacao: "postagem",
-    status: "Finalizado",
-    data_hora_bipagem: atTime(yesterday, "17:39:00"),
-    criado_em: atTime(yesterday, "17:39:04"),
-  },
-  {
-    id: "pkg-010",
-    lote_id: "lote-sp-amazon-ontem",
-    loja_id: "sao-paulo",
-    codigo_rastreio: "SP-AMZ-845716",
-    marketplace: "Amazon",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "coleta",
-    status: "Bipado",
-    data_hora_bipagem: atTime(yesterday, "18:02:00"),
-    criado_em: atTime(yesterday, "18:02:06"),
-  },
-  {
-    id: "pkg-011",
-    lote_id: "lote-sp-olx-antigo",
-    loja_id: "sao-paulo",
-    codigo_rastreio: "SP-OLX-338872",
-    marketplace: "OLX",
-    melhor_envio: true,
-    transportadora: "Jadlog",
-    tipo_operacao: "coleta",
-    status: "Bipado",
-    data_hora_bipagem: atTime(twoDaysAgo, "14:25:00"),
-    criado_em: atTime(twoDaysAgo, "14:25:03"),
-  },
-  {
-    id: "pkg-012",
-    lote_id: "lote-sp-shopee-antigo",
-    loja_id: "sao-paulo",
-    codigo_rastreio: "SP-SHP-220201",
-    marketplace: "Shopee",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "postagem",
-    status: "Cancelado",
-    data_hora_bipagem: atTime(twoDaysAgo, "15:01:00"),
-    criado_em: atTime(twoDaysAgo, "15:01:05"),
-  },
-];
+export const dispatchMovements: PackageMovement[] = [];
 
-export const dispatchBatches: DispatchBatch[] = [
-  {
-    id: "lote-bsb-amazon-hoje",
-    loja_id: "brasilia",
-    marketplace: "Amazon",
-    melhor_envio: true,
-    transportadora: "Correios",
-    tipo_operacao: "postagem",
-    status: "finalizada",
-    total_pacotes: 2,
-    criado_em: atTime(today, "08:15:00"),
-    finalizado_em: atTime(today, "08:25:00"),
-  },
-  {
-    id: "lote-bsb-shopee-hoje",
-    loja_id: "brasilia",
-    marketplace: "Shopee",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "coleta",
-    status: "finalizada",
-    total_pacotes: 1,
-    criado_em: atTime(today, "09:05:00"),
-    finalizado_em: atTime(today, "09:08:00"),
-  },
-  {
-    id: "lote-sp-amazon-hoje",
-    loja_id: "sao-paulo",
-    marketplace: "Amazon",
-    melhor_envio: true,
-    transportadora: "Correios",
-    tipo_operacao: "postagem",
-    status: "finalizada",
-    total_pacotes: 1,
-    criado_em: atTime(today, "10:03:00"),
-    finalizado_em: atTime(today, "10:06:00"),
-  },
-  {
-    id: "lote-sp-shopee-hoje",
-    loja_id: "sao-paulo",
-    marketplace: "Shopee",
-    melhor_envio: false,
-    transportadora: null,
-    tipo_operacao: "coleta",
-    status: "finalizada",
-    total_pacotes: 1,
-    criado_em: atTime(today, "10:17:00"),
-    finalizado_em: atTime(today, "10:20:00"),
-  },
-];
-
-export const dispatchMovements: PackageMovement[] = dispatchPackages.flatMap(
-  (item, index) => [
-    {
-      id: `mov-${index + 1}-a`,
-      lote_id: item.lote_id,
-      loja_id: item.loja_id,
-      pacote_id: item.id,
-      codigo_rastreio: item.codigo_rastreio,
-      marketplace: item.marketplace,
-      melhor_envio: item.melhor_envio,
-      transportadora: item.transportadora,
-      tipo_operacao: item.tipo_operacao,
-      tipo_movimentacao: "Bipagem",
-      data_hora: item.data_hora_bipagem,
-      criado_em: item.criado_em,
-    },
-    ...(item.status === "Finalizado" || item.status === "Pronto para envio"
-      ? [
-          {
-            id: `mov-${index + 1}-b`,
-            lote_id: item.lote_id,
-            loja_id: item.loja_id,
-            pacote_id: item.id,
-            codigo_rastreio: item.codigo_rastreio,
-            marketplace: item.marketplace,
-            melhor_envio: item.melhor_envio,
-            transportadora: item.transportadora,
-            tipo_operacao: item.tipo_operacao,
-            tipo_movimentacao: "Expedição" as MovementType,
-            data_hora: item.criado_em,
-            criado_em: item.criado_em,
-          },
-        ]
-      : []),
-  ],
-);
-
-export const dispatchCancellations: PackageCancellation[] = [
-  {
-    id: "can-001",
-    pacote_id: "pkg-012",
-    loja_id: "sao-paulo",
-    loja_nome: "São Paulo",
-    sessao_id: "lote-sp-shopee-antigo",
-    codigo_pacote: "SP-SHP-220201",
-    marketplace: "Shopee",
-    tipo_operacao: "postagem",
-    melhor_envio: false,
-    transportadora: null,
-    data_hora_bipagem: atTime(twoDaysAgo, "15:01:00"),
-    cancelado_em: atTime(today, "11:35:00"),
-    justificativa_geral: "Cancelamento operacional de teste.",
-    justificativa_individual: "Pacote removido do despacho mockado.",
-    criado_em: atTime(today, "11:35:00"),
-  },
-];
-
+export const dispatchCancellations: PackageCancellation[] = [];
 export function createDefaultPackageFilters(): PackageFilterValues {
   const currentDate = getTodayDateString();
 
@@ -536,13 +214,16 @@ export function getOperationLabel(operation: OperationType | OperationFilter) {
   return operation === "coleta" ? "Coleta" : "Postagem";
 }
 
-export function getDateRangeFromFilters(filters: PackageFilterValues) {
+export function getDateRangeFromFilters(
+  filters: PackageFilterValues,
+  referenceIso?: string,
+) {
   if (filters.dateMode === "all") {
     return { startDate: "", endDate: "" };
   }
 
   if (filters.dateMode === "today") {
-    const currentDate = getTodayDateString();
+    const currentDate = getTodayDateString(referenceIso);
 
     return { startDate: currentDate, endDate: currentDate };
   }
@@ -681,13 +362,14 @@ export function getDashboardMetrics(packages: DispatchPackage[]) {
 export function filterPackages(
   packages: DispatchPackage[],
   filters: PackageFilterValues,
+  referenceIso?: string,
 ) {
   const query = normalizeTrackingCode(filters.query ?? "");
   const codigoLote = normalizeTrackingCode(filters.codigoLote ?? "");
-  const { startDate, endDate } = getDateRangeFromFilters(filters);
+  const { startDate, endDate } = getDateRangeFromFilters(filters, referenceIso);
 
   return packages.filter((item) => {
-    const packageDate = item.data_hora_bipagem.slice(0, 10);
+    const packageDate = getSaoPauloDateString(item.data_hora_bipagem);
     const matchesDate =
       filters.dateMode === "all" ||
       (packageDate >= startDate && packageDate <= endDate);
@@ -733,12 +415,13 @@ export function filterPackages(
 export function filterCancellations(
   cancellations: PackageCancellation[],
   filters: PackageFilterValues,
+  referenceIso?: string,
 ) {
   const query = normalizeTrackingCode(filters.query ?? "");
-  const { startDate, endDate } = getDateRangeFromFilters(filters);
+  const { startDate, endDate } = getDateRangeFromFilters(filters, referenceIso);
 
   return cancellations.filter((item) => {
-    const canceledDate = item.cancelado_em.slice(0, 10);
+    const canceledDate = getSaoPauloDateString(item.cancelado_em);
     const matchesDate =
       filters.dateMode === "all" ||
       (canceledDate >= startDate && canceledDate <= endDate);
@@ -786,7 +469,8 @@ export function isPackageCanceled(
     cancellations.some(
       (cancellation) =>
         cancellation.pacote_id === item.id ||
-        normalizeTrackingCode(cancellation.codigo_pacote) === normalizedCode,
+        (cancellation.loja_id === item.loja_id &&
+          normalizeTrackingCode(cancellation.codigo_pacote) === normalizedCode),
     )
   );
 }
@@ -799,13 +483,18 @@ export function getActivePackages(
 }
 
 export function formatDateOnly(date: string) {
-  return new Intl.DateTimeFormat("pt-BR", {
-    timeZone: "UTC",
-  }).format(new Date(`${date}T00:00:00.000Z`));
+  const [year, month, day] = date.split("-");
+
+  if (!year || !month || !day) {
+    return date;
+  }
+
+  return `${day}/${month}/${year}`;
 }
 
 export function formatPackageDate(date: string) {
   return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: SAO_PAULO_TIME_ZONE,
     dateStyle: "short",
     timeStyle: "short",
   }).format(new Date(date));

@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import {
   ConfirmDialog,
@@ -67,6 +67,13 @@ type CatalogState = {
   marketplaces: Marketplace[];
   carriers: Carrier[];
   reportEmails: RelatorioDestinatarioRow[];
+};
+
+const emptyCatalogState: CatalogState = {
+  stores: [],
+  marketplaces: [],
+  carriers: [],
+  reportEmails: [],
 };
 
 const catalogLabels: Record<ActionKind, string> = {
@@ -422,12 +429,8 @@ function ReportEmailSection({
 }
 
 export function CadastrosView() {
-  const [catalogs, setCatalogs] = useState<CatalogState>({
-    stores: [],
-    marketplaces: [],
-    carriers: [],
-    reportEmails: [],
-  });
+  const loadCatalogsRequestIdRef = useRef(0);
+  const [catalogs, setCatalogs] = useState<CatalogState>(emptyCatalogState);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
@@ -435,6 +438,9 @@ export function CadastrosView() {
   const supabaseConfigured = isSupabaseConfigured();
 
   const loadCatalogs = useCallback(async () => {
+    const requestId = ++loadCatalogsRequestIdRef.current;
+    const isCurrentRequest = () => requestId === loadCatalogsRequestIdRef.current;
+
     if (!supabaseConfigured) {
       setLoading(false);
       setNotice({
@@ -459,6 +465,10 @@ export function CadastrosView() {
         getRelatorioDestinatarios({ incluirInativos: true }),
       ]);
 
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       setCatalogs({
         stores: lojasRows.map(mapLojaRowToStore),
         marketplaces: marketplacesRows.map(mapMarketplaceRowToMarketplace),
@@ -466,12 +476,18 @@ export function CadastrosView() {
         reportEmails: relatorioDestinatariosRows,
       });
     } catch (error) {
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       setNotice({
         tone: "danger",
         text: `Erro ao carregar cadastros: ${formatDatabaseError(error)}`,
       });
     } finally {
-      setLoading(false);
+      if (isCurrentRequest()) {
+        setLoading(false);
+      }
     }
   }, [supabaseConfigured]);
 
@@ -488,6 +504,9 @@ export function CadastrosView() {
       cancelled = true;
     };
   }, [loadCatalogs]);
+
+  const visibleCatalogs = catalogs;
+  const viewLoading = loading;
 
   async function handleCreate(kind: CatalogKind, name: string) {
     const cleanName = name.trim();
@@ -615,7 +634,7 @@ export function CadastrosView() {
     <div className="grid gap-5">
       {notice ? <FeedbackMessage tone={notice.tone}>{notice.text}</FeedbackMessage> : null}
 
-      {loading ? (
+      {viewLoading ? (
         <section className="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">
           Carregando cadastros...
         </section>
@@ -624,10 +643,10 @@ export function CadastrosView() {
       <div className="grid gap-5 xl:grid-cols-2">
         <CatalogSection
           title="Lojas"
-          description="Use para separar a operacao, como Brasilia e Sao Paulo."
+          description="Use para separar unidades, filiais ou operacoes."
           placeholder="Nome da loja"
-          items={catalogs.stores}
-          disabled={loading}
+          items={visibleCatalogs.stores}
+          disabled={viewLoading}
           saving={saving}
           onAdd={(name) => handleCreate("stores", name)}
           onActivate={(item) => setPendingAction({ kind: "stores", item, action: "activate" })}
@@ -638,8 +657,8 @@ export function CadastrosView() {
           title="Marketplaces"
           description="Canais de venda disponiveis na bipagem e nos filtros."
           placeholder="Nome do marketplace"
-          items={catalogs.marketplaces}
-          disabled={loading}
+          items={visibleCatalogs.marketplaces}
+          disabled={viewLoading}
           saving={saving}
           onAdd={(name) => handleCreate("marketplaces", name)}
           onActivate={(item) => setPendingAction({ kind: "marketplaces", item, action: "activate" })}
@@ -650,8 +669,8 @@ export function CadastrosView() {
           title="Transportadoras"
           description="Obrigatorias quando Melhor Envio estiver marcado como Sim."
           placeholder="Nome da transportadora"
-          items={catalogs.carriers}
-          disabled={loading}
+          items={visibleCatalogs.carriers}
+          disabled={viewLoading}
           saving={saving}
           onAdd={(name) => handleCreate("carriers", name)}
           onActivate={(item) => setPendingAction({ kind: "carriers", item, action: "activate" })}
@@ -659,8 +678,8 @@ export function CadastrosView() {
           onDelete={(item) => setPendingAction({ kind: "carriers", item, action: "delete-first" })}
         />
         <ReportEmailSection
-          items={catalogs.reportEmails}
-          disabled={loading}
+          items={visibleCatalogs.reportEmails}
+          disabled={viewLoading}
           saving={saving}
           onAdd={handleCreateReportEmail}
           onActivate={(item) =>

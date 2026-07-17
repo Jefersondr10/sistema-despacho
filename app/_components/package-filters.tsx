@@ -225,7 +225,7 @@ export function PackageFilters({
         <div>
           <h2 className="text-lg font-semibold text-slate-950">Filtros</h2>
           <p className="mt-1 text-sm text-slate-500">
-            Use Loja para manter Brasília e São Paulo separadas.
+            Use Loja para manter unidades ou operações separadas.
           </p>
         </div>
         <button

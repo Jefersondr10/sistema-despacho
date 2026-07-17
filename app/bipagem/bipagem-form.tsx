@@ -113,23 +113,23 @@ export function BipagemForm() {
   const activeCarriers = catalogs.carriers.filter(
     (item) => item.status !== "Inativa",
   );
-  const firstActiveStoreId = activeStores[0]?.id ?? "";
-  const firstActiveMarketplaceName = activeMarketplaces[0]?.name ?? "";
-  const selectedLojaId = activeStores.some((item) => item.id === lojaId)
-    ? lojaId
-    : firstActiveStoreId;
-  const selectedMarketplace = activeMarketplaces.some(
-    (item) => item.name === marketplace,
-  )
-    ? marketplace
-    : firstActiveMarketplaceName;
+  const sessionOpen = Boolean(activeBatchId);
+  const selectedLojaId =
+    lojaId && (sessionOpen || activeStores.some((item) => item.id === lojaId))
+      ? lojaId
+      : "";
+  const selectedMarketplace =
+    marketplace &&
+    (sessionOpen ||
+      activeMarketplaces.some((item) => item.name === marketplace))
+      ? marketplace
+      : "";
   const selectedMarketplaceItem = activeMarketplaces.find(
     (item) => item.name === selectedMarketplace,
   );
   const selectedCarrierItem = activeCarriers.find(
     (item) => item.name === transportadora,
   );
-  const sessionOpen = Boolean(activeBatchId);
   const configLocked = sessionOpen || cancellationMode;
   const sortedBatches = useMemo(
     () =>
@@ -192,18 +192,6 @@ export function BipagemForm() {
     loadingOpenSession ||
     savingSession ||
     checkingPackage;
-
-  useEffect(() => {
-    window.setTimeout(() => {
-      if (!lojaId && firstActiveStoreId) {
-        setLojaId(firstActiveStoreId);
-      }
-
-      if (!marketplace && firstActiveMarketplaceName) {
-        setMarketplace(firstActiveMarketplaceName);
-      }
-    }, 0);
-  }, [firstActiveMarketplaceName, firstActiveStoreId, lojaId, marketplace]);
 
   useEffect(() => {
     if (loading) {
@@ -323,8 +311,8 @@ export function BipagemForm() {
   function resetSessionConfig() {
     setSessionPackages([]);
     setActiveBatchId("");
-    setLojaId(firstActiveStoreId);
-    setMarketplace(firstActiveMarketplaceName);
+    setLojaId("");
+    setMarketplace("");
     setTipoOperacao("");
     setMelhorEnvio(false);
     setTransportadora("");
@@ -589,6 +577,15 @@ export function BipagemForm() {
       return;
     }
 
+    if (!selectedLojaId) {
+      setNotice({
+        type: "warning",
+        text: "Selecione a loja antes de entrar no modo de cancelamento.",
+      });
+      focusCodeField();
+      return;
+    }
+
     setShowCancellationConfirm(true);
   }
 
@@ -655,13 +652,19 @@ export function BipagemForm() {
 
     const normalizedCode = normalizeTrackingCode(code);
     const activePackage = activePackages.find(
-      (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
+      (item) =>
+        item.loja_id === selectedLojaId &&
+        normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
     );
     const anyPackage = allPackages.find(
-      (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
+      (item) =>
+        item.loja_id === selectedLojaId &&
+        normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
     );
     const alreadyCanceled = cancellations.some(
-      (item) => normalizeTrackingCode(item.codigo_pacote) === normalizedCode,
+      (item) =>
+        item.loja_id === selectedLojaId &&
+        normalizeTrackingCode(item.codigo_pacote) === normalizedCode,
     );
     const alreadyQueued = pendingCancellations.some(
       (item) =>
@@ -1028,6 +1031,9 @@ export function BipagemForm() {
                 className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                 required
               >
+                <option value="" disabled>
+                  Selecione uma loja
+                </option>
                 {activeStores.map((store) => (
                   <option key={store.id} value={store.id}>
                     {store.name}
@@ -1045,6 +1051,9 @@ export function BipagemForm() {
                 className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
                 required
               >
+                <option value="" disabled>
+                  Selecione um marketplace
+                </option>
                 {activeMarketplaces.map((item) => (
                   <option key={item.id} value={item.name}>
                     {item.name}

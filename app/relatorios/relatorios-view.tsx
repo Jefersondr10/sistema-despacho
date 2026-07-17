@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PackageFilters } from "@/app/_components/package-filters";
 import {
@@ -32,7 +32,6 @@ import {
   validateEmailAddress,
   type RelatorioDestinatarioRow,
 } from "@/lib/database";
-import { getSupabaseClient } from "@/lib/supabaseClient";
 
 type ReportMode = "resumido" | "detalhado" | "todos" | "romaneio";
 
@@ -92,6 +91,7 @@ function parseManualEmails(value: string) {
 }
 
 export function RelatoriosView() {
+  const loadRecipientsRequestIdRef = useRef(0);
   const { catalogs, packages, batches, loading, error } =
     useSupabaseDispatchData();
   const [mode, setMode] = useState<ReportMode>("resumido");
@@ -147,9 +147,15 @@ export function RelatoriosView() {
       second.data.localeCompare(first.data),
     );
   }, [batchesById, catalogs.stores, filteredPackages]);
+  const visibleRecipients = recipients;
+  const recipientsLoadingView = recipientsLoading;
   const allRecipientIds = useMemo(
-    () => recipients.map((item) => item.id),
-    [recipients],
+    () => visibleRecipients.map((item) => item.id),
+    [visibleRecipients],
+  );
+  const visibleSelectedRecipientIds = useMemo(
+    () => selectedRecipientIds.filter((id) => allRecipientIds.includes(id)),
+    [allRecipientIds, selectedRecipientIds],
   );
   const manualEmailCount = useMemo(() => {
     try {
@@ -163,19 +169,33 @@ export function RelatoriosView() {
     allRecipientIds.every((id) => selectedRecipientIds.includes(id));
 
   const loadRecipients = useCallback(async () => {
+    const requestId = ++loadRecipientsRequestIdRef.current;
+    const isCurrentRequest = () =>
+      requestId === loadRecipientsRequestIdRef.current;
+
     setRecipientsLoading(true);
     setRecipientsError("");
 
     try {
       const rows = await getRelatorioDestinatarios();
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       setRecipients(rows);
       setSelectedRecipientIds((current) =>
         current.filter((id) => rows.some((item) => item.id === id)),
       );
     } catch (loadError) {
+      if (!isCurrentRequest()) {
+        return;
+      }
+
       setRecipientsError(formatDatabaseError(loadError));
     } finally {
-      setRecipientsLoading(false);
+      if (isCurrentRequest()) {
+        setRecipientsLoading(false);
+      }
     }
   }, []);
 
@@ -223,7 +243,7 @@ export function RelatoriosView() {
       return;
     }
 
-    if (!selectedRecipientIds.length && !manualEmails.length) {
+    if (!visibleSelectedRecipientIds.length && !manualEmails.length) {
       setSendNotice({
         tone: "warning",
         text: "Selecione ao menos um destinatario para enviar o relatorio.",
@@ -234,21 +254,13 @@ export function RelatoriosView() {
     setSendingEmail(true);
 
     try {
-      const { data } = await getSupabaseClient().auth.getSession();
-      const token = data.session?.access_token;
-
-      if (!token) {
-        throw new Error("Sessao nao encontrada. Entre novamente no sistema.");
-      }
-
       const response = await fetch("/api/relatorios/enviar-email", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          destinatarioIds: selectedRecipientIds,
+          destinatarioIds: visibleSelectedRecipientIds,
           emailsManuais: manualEmails,
           assunto:
             mode === "romaneio"
@@ -346,7 +358,9 @@ export function RelatoriosView() {
               </h3>
               <button
                 type="button"
-                disabled={!recipients.length || recipientsLoading || sendingEmail}
+                disabled={
+                  !visibleRecipients.length || recipientsLoadingView || sendingEmail
+                }
                 onClick={toggleAllRecipients}
                 className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
               >
@@ -354,13 +368,13 @@ export function RelatoriosView() {
               </button>
             </div>
 
-            {recipientsLoading ? (
+            {recipientsLoadingView ? (
               <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-semibold text-slate-600">
                 Carregando destinatários...
               </div>
-            ) : recipients.length ? (
+            ) : visibleRecipients.length ? (
               <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                {recipients.map((item) => {
+                {visibleRecipients.map((item) => {
                   const checked = selectedRecipientIds.includes(item.id);
 
                   return (
@@ -414,12 +428,12 @@ export function RelatoriosView() {
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-500">
-              Selecionados: {selectedRecipientIds.length + manualEmailCount}
+              Selecionados: {visibleSelectedRecipientIds.length + manualEmailCount}
             </p>
             <button
               type="button"
               onClick={sendReportByEmail}
-              disabled={sendingEmail || recipientsLoading}
+              disabled={sendingEmail || recipientsLoadingView}
               className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               {sendingEmail ? "Enviando..." : "Gerar e enviar por e-mail"}

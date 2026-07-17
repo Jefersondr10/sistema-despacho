@@ -7,6 +7,7 @@
 create extension if not exists pgcrypto;
 
 alter table public.lojas add column if not exists user_id uuid;
+
 alter table public.marketplaces add column if not exists user_id uuid;
 alter table public.transportadoras add column if not exists user_id uuid;
 alter table public.relatorio_destinatarios add column if not exists user_id uuid;
@@ -31,36 +32,15 @@ alter table public.pacotes_cancelados alter column user_id set default auth.uid(
 do $$
 declare
   v_owner uuid;
+  v_table text;
+  v_has_null boolean;
 begin
   select id
     into v_owner
   from auth.users
-  order by created_at nulls last, id
+  order by created_at asc nulls last, id
   limit 1;
 
-  if v_owner is null then
-    raise notice 'Nenhum usuario encontrado em auth.users; linhas antigas com user_id nulo ficarao ocultas pela RLS ate revisao manual.';
-    return;
-  end if;
-
-  update public.lojas set user_id = v_owner where user_id is null;
-  update public.marketplaces set user_id = v_owner where user_id is null;
-  update public.transportadoras set user_id = v_owner where user_id is null;
-  update public.relatorio_destinatarios set user_id = v_owner where user_id is null;
-  update public.relatorio_envios set user_id = v_owner where user_id is null;
-  update public.sessoes_bipagem set user_id = v_owner where user_id is null;
-  update public.itens_sessao_bipagem set user_id = v_owner where user_id is null;
-  update public.pacotes set user_id = v_owner where user_id is null;
-  update public.movimentacoes set user_id = v_owner where user_id is null;
-  update public.pacotes_cancelados set user_id = v_owner where user_id is null;
-end;
-$$;
-
-do $$
-declare
-  v_table text;
-  v_has_null boolean;
-begin
   foreach v_table in array array[
     'lojas',
     'marketplaces',
@@ -74,11 +54,21 @@ begin
     'pacotes_cancelados'
   ]
   loop
+    if v_owner is not null then
+      execute format(
+        'update public.%I set user_id = $1 where user_id is null',
+        v_table
+      )
+      using v_owner;
+    else
+      raise notice 'Nenhum usuario encontrado em auth.users; public.% nao teve backfill de user_id.', v_table;
+    end if;
+
     execute format(
       'select exists (select 1 from public.%I where user_id is null)',
       v_table
     )
-      into v_has_null;
+    into v_has_null;
 
     if not v_has_null then
       execute format(
@@ -129,37 +119,36 @@ end;
 $$;
 
 comment on column public.lojas.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.marketplaces.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.transportadoras.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.relatorio_destinatarios.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.relatorio_envios.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.sessoes_bipagem.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.itens_sessao_bipagem.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.pacotes.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.movimentacoes.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 comment on column public.pacotes_cancelados.user_id is
-  'Usuario dono no Supabase Auth. Dados antigos foram migrados para o primeiro auth.users existente; revisar manualmente se necessario.';
+  'Usuario dono no Supabase Auth. Dados antigos sem dono foram migrados para o primeiro auth.users existente quando possivel.';
 
-alter table public.lojas drop constraint if exists lojas_slug_key;
 alter table public.marketplaces drop constraint if exists marketplaces_slug_key;
 alter table public.transportadoras drop constraint if exists transportadoras_slug_key;
 alter table public.relatorio_destinatarios drop constraint if exists relatorio_destinatarios_email_key;
 
+alter table public.lojas drop constraint if exists lojas_slug_key;
+create unique index if not exists idx_lojas_user_slug on public.lojas (user_id, slug)
+  where user_id is not null;
+
 drop index if exists public.idx_pacotes_codigo_normalizado_ativos;
 drop index if exists public.idx_relatorio_destinatarios_email_lower;
-
-create unique index if not exists idx_lojas_user_slug
-  on public.lojas (user_id, slug)
-  where user_id is not null;
 
 create unique index if not exists idx_marketplaces_user_slug
   on public.marketplaces (user_id, slug)
@@ -742,11 +731,12 @@ begin
 end;
 $$;
 
-revoke execute on function public.adicionar_item_sessao_bipagem(text, uuid) from anon;
-revoke execute on function public.remover_item_sessao_bipagem(uuid, text) from anon;
-revoke execute on function public.finalizar_sessao_bipagem(uuid) from anon;
-revoke execute on function public.cancelar_sessao_bipagem(uuid) from anon;
-revoke execute on function public.finalizar_cancelamentos_lote(jsonb) from anon;
+revoke execute on function public.exigir_usuario_autenticado() from public, anon;
+revoke execute on function public.adicionar_item_sessao_bipagem(text, uuid) from public, anon;
+revoke execute on function public.remover_item_sessao_bipagem(uuid, text) from public, anon;
+revoke execute on function public.finalizar_sessao_bipagem(uuid) from public, anon;
+revoke execute on function public.cancelar_sessao_bipagem(uuid) from public, anon;
+revoke execute on function public.finalizar_cancelamentos_lote(jsonb) from public, anon;
 
 grant execute on function public.exigir_usuario_autenticado() to authenticated;
 grant execute on function public.adicionar_item_sessao_bipagem(text, uuid) to authenticated;

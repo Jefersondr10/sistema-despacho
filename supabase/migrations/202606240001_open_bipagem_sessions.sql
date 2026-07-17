@@ -332,5 +332,3 @@ begin
   );
 end;
 $$;
-
-alter table itens_sessao_bipagem disable row level security;

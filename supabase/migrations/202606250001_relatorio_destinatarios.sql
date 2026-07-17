@@ -42,6 +42,3 @@ create table if not exists relatorio_envios (
 
 create index if not exists idx_relatorio_envios_enviado_em
   on relatorio_envios (enviado_em desc);
-
-alter table relatorio_destinatarios disable row level security;
-alter table relatorio_envios disable row level security;

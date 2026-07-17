@@ -1,8 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
-import { useAuth } from "@/app/_lib/auth-context";
 import type {
   Carrier,
   DispatchBatch,
@@ -57,46 +56,40 @@ const emptyCatalogs: CatalogState = {
   carriers: [],
 };
 
-const initialState: DispatchDataState = {
-  catalogs: emptyCatalogs,
-  packages: [],
-  allPackages: [],
-  batches: [],
-  movements: [],
-  cancellations: [],
-  loading: true,
-  error: "",
-};
+function createInitialState(
+  loading = true,
+  error = "",
+): DispatchDataState {
+  return {
+    catalogs: emptyCatalogs,
+    packages: [],
+    allPackages: [],
+    batches: [],
+    movements: [],
+    cancellations: [],
+    loading,
+    error,
+  };
+}
+
+const initialState = createInitialState();
 
 export function useSupabaseDispatchData() {
-  const { loading: authLoading, user } = useAuth();
-  const userId = user?.id ?? "";
+  const reloadRequestIdRef = useRef(0);
   const [state, setState] = useState<DispatchDataState>(initialState);
 
   const reload = useCallback(async () => {
+    const requestId = ++reloadRequestIdRef.current;
+    const isCurrentRequest = () => requestId === reloadRequestIdRef.current;
+
     if (!isSupabaseConfigured()) {
-      setState({
-        ...initialState,
-        loading: false,
-        error: SUPABASE_NOT_CONFIGURED_MESSAGE,
-      });
-      return;
-    }
-
-    if (authLoading) {
-      setState((current) => ({ ...current, loading: true, error: "" }));
-      return;
-    }
-
-    if (!userId) {
-      setState({ ...initialState, loading: false });
+      setState(createInitialState(false, SUPABASE_NOT_CONFIGURED_MESSAGE));
       return;
     }
 
     setState((current) => ({ ...current, loading: true, error: "" }));
 
     try {
-      const databaseContext = { userId };
       const [
         lojasRows,
         marketplacesRows,
@@ -107,21 +100,24 @@ export function useSupabaseDispatchData() {
         movementRows,
         cancellationRows,
       ] = await Promise.all([
-        getLojas({ incluirInativos: true }, databaseContext),
-        getMarketplaces({ incluirInativos: true }, databaseContext),
-        getTransportadoras({ incluirInativos: true }, databaseContext),
-        getPacotesComRelacionamentos(undefined, databaseContext),
+        getLojas({ incluirInativos: true }),
+        getMarketplaces({ incluirInativos: true }),
+        getTransportadoras({ incluirInativos: true }),
+        getPacotesComRelacionamentos(),
         getPacotesComRelacionamentos(
           { incluirCancelados: true },
-          databaseContext,
         ),
-        getSessoesBipagemComRelacionamentos(undefined, databaseContext),
-        getMovimentacoes(databaseContext),
-        getPacotesCanceladosComRelacionamentos(undefined, databaseContext),
+        getSessoesBipagemComRelacionamentos(),
+        getMovimentacoes(),
+        getPacotesCanceladosComRelacionamentos(),
       ]);
 
       const packages = pacoteRows.map(mapPacoteRowToDispatchPackage);
       const allPackages = allPacoteRows.map(mapPacoteRowToDispatchPackage);
+
+      if (!isCurrentRequest()) {
+        return;
+      }
 
       setState({
         catalogs: {
@@ -138,13 +134,13 @@ export function useSupabaseDispatchData() {
         error: "",
       });
     } catch (error) {
-      setState((current) => ({
-        ...current,
-        loading: false,
-        error: formatDatabaseError(error),
-      }));
+      if (!isCurrentRequest()) {
+        return;
+      }
+
+      setState(createInitialState(false, formatDatabaseError(error)));
     }
-  }, [authLoading, userId]);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,10 +155,6 @@ export function useSupabaseDispatchData() {
       cancelled = true;
     };
   }, [reload]);
-
-  useEffect(() => {
-    setState(userId ? initialState : { ...initialState, loading: false });
-  }, [userId]);
 
   return {
     ...state,

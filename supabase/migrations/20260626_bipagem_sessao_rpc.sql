@@ -401,5 +401,3 @@ grant execute on function public.adicionar_item_sessao_bipagem(text, uuid) to an
 grant execute on function public.remover_item_sessao_bipagem(uuid, text) to anon, authenticated;
 grant execute on function public.finalizar_sessao_bipagem(uuid) to anon, authenticated;
 grant execute on function public.cancelar_sessao_bipagem(uuid) to anon, authenticated;
-
-alter table public.itens_sessao_bipagem disable row level security;

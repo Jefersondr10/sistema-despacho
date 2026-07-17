@@ -8,7 +8,6 @@ import {
   type DatabaseContext,
 } from "@/lib/database";
 import {
-  createSupabaseClientForAccessToken,
   getSupabaseClient,
   isSupabaseConfigured,
 } from "@/lib/supabaseClient";
@@ -355,31 +354,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length).trim()
-    : "";
-
-  if (!token) {
-    return NextResponse.json(
-      { ok: false, message: "Sessao nao encontrada para enviar e-mail." },
-      { status: 401 },
-    );
-  }
-
-  const supabase = getSupabaseClient();
-  const { data: userData, error: userError } = await supabase.auth.getUser(token);
-
-  if (userError || !userData.user) {
-    return NextResponse.json(
-      { ok: false, message: "Sessao invalida para enviar e-mail." },
-      { status: 401 },
-    );
-  }
-
   const databaseContext: DatabaseContext = {
-    supabase: createSupabaseClientForAccessToken(token),
-    userId: userData.user.id,
+    supabase: getSupabaseClient(),
   };
 
   let payload: unknown;
@@ -439,7 +415,6 @@ export async function POST(request: Request) {
     filtros: isRecord(payload.filtros) ? payload.filtros : {},
     filtrosResumo: isRecord(payload.filtrosResumo) ? payload.filtrosResumo : {},
     relatorio: isRecord(payload.relatorio) ? payload.relatorio : {},
-    usuario: userData.user.email ?? userData.user.id,
   };
 
   if (!destinatarios.length) {
