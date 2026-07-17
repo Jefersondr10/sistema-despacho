@@ -16,10 +16,12 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 
 export type DatabaseContext = {
   supabase?: SupabaseClient;
+  accessToken?: string;
 };
 
 type ResolvedDatabaseContext = {
   supabase: SupabaseClient;
+  userId: string;
 };
 
 export type TipoOperacao = "coleta" | "postagem";
@@ -34,6 +36,7 @@ export type PacoteDatabaseStatus =
 
 export type LojaRow = {
   id: string;
+  user_id: string;
   nome: string;
   slug: string;
   ativo: boolean;
@@ -43,6 +46,7 @@ export type LojaRow = {
 
 export type MarketplaceRow = {
   id: string;
+  user_id: string;
   nome: string;
   slug: string;
   ativo: boolean;
@@ -52,6 +56,7 @@ export type MarketplaceRow = {
 
 export type TransportadoraRow = {
   id: string;
+  user_id: string;
   nome: string;
   slug: string;
   ativo: boolean;
@@ -61,6 +66,7 @@ export type TransportadoraRow = {
 
 export type RelatorioDestinatarioRow = {
   id: string;
+  user_id: string;
   nome: string | null;
   email: string;
   ativo: boolean;
@@ -72,6 +78,7 @@ export type RelatorioEnvioStatus = "sucesso" | "erro";
 
 export type RelatorioEnvioRow = {
   id: string;
+  user_id: string;
   destinatarios: string[];
   assunto: string;
   filtros: Record<string, unknown>;
@@ -82,6 +89,7 @@ export type RelatorioEnvioRow = {
 
 export type SessaoBipagemRow = {
   id: string;
+  user_id: string;
   codigo_lote: string | null;
   loja_id: string;
   marketplace_id: string;
@@ -102,6 +110,7 @@ export type ItemSessaoBipagemStatus =
 
 export type ItemSessaoBipagemRow = {
   id: string;
+  user_id: string;
   sessao_id: string;
   codigo: string;
   codigo_normalizado: string;
@@ -114,6 +123,7 @@ export type ItemSessaoBipagemRow = {
 
 export type PacoteRow = {
   id: string;
+  user_id: string;
   codigo: string;
   loja_id: string;
   marketplace_id: string;
@@ -129,6 +139,7 @@ export type PacoteRow = {
 
 export type MovimentacaoRow = {
   id: string;
+  user_id: string;
   pacote_id: string | null;
   loja_id: string;
   sessao_id: string | null;
@@ -139,6 +150,7 @@ export type MovimentacaoRow = {
 
 export type PacoteCanceladoRow = {
   id: string;
+  user_id: string;
   pacote_id: string | null;
   codigo_pacote: string;
   loja_id: string;
@@ -324,8 +336,22 @@ async function getDatabaseContext(
   context?: DatabaseContext,
 ): Promise<ResolvedDatabaseContext> {
   const supabase = context?.supabase ?? getSupabaseClient();
+  const accessToken = context?.accessToken?.trim();
+  const { data, error } = await supabase.auth.getUser(accessToken || undefined);
+  const userId = data.user?.id;
 
-  return { supabase };
+  if (error || !userId) {
+    throw new Error("Usuario autenticado obrigatorio. Entre novamente.");
+  }
+
+  return { supabase, userId };
+}
+
+function withAuthenticatedOwner<T extends Record<string, unknown>>(
+  payload: T,
+  userId: string,
+) {
+  return { ...payload, user_id: userId };
 }
 
 function getCatalogInput(input: CatalogInput): CreateCatalogInput {
@@ -745,10 +771,11 @@ export async function getLojas(
   options?: ListOptions,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("lojas")
     .select("*")
+    .eq("user_id", userId)
     .order("nome");
 
   if (!options?.incluirInativos) {
@@ -772,7 +799,7 @@ export async function createLoja(
   input: CatalogInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const payload = getCatalogPayload(input);
   if (!payload.nome) {
     throw new Error("Informe um nome valido.");
@@ -780,7 +807,7 @@ export async function createLoja(
 
   const { data, error } = await supabase
     .from("lojas")
-    .insert(payload)
+    .insert(withAuthenticatedOwner(payload, userId))
     .select("*")
     .single<LojaRow>();
 
@@ -796,7 +823,7 @@ export async function updateLoja(
   values: Partial<CreateCatalogInput>,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const payload = {
     ...(values.nome ? { nome: values.nome.trim() } : {}),
     ...(values.slug ? { slug: values.slug } : {}),
@@ -805,6 +832,7 @@ export async function updateLoja(
     .from("lojas")
     .update(payload)
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<LojaRow>();
 
@@ -816,11 +844,12 @@ export async function updateLoja(
 }
 
 export async function ativarLoja(id: string, context?: DatabaseContext) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("lojas")
     .update({ ativo: true })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<LojaRow>();
 
@@ -832,11 +861,12 @@ export async function ativarLoja(id: string, context?: DatabaseContext) {
 }
 
 export async function inativarLoja(id: string, context?: DatabaseContext) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("lojas")
     .update({ ativo: false })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<LojaRow>();
 
@@ -851,10 +881,11 @@ export async function excluirLojaDefinitivamente(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { error } = await supabase
     .from("lojas")
     .delete()
+    .eq("user_id", userId)
     .eq("id", id);
 
   if (error) {
@@ -870,10 +901,11 @@ export async function getMarketplaces(
   options?: ListOptions,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("marketplaces")
     .select("*")
+    .eq("user_id", userId)
     .order("nome");
 
   if (!options?.incluirInativos) {
@@ -897,7 +929,7 @@ export async function createMarketplace(
   input: CatalogInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const payload = getCatalogPayload(input);
   if (!payload.nome) {
     throw new Error("Informe um nome valido.");
@@ -905,7 +937,7 @@ export async function createMarketplace(
 
   const { data, error } = await supabase
     .from("marketplaces")
-    .insert(payload)
+    .insert(withAuthenticatedOwner(payload, userId))
     .select("*")
     .single<MarketplaceRow>();
 
@@ -921,7 +953,7 @@ export async function updateMarketplace(
   values: Partial<CreateCatalogInput>,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("marketplaces")
     .update({
@@ -929,6 +961,7 @@ export async function updateMarketplace(
       ...(values.slug ? { slug: values.slug } : {}),
     })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<MarketplaceRow>();
 
@@ -940,11 +973,12 @@ export async function updateMarketplace(
 }
 
 export async function ativarMarketplace(id: string, context?: DatabaseContext) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("marketplaces")
     .update({ ativo: true })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<MarketplaceRow>();
 
@@ -959,11 +993,12 @@ export async function inativarMarketplace(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("marketplaces")
     .update({ ativo: false })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<MarketplaceRow>();
 
@@ -978,10 +1013,11 @@ export async function excluirMarketplaceDefinitivamente(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { error } = await supabase
     .from("marketplaces")
     .delete()
+    .eq("user_id", userId)
     .eq("id", id);
 
   if (error) {
@@ -997,10 +1033,11 @@ export async function getTransportadoras(
   options?: ListOptions,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("transportadoras")
     .select("*")
+    .eq("user_id", userId)
     .order("nome");
 
   if (!options?.incluirInativos) {
@@ -1024,7 +1061,7 @@ export async function createTransportadora(
   input: CatalogInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const payload = getCatalogPayload(input);
   if (!payload.nome) {
     throw new Error("Informe um nome valido.");
@@ -1032,7 +1069,7 @@ export async function createTransportadora(
 
   const { data, error } = await supabase
     .from("transportadoras")
-    .insert(payload)
+    .insert(withAuthenticatedOwner(payload, userId))
     .select("*")
     .single<TransportadoraRow>();
 
@@ -1048,7 +1085,7 @@ export async function updateTransportadora(
   values: Partial<CreateCatalogInput>,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("transportadoras")
     .update({
@@ -1056,6 +1093,7 @@ export async function updateTransportadora(
       ...(values.slug ? { slug: values.slug } : {}),
     })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<TransportadoraRow>();
 
@@ -1070,11 +1108,12 @@ export async function ativarTransportadora(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("transportadoras")
     .update({ ativo: true })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<TransportadoraRow>();
 
@@ -1089,11 +1128,12 @@ export async function inativarTransportadora(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("transportadoras")
     .update({ ativo: false })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<TransportadoraRow>();
 
@@ -1108,10 +1148,11 @@ export async function excluirTransportadoraDefinitivamente(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { error } = await supabase
     .from("transportadoras")
     .delete()
+    .eq("user_id", userId)
     .eq("id", id);
 
   if (error) {
@@ -1130,10 +1171,11 @@ export async function getRelatorioDestinatarios(
   options?: ListOptions,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("relatorio_destinatarios")
     .select("*")
+    .eq("user_id", userId)
     .order("nome", { ascending: true, nullsFirst: false })
     .order("email");
 
@@ -1159,13 +1201,14 @@ export async function createRelatorioDestinatario(
   email: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const normalizedEmail = validateEmailAddress(email);
   const normalizedName = optionalText(nome);
 
   const { data: existing, error: existingError } = await supabase
     .from("relatorio_destinatarios")
     .select("id")
+    .eq("user_id", userId)
     .eq("email", normalizedEmail)
     .maybeSingle<Pick<RelatorioDestinatarioRow, "id">>();
 
@@ -1180,6 +1223,7 @@ export async function createRelatorioDestinatario(
   const { data, error } = await supabase
     .from("relatorio_destinatarios")
     .insert({
+      user_id: userId,
       nome: normalizedName,
       email: normalizedEmail,
       ativo: true,
@@ -1198,11 +1242,12 @@ export async function ativarRelatorioDestinatario(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("relatorio_destinatarios")
     .update({ ativo: true })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<RelatorioDestinatarioRow>();
 
@@ -1217,11 +1262,12 @@ export async function inativarRelatorioDestinatario(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("relatorio_destinatarios")
     .update({ ativo: false })
     .eq("id", id)
+    .eq("user_id", userId)
     .select("*")
     .single<RelatorioDestinatarioRow>();
 
@@ -1236,10 +1282,11 @@ export async function excluirRelatorioDestinatarioDefinitivamente(
   id: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { error } = await supabase
     .from("relatorio_destinatarios")
     .delete()
+    .eq("user_id", userId)
     .eq("id", id);
 
   if (error) {
@@ -1251,7 +1298,7 @@ export async function createRelatorioEnvioHistorico(
   input: CreateRelatorioEnvioHistoricoInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const destinatarios = Array.from(
     new Set(input.destinatarios.map((email) => validateEmailAddress(email))),
   );
@@ -1263,6 +1310,7 @@ export async function createRelatorioEnvioHistorico(
   const { data, error } = await supabase
     .from("relatorio_envios")
     .insert({
+      user_id: userId,
       destinatarios,
       assunto: requireText(input.assunto, "assunto"),
       filtros: input.filtros ?? {},
@@ -1284,10 +1332,10 @@ export async function createSessaoBipagem(
   input: CreateSessaoInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("sessoes_bipagem")
-    .insert(getSessaoPayload(input))
+    .insert(withAuthenticatedOwner(getSessaoPayload(input), userId))
     .select("*")
     .single<SessaoBipagemRow>();
 
@@ -1309,10 +1357,11 @@ export async function getPacotes(
   filters?: PacoteFilters,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("pacotes")
     .select("*")
+    .eq("user_id", userId)
     .order("bipado_em", {
       ascending: false,
     });
@@ -1382,11 +1431,12 @@ async function getItensSessaoBipagem(
   sessaoId: string,
   context: ResolvedDatabaseContext,
 ) {
-  const { supabase } = context;
+  const { supabase, userId } = context;
   const { data, error } = await supabase
     .from("itens_sessao_bipagem")
     .select("*")
     .eq("sessao_id", sessaoId)
+    .eq("user_id", userId)
     .eq("status", "pendente")
     .order("ordem", { ascending: false })
     .order("criado_em", { ascending: false })
@@ -1403,10 +1453,11 @@ export async function getSessaoBipagemAbertaComItens(
   context?: DatabaseContext,
 ) {
   const databaseContext = await getDatabaseContext(context);
-  const { supabase } = databaseContext;
+  const { supabase, userId } = databaseContext;
   const { data: sessao, error } = await supabase
     .from("sessoes_bipagem")
     .select(sessaoComRelacionamentosSelect)
+    .eq("user_id", userId)
     .eq("status", "aberta")
     .order("iniciada_em", { ascending: false })
     .limit(1)
@@ -1499,10 +1550,11 @@ export async function getPacotesComRelacionamentos(
   options?: PacoteFilters,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("pacotes")
     .select(pacoteComRelacionamentosSelect)
+    .eq("user_id", userId)
     .order("bipado_em", { ascending: false });
 
   if (!options?.incluirCancelados) {
@@ -1553,10 +1605,11 @@ export async function getSessoesBipagemComRelacionamentos(
   options?: SessaoBipagemFilters,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("sessoes_bipagem")
     .select(sessaoComRelacionamentosSelect)
+    .eq("user_id", userId)
     .order("finalizada_em", { ascending: false, nullsFirst: false })
     .order("iniciada_em", { ascending: false });
 
@@ -1600,6 +1653,7 @@ export async function getSessoesBipagemComRelacionamentos(
   let pacotesQuery = supabase
     .from("pacotes")
     .select("sessao_id, status")
+    .eq("user_id", userId)
     .in(
       "sessao_id",
       sessoes.map((item) => item.id),
@@ -1645,10 +1699,11 @@ export async function getMovimentacoes(
   filters?: MovimentacaoFilters,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("movimentacoes")
     .select("*")
+    .eq("user_id", userId)
     .order("criada_em", { ascending: false });
 
   if (filters?.loja_id) {
@@ -1680,10 +1735,11 @@ export async function getPacotesCanceladosComRelacionamentos(
   options?: PacoteCanceladoFilters,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   let query = supabase
     .from("pacotes_cancelados")
     .select(cancelamentoComRelacionamentosSelect)
+    .eq("user_id", userId)
     .order("cancelado_em", { ascending: false });
 
   if (options?.codigo) {
@@ -1749,10 +1805,11 @@ export async function getPacoteAtivoPorCodigo(
     return null;
   }
 
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const query = supabase
     .from("pacotes")
     .select(pacoteComRelacionamentosSelect)
+    .eq("user_id", userId)
     .eq("codigo", normalizedCode)
     .eq("loja_id", lojaId)
     .neq("status", "cancelado")
@@ -1768,7 +1825,7 @@ export async function getPacoteAtivoPorCodigo(
     return data;
   }
 
-  const rows = await getPacotesComRelacionamentos(filters, { supabase });
+  const rows = await getPacotesComRelacionamentos(filters, context);
 
   return (
     rows.find(
@@ -1789,11 +1846,14 @@ export async function createPacote(
   input: CreatePacoteInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("pacotes")
     .insert(
-      getPacotePayload(input, nowIso(), { requireSessaoId: true }),
+      withAuthenticatedOwner(
+        getPacotePayload(input, nowIso(), { requireSessaoId: true }),
+        userId,
+      ),
     )
     .select("*")
     .single<PacoteRow>();
@@ -1813,13 +1873,16 @@ export async function createPacotes(
     return [];
   }
 
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const bipadoEm = nowIso();
   const { data, error } = await supabase
     .from("pacotes")
     .insert(
       inputs.map((input) =>
-        getPacotePayload(input, bipadoEm, { requireSessaoId: true }),
+        withAuthenticatedOwner(
+          getPacotePayload(input, bipadoEm, { requireSessaoId: true }),
+          userId,
+        ),
       ),
     )
     .select("*")
@@ -1843,10 +1906,10 @@ export async function createMovimentacao(
   input: CreateMovimentacaoInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("movimentacoes")
-    .insert(getMovimentacaoPayload(input))
+    .insert(withAuthenticatedOwner(getMovimentacaoPayload(input), userId))
     .select("*")
     .single<MovimentacaoRow>();
 
@@ -1872,13 +1935,13 @@ export async function createMovimentacoes(
     return [];
   }
 
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const criadaEm = nowIso();
   const { data, error } = await supabase
     .from("movimentacoes")
     .insert(
       inputs.map((input) =>
-        getMovimentacaoPayload(input, criadaEm),
+        withAuthenticatedOwner(getMovimentacaoPayload(input, criadaEm), userId),
       ),
     )
     .select("*")
@@ -1909,11 +1972,12 @@ export async function finalizarSessao({
   finalizadaEm?: string;
   atualizarPacotes?: boolean;
 }, context?: DatabaseContext) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data: sessao, error: sessaoError } = await supabase
     .from("sessoes_bipagem")
     .update({ status: "finalizada", finalizada_em: finalizadaEm })
     .eq("id", sessaoId)
+    .eq("user_id", userId)
     .select("*")
     .single<SessaoBipagemRow>();
 
@@ -1925,6 +1989,7 @@ export async function finalizarSessao({
     let pacotesQuery = supabase
       .from("pacotes")
       .update({ status: "finalizado", finalizado_em: finalizadaEm })
+      .eq("user_id", userId)
       .eq("loja_id", sessao.loja_id)
       .neq("status", "cancelado");
 
@@ -1958,10 +2023,10 @@ export async function cancelarPacotes({
   cancelamentos: CreateCancelamentoInput[];
   movimentacoes?: CreateMovimentacaoInput[];
 }, context?: DatabaseContext) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const canceladoEm = nowIso();
   const cancelamentoPayloads = cancelamentos.map((item) =>
-    getCancelamentoPayload(item, canceladoEm),
+    withAuthenticatedOwner(getCancelamentoPayload(item, canceladoEm), userId),
   );
   const lojaId = requireText(cancelamentoPayloads[0]?.loja_id, "loja_id");
 
@@ -1984,6 +2049,7 @@ export async function cancelarPacotes({
     const { data: pacotesAtuais, error: pacotesAtuaisError } = await supabase
       .from("pacotes")
       .select("id, status, loja_id")
+      .eq("user_id", userId)
       .eq("loja_id", lojaId)
       .in("id", pacoteIds)
       .returns<Array<Pick<PacoteRow, "id" | "status" | "loja_id">>>();
@@ -2030,6 +2096,7 @@ export async function cancelarPacotes({
     const { error: pacotesError } = await supabase
       .from("pacotes")
       .update({ status: "cancelado", cancelado_em: canceladoEm })
+      .eq("user_id", userId)
       .eq("loja_id", lojaId)
       .neq("status", "cancelado")
       .in("id", idsParaAtualizar);
@@ -2044,7 +2111,10 @@ export async function cancelarPacotes({
       .from("movimentacoes")
       .insert(
         movimentacoes.map((item) =>
-          getMovimentacaoPayload(item, canceladoEm),
+          withAuthenticatedOwner(
+            getMovimentacaoPayload(item, canceladoEm),
+            userId,
+          ),
         ),
       );
 
@@ -2084,7 +2154,7 @@ export async function cancelarPacote(
   input: CancelarPacoteInput,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const payload = getCancelarPacotePayload(input);
   const canceladoEm = payload.cancelado_em;
   const lojaId = requireText(payload.loja_id, "loja_id");
@@ -2093,6 +2163,7 @@ export async function cancelarPacote(
     .from("pacotes")
     .select("*")
     .eq("id", payload.pacote_id)
+    .eq("user_id", userId)
     .eq("loja_id", lojaId)
     .single<PacoteRow>();
 
@@ -2108,6 +2179,7 @@ export async function cancelarPacote(
     .from("pacotes")
     .update({ status: "cancelado", cancelado_em: canceladoEm })
     .eq("id", payload.pacote_id)
+    .eq("user_id", userId)
     .eq("loja_id", lojaId)
     .neq("status", "cancelado")
     .select("*")
@@ -2120,6 +2192,7 @@ export async function cancelarPacote(
   const { data: cancelamento, error: cancelamentoError } = await supabase
     .from("pacotes_cancelados")
     .insert({
+      user_id: userId,
       pacote_id: payload.pacote_id,
       codigo_pacote: payload.codigo_pacote,
       loja_id: pacote.loja_id,
@@ -2143,6 +2216,7 @@ export async function cancelarPacote(
   const { data: movimentacao, error: movimentacaoError } = await supabase
     .from("movimentacoes")
     .insert({
+      user_id: userId,
       pacote_id: payload.pacote_id,
       loja_id: pacote.loja_id,
       sessao_id: payload.sessao_id ?? pacote.sessao_id,
@@ -2179,11 +2253,12 @@ export async function updatePacoteCanceladoJustificativa(
   lojaId: string,
   context?: DatabaseContext,
 ) {
-  const { supabase } = await getDatabaseContext(context);
+  const { supabase, userId } = await getDatabaseContext(context);
   const { data, error } = await supabase
     .from("pacotes_cancelados")
     .update({ justificativa_individual: justificativaIndividual })
     .eq("id", id)
+    .eq("user_id", userId)
     .eq("loja_id", requireText(lojaId, "loja_id"))
     .select("*")
     .single<PacoteCanceladoRow>();

@@ -1,6 +1,7 @@
--- Sistema de Despacho - schema inicial para Supabase
--- Execute este arquivo no SQL Editor do Supabase.
--- Nesta fase nao ha controle de acesso na aplicacao; os dados sao separados por loja_id.
+-- Sistema de Despacho - schema-base historico para Supabase.
+-- O estado seguro atual exige também a migration
+-- 202607170001_multi_tenant_accounts.sql, com autenticação, user_id e RLS.
+-- Não use este arquivo isoladamente em um ambiente exposto.
 
 create extension if not exists pgcrypto;
 

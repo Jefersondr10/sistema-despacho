@@ -8,7 +8,7 @@ import {
   type DatabaseContext,
 } from "@/lib/database";
 import {
-  getSupabaseClient,
+  createSupabaseClientForAccessToken,
   isSupabaseConfigured,
 } from "@/lib/supabaseClient";
 
@@ -354,8 +354,32 @@ export async function POST(request: Request) {
     );
   }
 
+  const authorization = request.headers.get("authorization") ?? "";
+  const token = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
+
+  if (!token) {
+    return NextResponse.json(
+      { ok: false, message: "Sessao obrigatoria para enviar o relatorio." },
+      { status: 401 },
+    );
+  }
+
+  const authenticatedClient = createSupabaseClientForAccessToken(token);
+  const { data: userData, error: userError } =
+    await authenticatedClient.auth.getUser(token);
+
+  if (userError || !userData.user) {
+    return NextResponse.json(
+      { ok: false, message: "Sessao invalida ou expirada. Entre novamente." },
+      { status: 401 },
+    );
+  }
+
   const databaseContext: DatabaseContext = {
-    supabase: getSupabaseClient(),
+    supabase: authenticatedClient,
+    accessToken: token,
   };
 
   let payload: unknown;

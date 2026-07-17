@@ -26,6 +26,7 @@ import {
   getStoreName,
 } from "@/app/_lib/mock-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
+import { useAuth } from "@/app/_lib/auth-context";
 import {
   formatDatabaseError,
   getRelatorioDestinatarios,
@@ -91,6 +92,7 @@ function parseManualEmails(value: string) {
 }
 
 export function RelatoriosView() {
+  const { session } = useAuth();
   const loadRecipientsRequestIdRef = useRef(0);
   const { catalogs, packages, batches, loading, error } =
     useSupabaseDispatchData();
@@ -258,6 +260,7 @@ export function RelatoriosView() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
         },
         body: JSON.stringify({
           destinatarioIds: visibleSelectedRecipientIds,

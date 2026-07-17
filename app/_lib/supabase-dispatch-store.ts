@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { canDisplayAccountData } from "@/app/_lib/account-scope";
+import { useAuth } from "@/app/_lib/auth-context";
 import type {
   Carrier,
   DispatchBatch,
@@ -40,6 +42,7 @@ type CatalogState = {
 };
 
 type DispatchDataState = {
+  ownerUserId: string | null;
   catalogs: CatalogState;
   packages: DispatchPackage[];
   allPackages: DispatchPackage[];
@@ -59,8 +62,10 @@ const emptyCatalogs: CatalogState = {
 function createInitialState(
   loading = true,
   error = "",
+  ownerUserId: string | null = null,
 ): DispatchDataState {
   return {
+    ownerUserId,
     catalogs: emptyCatalogs,
     packages: [],
     allPackages: [],
@@ -75,11 +80,14 @@ function createInitialState(
 const initialState = createInitialState();
 
 export function useSupabaseDispatchData() {
+  const { loading: authLoading, user } = useAuth();
+  const userId = user?.id ?? null;
   const reloadRequestIdRef = useRef(0);
   const [state, setState] = useState<DispatchDataState>(initialState);
 
   const reload = useCallback(async () => {
     const requestId = ++reloadRequestIdRef.current;
+    const requestedUserId = userId;
     const isCurrentRequest = () => requestId === reloadRequestIdRef.current;
 
     if (!isSupabaseConfigured()) {
@@ -87,7 +95,17 @@ export function useSupabaseDispatchData() {
       return;
     }
 
-    setState((current) => ({ ...current, loading: true, error: "" }));
+    if (authLoading) {
+      setState(createInitialState(true));
+      return;
+    }
+
+    if (!requestedUserId) {
+      setState(createInitialState(false));
+      return;
+    }
+
+    setState(createInitialState(true, "", requestedUserId));
 
     try {
       const [
@@ -120,6 +138,7 @@ export function useSupabaseDispatchData() {
       }
 
       setState({
+        ownerUserId: requestedUserId,
         catalogs: {
           stores: lojasRows.map(mapLojaRowToStore),
           marketplaces: marketplacesRows.map(mapMarketplaceRowToMarketplace),
@@ -138,9 +157,15 @@ export function useSupabaseDispatchData() {
         return;
       }
 
-      setState(createInitialState(false, formatDatabaseError(error)));
+      setState(
+        createInitialState(
+          false,
+          formatDatabaseError(error),
+          requestedUserId,
+        ),
+      );
     }
-  }, []);
+  }, [authLoading, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -156,8 +181,12 @@ export function useSupabaseDispatchData() {
     };
   }, [reload]);
 
+  const visibleState = canDisplayAccountData(state.ownerUserId, userId)
+    ? state
+    : createInitialState(authLoading || Boolean(userId));
+
   return {
-    ...state,
+    ...visibleState,
     reload,
   };
 }
