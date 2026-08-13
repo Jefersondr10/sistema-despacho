@@ -57,7 +57,7 @@ const DUPLICATE_SESSION_WARNING =
 const DUPLICATE_FINALIZE_MESSAGE =
   "Não é possível finalizar o lote com pacotes duplicados. Exclua os rastreios repetidos antes de finalizar.";
 
-const BATCH_HISTORY_PAGE_SIZE = 40;
+const BATCH_HISTORY_PAGE_SIZE = 8;
 const BATCH_PACKAGE_PAGE_SIZE = 100;
 const SESSION_PACKAGE_PAGE_SIZE = 200;
 
@@ -1242,7 +1242,7 @@ export function BipagemForm() {
         className={`grid min-w-0 gap-4 self-start ${
           cancellationMode
             ? "mx-auto w-full max-w-6xl scroll-mt-24 xl:col-span-2 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)] xl:items-start"
-            : "xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
+            : ""
         }`}
       >
         {cancellationMode ? (
@@ -1285,7 +1285,7 @@ export function BipagemForm() {
             </ol>
           </div>
         ) : (
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0 xl:overflow-y-auto">
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)]">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
@@ -1444,7 +1444,7 @@ export function BipagemForm() {
           className={`rounded-2xl border bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] sm:p-5 ${
             cancellationMode
               ? "border-rose-300"
-              : "border-slate-200 xl:sticky xl:bottom-5 xl:z-10"
+              : "border-slate-200"
           }`}
         >
           {cancellationMode ? (
@@ -1836,7 +1836,7 @@ export function BipagemForm() {
           )}
         </div>
 
-        <div className="flex min-h-[320px] flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0">
+        <div className="flex min-h-[320px] flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6">
           <div className="mb-4 shrink-0">
             <h2 className="text-lg font-semibold text-slate-950">
               Histórico de lotes
@@ -1846,7 +1846,7 @@ export function BipagemForm() {
             </p>
           </div>
 
-          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+          <div className="app-scroll-region max-h-[min(52dvh,34rem)] min-h-0 flex-1 overflow-y-auto pr-1 [scrollbar-gutter:stable]">
             {sortedBatches.length ? (
               <div className="space-y-3">
                 {visibleBatches.map((batch) => (
@@ -2175,12 +2175,12 @@ export function BipagemForm() {
 
       {pendingSessionCancelPackage ? (
         <div
-          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 py-6"
+          className="app-scroll-region fixed inset-0 z-50 grid overflow-y-auto bg-slate-950/45 px-3 py-4 sm:place-items-center sm:px-4 sm:py-6"
           role="dialog"
           aria-modal="true"
           aria-labelledby="cancel-package-title"
         >
-          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+          <div className="app-scroll-region my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-lg border border-slate-200 bg-white p-5 shadow-xl sm:max-h-[calc(100dvh-3rem)]">
             <h2
               id="cancel-package-title"
               className="text-lg font-semibold text-slate-950"

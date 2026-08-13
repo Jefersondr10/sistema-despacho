@@ -275,7 +275,7 @@ textarea {
   }
 
   main > * {
-    animation: enter-up 320ms ease-out both;
+    animation: enter-up 320ms ease-out backwards;
   }
 }
 
