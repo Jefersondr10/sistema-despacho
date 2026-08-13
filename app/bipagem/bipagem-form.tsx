@@ -154,6 +154,8 @@ export function BipagemForm() {
   const [visibleSessionPackageCount, setVisibleSessionPackageCount] = useState(
     SESSION_PACKAGE_PAGE_SIZE,
   );
+  const [showOnlySessionDuplicates, setShowOnlySessionDuplicates] =
+    useState(false);
 
   const databaseContext = useMemo(
     () => ({ userId: user?.id }),
@@ -259,9 +261,35 @@ export function BipagemForm() {
   );
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
   const latestSessionPackage = sessionPackages[0] ?? null;
+  const duplicateSessionPackages = useMemo(
+    () =>
+      sessionPackages.filter((item) =>
+        duplicateSessionCodes.has(
+          normalizeTrackingCode(item.codigo_rastreio),
+        ),
+      ),
+    [duplicateSessionCodes, sessionPackages],
+  );
+  const sessionPackageNumbers = useMemo(
+    () =>
+      new Map(
+        sessionPackages.map((item, index) => [
+          item.id,
+          sessionPackages.length - index,
+        ]),
+      ),
+    [sessionPackages],
+  );
+  const filteredSessionPackages = useMemo(
+    () =>
+      showOnlySessionDuplicates
+        ? duplicateSessionPackages
+        : sessionPackages,
+    [duplicateSessionPackages, sessionPackages, showOnlySessionDuplicates],
+  );
   const visibleSessionPackages = useMemo(
-    () => sessionPackages.slice(0, visibleSessionPackageCount),
-    [sessionPackages, visibleSessionPackageCount],
+    () => filteredSessionPackages.slice(0, visibleSessionPackageCount),
+    [filteredSessionPackages, visibleSessionPackageCount],
   );
   const submitDisabled =
     loading ||
@@ -426,6 +454,7 @@ export function BipagemForm() {
     setMelhorEnvio(false);
     setTransportadora("");
     setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+    setShowOnlySessionDuplicates(false);
     clearCodeField();
   }
 
@@ -1183,7 +1212,7 @@ export function BipagemForm() {
 
   return (
     <section
-      className={`grid items-start gap-5 p-0 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7 ${
+      className={`grid min-w-0 items-start gap-5 p-0 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7 ${
         cancellationMode
           ? "border border-rose-200 bg-rose-50/70 p-4"
           : ""
@@ -1218,7 +1247,7 @@ export function BipagemForm() {
       <form
         onSubmit={handleSubmit}
         noValidate
-        className={`grid gap-5 self-start ${
+        className={`grid min-w-0 gap-5 self-start ${
           cancellationMode
             ? "xl:col-span-2 xl:grid-cols-[minmax(320px,0.75fr)_minmax(480px,1.25fr)] xl:items-start"
             : "xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
@@ -1629,10 +1658,10 @@ export function BipagemForm() {
       </form>
 
       {!cancellationMode ? (
-      <div className="grid min-h-0 gap-5 self-start xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:grid-rows-[minmax(22rem,1fr)_auto]">
-        <div className="flex min-h-[24rem] max-h-[min(72dvh,52rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 xl:min-h-0 xl:max-h-none">
-          <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
-            <div>
+      <div className="grid min-h-0 min-w-0 w-full gap-5 self-start xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:grid-rows-[minmax(22rem,1fr)_auto]">
+        <div className="flex min-w-0 w-full flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 xl:min-h-0 xl:overflow-hidden">
+          <div className="mb-4 flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
+            <div className="min-w-0">
               <h2 className="text-lg font-semibold text-slate-950">
                 Pacotes deste lote
               </h2>
@@ -1640,11 +1669,13 @@ export function BipagemForm() {
                 {sessionPackages.length} pacotes no lote atual.
               </p>
             </div>
-            <StatusBadge status="Pendente no lote" />
+            <div className="shrink-0">
+              <StatusBadge status="Pendente no lote" />
+            </div>
           </div>
 
           <div
-            className={`mb-4 shrink-0 rounded-lg border px-4 py-3 ${
+            className={`mb-4 min-w-0 shrink-0 rounded-lg border px-4 py-3 ${
               latestSessionPackage
                 ? "border-emerald-200 bg-emerald-50"
                 : "border-slate-200 bg-slate-50"
@@ -1657,13 +1688,16 @@ export function BipagemForm() {
             >
               {"\u00daltimo pacote bipado"}
             </p>
-            <p className="mt-1 truncate font-mono text-lg font-semibold text-slate-950">
+            <p
+              className="mt-1 break-all font-mono text-base font-semibold text-slate-950 sm:text-lg"
+              title={latestSessionPackage?.codigo_rastreio}
+            >
               {latestSessionPackage?.codigo_rastreio ?? "Aguardando pacote"}
             </p>
           </div>
 
           {sessionPackages.length ? (
-            <div className="flex min-h-0 flex-1 flex-col gap-4">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
               {sessionHeader}
               {hasSessionDuplicates ? (
                 <FeedbackMessage tone="danger">
@@ -1671,13 +1705,57 @@ export function BipagemForm() {
                   {duplicateSessionCodeList.join(", ")}.
                 </FeedbackMessage>
               ) : null}
-              <div className="app-scroll-region min-h-40 flex-1 overflow-y-scroll pr-2 [scrollbar-gutter:stable]">
-                <ol className="space-y-2">
-                  {visibleSessionPackages.map((item, index) => {
+              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs font-medium text-slate-500">
+                  Exibindo {filteredSessionPackages.length} de{" "}
+                  {sessionPackages.length} pacotes.
+                </p>
+                <div
+                  className="grid w-full grid-cols-2 gap-2 sm:w-auto"
+                  role="group"
+                  aria-label="Filtrar pacotes deste lote"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOnlySessionDuplicates(false);
+                      setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+                    }}
+                    aria-pressed={!showOnlySessionDuplicates}
+                    className={`inline-flex min-h-10 items-center justify-center rounded-md border px-3 text-xs font-semibold transition ${
+                      !showOnlySessionDuplicates
+                        ? "border-slate-700 bg-slate-950 text-white"
+                        : "border-slate-300 bg-white text-slate-700 hover:border-slate-400"
+                    }`}
+                  >
+                    Todos ({sessionPackages.length})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowOnlySessionDuplicates(true);
+                      setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+                    }}
+                    disabled={!hasSessionDuplicates && !showOnlySessionDuplicates}
+                    aria-pressed={showOnlySessionDuplicates}
+                    className={`inline-flex min-h-10 items-center justify-center rounded-md border px-3 text-xs font-semibold transition disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${
+                      showOnlySessionDuplicates
+                        ? "border-rose-600 bg-rose-600 text-white"
+                        : "border-rose-300 bg-white text-rose-700 hover:bg-rose-50"
+                    }`}
+                  >
+                    Duplicados ({duplicateSessionPackages.length})
+                  </button>
+                </div>
+              </div>
+              <div className="app-scroll-region max-h-[min(55dvh,32rem)] min-h-40 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-gutter:stable] sm:pr-2 xl:max-h-none">
+                {visibleSessionPackages.length ? (
+                  <ol className="space-y-2">
+                  {visibleSessionPackages.map((item) => {
                     const isDuplicate = duplicateSessionCodes.has(
                       normalizeTrackingCode(item.codigo_rastreio),
                     );
-                    const packageNumber = sessionPackages.length - index;
+                    const packageNumber = sessionPackageNumbers.get(item.id);
 
                     return (
                       <li
@@ -1688,24 +1766,33 @@ export function BipagemForm() {
                             : "border-slate-200"
                         }`}
                       >
-                        <div className="min-w-0">
-                          <span className="mr-3 text-sm font-semibold text-slate-400">
+                        <div className="flex min-w-0 items-start gap-2">
+                          <span className="shrink-0 text-sm font-semibold text-slate-400">
                             {packageNumber}.
                           </span>
-                          <span className="break-all font-mono text-sm font-semibold text-slate-950">
-                            {item.codigo_rastreio}
-                          </span>
-                          {isDuplicate ? (
-                            <span className="ml-3 inline-flex min-h-7 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700">
-                              Duplicado
+                          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                            <span
+                              className="min-w-0 break-all font-mono text-sm font-semibold text-slate-950"
+                              title={item.codigo_rastreio}
+                            >
+                              {item.codigo_rastreio}
                             </span>
-                          ) : null}
+                            {isDuplicate ? (
+                              <span className="inline-flex min-h-7 shrink-0 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700">
+                                Duplicado
+                              </span>
+                            ) : null}
+                          </span>
                         </div>
-                        <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
+                        <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:flex sm:flex-wrap sm:justify-end">
                           <button
                             type="button"
                             onClick={() => removeSessionPackage(item)}
-                            className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                            className={`inline-flex min-h-10 items-center justify-center rounded-md border bg-white px-3 text-xs font-semibold transition ${
+                              isDuplicate
+                                ? "border-rose-300 text-rose-700 hover:bg-rose-100"
+                                : "border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-950"
+                            }`}
                           >
                             Remover
                           </button>
@@ -1721,21 +1808,27 @@ export function BipagemForm() {
                     );
                   })}
                 </ol>
-                {visibleSessionPackages.length < sessionPackages.length ? (
+                ) : (
+                  <EmptyState>
+                    Nenhum pacote duplicado neste lote.
+                  </EmptyState>
+                )}
+                {visibleSessionPackages.length <
+                filteredSessionPackages.length ? (
                   <button
                     type="button"
                     onClick={() =>
                       setVisibleSessionPackageCount((current) =>
                         Math.min(
                           current + SESSION_PACKAGE_PAGE_SIZE,
-                          sessionPackages.length,
+                          filteredSessionPackages.length,
                         ),
                       )
                     }
                     className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                   >
                     Mostrar mais pacotes ({visibleSessionPackages.length} de{" "}
-                    {sessionPackages.length})
+                    {filteredSessionPackages.length})
                   </button>
                 ) : null}
               </div>
