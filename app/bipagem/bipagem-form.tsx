@@ -1658,8 +1658,8 @@ export function BipagemForm() {
       </form>
 
       {!cancellationMode ? (
-      <div className="grid min-h-0 min-w-0 w-full gap-5 self-start xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:grid-rows-[minmax(22rem,1fr)_auto]">
-        <div className="flex min-w-0 w-full flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 xl:min-h-0 xl:overflow-hidden">
+      <div className="grid min-w-0 w-full gap-5 self-start">
+        <div className="flex min-w-0 w-full flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6">
           <div className="mb-4 flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-slate-950">
@@ -1748,7 +1748,7 @@ export function BipagemForm() {
                   </button>
                 </div>
               </div>
-              <div className="app-scroll-region max-h-[min(55dvh,32rem)] min-h-40 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-gutter:stable] sm:pr-2 xl:max-h-none">
+              <div className="app-scroll-region max-h-[min(55dvh,32rem)] min-h-40 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-gutter:stable] sm:pr-2">
                 {visibleSessionPackages.length ? (
                   <ol className="space-y-2">
                   {visibleSessionPackages.map((item) => {
