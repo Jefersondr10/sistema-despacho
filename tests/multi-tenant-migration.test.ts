@@ -23,7 +23,12 @@ const tables = [
 
 test("migration faz backfill explicito antes de tornar user_id obrigatorio", () => {
   assert.match(sql, /begin;/i);
-  assert.match(sql, /v_owner_email constant text := 'OWNER_EMAIL_AQUI'/);
+  const ownerEmail = sql.match(
+    /v_owner_email constant text := '([^']+)'/,
+  )?.[1];
+  assert.ok(ownerEmail, "e-mail explicito do proprietario nao encontrado");
+  assert.notEqual(ownerEmail, "OWNER_EMAIL_AQUI");
+  assert.match(ownerEmail, /^[^\s@]+@[^\s@]+\.[^\s@]+$/);
   assert.match(sql, /where lower\(email\) = lower\(btrim\(v_owner_email\)\)/);
   assert.match(sql, /BACKFILL BLOQUEADO/);
   assert.doesNotMatch(sql, /order by created_at[\s\S]*limit 1/i);

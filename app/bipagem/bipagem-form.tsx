@@ -21,6 +21,7 @@ import {
   getOperationLabel,
   normalizeTrackingCode,
 } from "@/app/_lib/mock-data";
+import { useAuth } from "@/app/_lib/auth-context";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 import {
   adicionarItemSessaoBipagem,
@@ -49,9 +50,50 @@ type PendingCancellationItem = {
 
 const nowIso = () => new Date().toISOString();
 const DUPLICATE_SESSION_WARNING =
-  "Existem pacotes duplicados nesta sessão. Remova os duplicados para finalizar.";
+  "Existem pacotes duplicados neste lote. Remova os duplicados para finalizar.";
 const DUPLICATE_FINALIZE_MESSAGE =
-  "Não é possível finalizar a bipagem com pacotes duplicados. Exclua os pacotes repetidos antes de finalizar.";
+  "Não é possível finalizar o lote com pacotes duplicados. Exclua os rastreios repetidos antes de finalizar.";
+
+const BATCH_HISTORY_PAGE_SIZE = 40;
+const BATCH_PACKAGE_PAGE_SIZE = 100;
+const SESSION_PACKAGE_PAGE_SIZE = 200;
+
+function mapPendingItemToPackage(
+  item: ItemSessaoBipagemRow,
+  {
+    sessaoId,
+    lojaId,
+    marketplace,
+    melhorEnvio,
+    transportadora,
+    tipoOperacao,
+  }: {
+    sessaoId: string;
+    lojaId: string;
+    marketplace: string;
+    melhorEnvio: boolean;
+    transportadora: string | null;
+    tipoOperacao: OperationType;
+  },
+): DispatchPackage {
+  return {
+    id: item.id,
+    lote_id: sessaoId,
+    loja_id: lojaId,
+    codigo_rastreio: item.codigo_normalizado,
+    marketplace,
+    melhor_envio: melhorEnvio,
+    transportadora,
+    tipo_operacao: tipoOperacao,
+    status: "Pendente na sessão",
+    data_hora_bipagem: item.criado_em,
+    criado_em: item.criado_em,
+  };
+}
+
+function getStoreTrackingKey(storeId: string, trackingCode: string) {
+  return `${storeId}\u0000${normalizeTrackingCode(trackingCode)}`;
+}
 
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -59,6 +101,7 @@ function makeId(prefix: string) {
 
 export function BipagemForm() {
   const codeRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
   const {
     catalogs,
     packages,
@@ -68,22 +111,20 @@ export function BipagemForm() {
     loading,
     error,
     reload,
-  } = useSupabaseDispatchData();
+  } = useSupabaseDispatchData("bipagem");
   const activePackages = packages;
   const [lojaId, setLojaId] = useState("");
   const [marketplace, setMarketplace] = useState("");
   const [tipoOperacao, setTipoOperacao] = useState<OperationType | "">("");
   const [melhorEnvio, setMelhorEnvio] = useState(false);
   const [transportadora, setTransportadora] = useState("");
-  const [codigoRastreio, setCodigoRastreio] = useState("");
   const [activeBatchId, setActiveBatchId] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [sessionPackages, setSessionPackages] = useState<DispatchPackage[]>([]);
   const [selectedHistoryBatchId, setSelectedHistoryBatchId] = useState("");
   const [cancellationMode, setCancellationMode] = useState(false);
-  const [showCancellationConfirm, setShowCancellationConfirm] = useState(false);
+  const [cancellationLojaId, setCancellationLojaId] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
-  const [nextIndividualReason, setNextIndividualReason] = useState("");
   const [recentCancellations, setRecentCancellations] = useState<
     PackageCancellation[]
   >([]);
@@ -96,6 +137,8 @@ export function BipagemForm() {
     useState(false);
   const [showExitCancellationConfirm, setShowExitCancellationConfirm] =
     useState(false);
+  const [showFinalizeCancellationConfirm, setShowFinalizeCancellationConfirm] =
+    useState(false);
   const [pendingSessionCancelPackage, setPendingSessionCancelPackage] =
     useState<DispatchPackage | null>(null);
   const [sessionCancelReason, setSessionCancelReason] = useState("");
@@ -103,21 +146,43 @@ export function BipagemForm() {
   const [checkingPackage, setCheckingPackage] = useState(false);
   const [savingSession, setSavingSession] = useState(false);
   const [savingCancellation, setSavingCancellation] = useState(false);
+  const [visibleBatchCount, setVisibleBatchCount] = useState(
+    BATCH_HISTORY_PAGE_SIZE,
+  );
+  const [visibleSelectedBatchPackageCount, setVisibleSelectedBatchPackageCount] =
+    useState(BATCH_PACKAGE_PAGE_SIZE);
+  const [visibleSessionPackageCount, setVisibleSessionPackageCount] = useState(
+    SESSION_PACKAGE_PAGE_SIZE,
+  );
 
-  const activeStores = catalogs.stores.filter(
-    (item) => item.status !== "Inativa",
+  const databaseContext = useMemo(
+    () => ({ userId: user?.id }),
+    [user?.id],
   );
-  const activeMarketplaces = catalogs.marketplaces.filter(
-    (item) => item.status !== "Inativo",
+
+  const activeStores = useMemo(
+    () => catalogs.stores.filter((item) => item.status !== "Inativa"),
+    [catalogs.stores],
   );
-  const activeCarriers = catalogs.carriers.filter(
-    (item) => item.status !== "Inativa",
+  const activeMarketplaces = useMemo(
+    () =>
+      catalogs.marketplaces.filter((item) => item.status !== "Inativo"),
+    [catalogs.marketplaces],
+  );
+  const activeCarriers = useMemo(
+    () => catalogs.carriers.filter((item) => item.status !== "Inativa"),
+    [catalogs.carriers],
   );
   const sessionOpen = Boolean(activeBatchId);
   const selectedLojaId =
     lojaId && (sessionOpen || activeStores.some((item) => item.id === lojaId))
       ? lojaId
       : "";
+  const selectedCancellationLojaId = catalogs.stores.some(
+    (item) => item.id === cancellationLojaId,
+  )
+    ? cancellationLojaId
+    : "";
   const selectedMarketplace =
     marketplace &&
     (sessionOpen ||
@@ -131,6 +196,7 @@ export function BipagemForm() {
     (item) => item.name === transportadora,
   );
   const configLocked = sessionOpen || cancellationMode;
+  const cancellationStoreLocked = pendingCancellations.length > 0;
   const sortedBatches = useMemo(
     () =>
       batches
@@ -146,10 +212,56 @@ export function BipagemForm() {
   const selectedBatch = sortedBatches.find(
     (batch) => batch.id === selectedHistoryBatchId,
   );
-  const selectedBatchPackages = selectedBatch
-    ? allPackages.filter((item) => item.lote_id === selectedBatch.id)
-    : [];
-  const duplicateSessionCodes = useMemo(() => {
+  const { allPackageByStoreAndCode, packagesByBatchId } = useMemo(() => {
+    const packageByStoreAndCode = new Map<string, DispatchPackage>();
+    const packageGroups = new Map<string, DispatchPackage[]>();
+
+    for (const item of allPackages) {
+      const lookupKey = getStoreTrackingKey(item.loja_id, item.codigo_rastreio);
+      if (!packageByStoreAndCode.has(lookupKey)) {
+        packageByStoreAndCode.set(lookupKey, item);
+      }
+
+      const batchPackages = packageGroups.get(item.lote_id) ?? [];
+      batchPackages.push(item);
+      packageGroups.set(item.lote_id, batchPackages);
+    }
+
+    return {
+      allPackageByStoreAndCode: packageByStoreAndCode,
+      packagesByBatchId: packageGroups,
+    };
+  }, [allPackages]);
+  const activePackageByStoreAndCode = useMemo(() => {
+    const index = new Map<string, DispatchPackage>();
+
+    for (const item of activePackages) {
+      const lookupKey = getStoreTrackingKey(item.loja_id, item.codigo_rastreio);
+      if (!index.has(lookupKey)) {
+        index.set(lookupKey, item);
+      }
+    }
+
+    return index;
+  }, [activePackages]);
+  const canceledPackageIds = useMemo(
+    () => new Set(cancellations.map((item) => item.pacote_id)),
+    [cancellations],
+  );
+  const selectedBatchPackages = useMemo(
+    () =>
+      selectedBatch ? packagesByBatchId.get(selectedBatch.id) ?? [] : [],
+    [packagesByBatchId, selectedBatch],
+  );
+  const visibleBatches = useMemo(
+    () => sortedBatches.slice(0, visibleBatchCount),
+    [sortedBatches, visibleBatchCount],
+  );
+  const visibleSelectedBatchPackages = useMemo(
+    () => selectedBatchPackages.slice(0, visibleSelectedBatchPackageCount),
+    [selectedBatchPackages, visibleSelectedBatchPackageCount],
+  );
+  const sessionCodeCounts = useMemo(() => {
     const counts = new Map<string, number>();
 
     for (const item of sessionPackages) {
@@ -157,29 +269,31 @@ export function BipagemForm() {
       counts.set(normalizedCode, (counts.get(normalizedCode) ?? 0) + 1);
     }
 
-    return new Set(
-      Array.from(counts)
-        .filter(([, count]) => count > 1)
-        .map(([code]) => code),
-    );
+    return counts;
   }, [sessionPackages]);
+  const sessionNormalizedCodes = useMemo(
+    () => new Set(sessionCodeCounts.keys()),
+    [sessionCodeCounts],
+  );
+  const duplicateSessionCodes = useMemo(
+    () =>
+      new Set(
+        Array.from(sessionCodeCounts)
+          .filter(([, count]) => count > 1)
+          .map(([code]) => code),
+      ),
+    [sessionCodeCounts],
+  );
   const duplicateSessionCodeList = useMemo(
     () => Array.from(duplicateSessionCodes).sort(),
     [duplicateSessionCodes],
   );
-  const sessionPackageOrder = useMemo(() => {
-    return new Map(
-      [...sessionPackages]
-        .sort(
-          (first, second) =>
-            first.data_hora_bipagem.localeCompare(second.data_hora_bipagem) ||
-            first.id.localeCompare(second.id),
-        )
-        .map((item, index) => [item.id, index + 1]),
-    );
-  }, [sessionPackages]);
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
   const latestSessionPackage = sessionPackages[0] ?? null;
+  const visibleSessionPackages = useMemo(
+    () => sessionPackages.slice(0, visibleSessionPackageCount),
+    [sessionPackages, visibleSessionPackageCount],
+  );
   const submitDisabled =
     loading ||
     loadingOpenSession ||
@@ -207,7 +321,7 @@ export function BipagemForm() {
 
       setLoadingOpenSession(true);
 
-      void getSessaoBipagemAbertaComItens()
+      void getSessaoBipagemAbertaComItens(databaseContext)
         .then((openSession) => {
         if (cancelled) {
           return;
@@ -230,7 +344,7 @@ export function BipagemForm() {
         );
         setNotice({
           type: "neutral",
-          text: "Bipagem em andamento restaurada do Supabase.",
+          text: "Lote em andamento restaurado do Supabase.",
         });
         setLoadingOpenSession(false);
         })
@@ -241,7 +355,7 @@ export function BipagemForm() {
 
         setNotice({
           type: "danger",
-          text: `Erro ao carregar sessao aberta: ${formatDatabaseError(
+          text: `Erro ao carregar lote em andamento: ${formatDatabaseError(
             openSessionError,
           )}`,
         });
@@ -252,7 +366,25 @@ export function BipagemForm() {
     return () => {
       cancelled = true;
     };
-  }, [loading]);
+  }, [databaseContext, loading]);
+
+  useEffect(() => {
+    const hasCancellationDraft =
+      cancellationMode &&
+      (Boolean(cancellationReason.trim()) || pendingCancellations.length > 0);
+
+    if (!hasCancellationDraft) {
+      return;
+    }
+
+    function preventAccidentalExit(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    window.addEventListener("beforeunload", preventAccidentalExit);
+    return () => window.removeEventListener("beforeunload", preventAccidentalExit);
+  }, [cancellationMode, cancellationReason, pendingCancellations.length]);
 
   function getCatalogStoreName(id: string) {
     return catalogs.stores.find((store) => store.id === id)?.name ?? id;
@@ -264,6 +396,11 @@ export function BipagemForm() {
 
   function openBatchRomaneio(batchId: string) {
     window.open(`/romaneio/${batchId}`, "_blank", "noopener,noreferrer");
+  }
+
+  function openBatchHistory(batchId: string) {
+    setVisibleSelectedBatchPackageCount(BATCH_PACKAGE_PAGE_SIZE);
+    setSelectedHistoryBatchId(batchId);
   }
 
   function getMarketplaceIdByName(name: string) {
@@ -285,23 +422,14 @@ export function BipagemForm() {
     );
   }
 
-  function mapSessionItemsToPackages(
-    itens: ItemSessaoBipagemRow[],
-    sessaoId = activeBatchId,
-  ): DispatchPackage[] {
-    return itens.map((item) => ({
-      id: item.id,
-      lote_id: sessaoId,
-      loja_id: selectedLojaId,
-      codigo_rastreio: item.codigo_normalizado,
-      marketplace: selectedMarketplace,
-      melhor_envio: melhorEnvio,
-      transportadora: melhorEnvio ? transportadora : null,
-      tipo_operacao: tipoOperacao || "postagem",
-      status: "Pendente na sessão",
-      data_hora_bipagem: item.criado_em,
-      criado_em: item.criado_em,
-    }));
+  function getCodeFieldValue() {
+    return codeRef.current?.value.trim() ?? "";
+  }
+
+  function clearCodeField() {
+    if (codeRef.current) {
+      codeRef.current.value = "";
+    }
   }
 
   function focusCodeField() {
@@ -316,7 +444,8 @@ export function BipagemForm() {
     setTipoOperacao("");
     setMelhorEnvio(false);
     setTransportadora("");
-    setCodigoRastreio("");
+    setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+    clearCodeField();
   }
 
   function handleMelhorEnvioChange(active: boolean) {
@@ -361,11 +490,11 @@ export function BipagemForm() {
 
   function validateSessionConfig(code: string) {
     if (!selectedLojaId) {
-      return "Selecione a loja antes de iniciar a bipagem.";
+      return "Selecione a loja antes de iniciar o lote.";
     }
 
     if (!selectedMarketplace) {
-      return "Selecione o marketplace antes de iniciar a bipagem.";
+      return "Selecione o marketplace antes de iniciar o lote.";
     }
 
     if (!tipoOperacao) {
@@ -397,15 +526,18 @@ export function BipagemForm() {
     }
 
     const timestamp = nowIso();
-    const sessao = await createSessaoBipagem({
-      loja_id: selectedLojaId,
-      marketplace_id: selectedMarketplaceItem.id,
-      tipo_operacao: selectedOperation,
-      melhor_envio: melhorEnvio,
-      transportadora_id: melhorEnvio ? selectedCarrierItem?.id ?? null : null,
-      status: "aberta",
-      iniciada_em: timestamp,
-    });
+    const sessao = await createSessaoBipagem(
+      {
+        loja_id: selectedLojaId,
+        marketplace_id: selectedMarketplaceItem.id,
+        tipo_operacao: selectedOperation,
+        melhor_envio: melhorEnvio,
+        transportadora_id: melhorEnvio ? selectedCarrierItem?.id ?? null : null,
+        status: "aberta",
+        iniciada_em: timestamp,
+      },
+      databaseContext,
+    );
 
     setActiveBatchId(sessao.id);
 
@@ -415,7 +547,7 @@ export function BipagemForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const code = codigoRastreio.trim();
+    const code = getCodeFieldValue();
     if (cancellationMode) {
       void cancelPackageByCode(code);
       return;
@@ -430,16 +562,16 @@ export function BipagemForm() {
 
     const selectedOperation = tipoOperacao as OperationType;
     const normalizedCode = normalizeTrackingCode(code);
-    const duplicatedInSession = sessionPackages.some(
-      (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
-    );
+    const duplicatedInSession = sessionNormalizedCodes.has(normalizedCode);
 
     let duplicatedSavedPackage = null;
     setCheckingPackage(true);
     try {
-      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(normalizedCode, {
-        loja_id: selectedLojaId,
-      });
+      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(
+        normalizedCode,
+        { loja_id: selectedLojaId },
+        databaseContext,
+      );
     } catch (error) {
       setNotice({
         type: "danger",
@@ -456,7 +588,7 @@ export function BipagemForm() {
         type: "danger",
         text: "Pacote duplicado: este código já foi bipado em outro lote.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -465,25 +597,60 @@ export function BipagemForm() {
 
     try {
       const sessaoId = await ensureOpenSession(selectedOperation);
-      const itens = await adicionarItemSessaoBipagem({
-        sessao_id: sessaoId,
-        codigo: normalizedCode,
-      });
+      const itens = await adicionarItemSessaoBipagem(
+        {
+          sessao_id: sessaoId,
+          codigo: normalizedCode,
+        },
+        databaseContext,
+      );
+      const addedItem = itens[0];
 
-      setSessionPackages(mapSessionItemsToPackages(itens, sessaoId));
+      if (!addedItem) {
+        throw new Error("O pacote foi salvo, mas o lote não retornou o item.");
+      }
+
+      let serverDetectedDuplicate = addedItem.duplicado;
+      if (addedItem.duplicado || duplicatedInSession) {
+        // A duplicidade e rara. Somente nesse caminho sincronizamos a sessao
+        // inteira para mostrar itens adicionados por outra aba/leitor.
+        const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+        if (!openSession || openSession.sessao.id !== sessaoId) {
+          throw new Error("O lote foi alterado em outro dispositivo. Recarregue a tela.");
+        }
+        serverDetectedDuplicate = openSession.itens.some((item) => item.duplicado);
+        setSessionPackages(
+          openSession.itens.map((item) =>
+            mapItemSessaoRowToDispatchPackage(item, openSession.sessao),
+          ),
+        );
+      } else {
+        const addedPackage = mapPendingItemToPackage(addedItem, {
+          sessaoId,
+          lojaId: selectedLojaId,
+          marketplace: selectedMarketplace,
+          melhorEnvio,
+          transportadora: melhorEnvio ? transportadora : null,
+          tipoOperacao: selectedOperation,
+        });
+        setSessionPackages((current) => [
+          addedPackage,
+          ...current.filter((item) => item.id !== addedPackage.id),
+        ]);
+      }
       setNotice({
-        type: duplicatedInSession ? "warning" : "success",
-        text: duplicatedInSession
+        type: duplicatedInSession || serverDetectedDuplicate ? "warning" : "success",
+        text: duplicatedInSession || serverDetectedDuplicate
           ? DUPLICATE_SESSION_WARNING
           : sessionOpen
             ? `Rastreio ${normalizedCode} adicionado ao lote.`
-            : `Sessão iniciada no Supabase. Rastreio ${normalizedCode} adicionado ao lote.`,
+            : `Lote iniciado. Rastreio ${normalizedCode} adicionado.`,
       });
-      setCodigoRastreio("");
+      clearCodeField();
     } catch (error) {
       setNotice({
         type: "danger",
-        text: `Erro ao salvar pacote na sessao: ${formatDatabaseError(error)}`,
+        text: `Erro ao salvar pacote no lote: ${formatDatabaseError(error)}`,
       });
     } finally {
       setSavingSession(false);
@@ -512,7 +679,37 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
-      const result = await finalizarSessaoBipagemAberta(activeBatchId);
+      // Confere a lista imediatamente antes da finalizacao. Isso impede que
+      // uma segunda aba esconda itens ou duplicidades desta tela.
+      const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+      if (!openSession || openSession.sessao.id !== activeBatchId) {
+        throw new Error("O lote em andamento mudou em outro dispositivo. Recarregue a tela.");
+      }
+      const synchronizedPackages = openSession.itens.map((item) =>
+        mapItemSessaoRowToDispatchPackage(item, openSession.sessao),
+      );
+      setSessionPackages(synchronizedPackages);
+
+      const synchronizedDuplicates = new Set<string>();
+      const synchronizedCounts = new Map<string, number>();
+      for (const item of openSession.itens) {
+        const code = item.codigo_normalizado;
+        const count = (synchronizedCounts.get(code) ?? 0) + 1;
+        synchronizedCounts.set(code, count);
+        if (item.duplicado || count > 1) {
+          synchronizedDuplicates.add(code);
+        }
+      }
+
+      if (synchronizedDuplicates.size) {
+        setShowDuplicateFinalizeDialog(true);
+        throw new Error(DUPLICATE_SESSION_WARNING);
+      }
+
+      const result = await finalizarSessaoBipagemAberta(
+        activeBatchId,
+        databaseContext,
+      );
       await reload();
 
       const batchCode = result?.codigo_lote || getBatchCode({ id: activeBatchId });
@@ -520,12 +717,12 @@ export function BipagemForm() {
         type: "success",
         text: `${result?.total_pacotes ?? sessionPackages.length} pacotes finalizados no lote ${batchCode}.`,
       });
-      setSelectedHistoryBatchId(activeBatchId);
+      openBatchHistory(activeBatchId);
       resetSessionConfig();
     } catch (error) {
       setNotice({
         type: "danger",
-        text: `Erro ao finalizar bipagem: ${formatDatabaseError(error)}`,
+        text: `Erro ao finalizar o lote: ${formatDatabaseError(error)}`,
       });
     } finally {
       setSavingSession(false);
@@ -535,7 +732,7 @@ export function BipagemForm() {
 
   function clearSession() {
     if (!activeBatchId) {
-      setNotice({ type: "neutral", text: "A sessão já está vazia." });
+      setNotice({ type: "neutral", text: "O lote já está vazio." });
       focusCodeField();
       return;
     }
@@ -551,15 +748,15 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
-      await cancelarSessaoBipagemAberta(activeBatchId);
+      await cancelarSessaoBipagemAberta(activeBatchId, databaseContext);
       await reload();
       resetSessionConfig();
       setShowClearSessionConfirm(false);
-      setNotice({ type: "neutral", text: "Sessão atual cancelada." });
+      setNotice({ type: "neutral", text: "Lote atual descartado." });
     } catch (error) {
       setNotice({
         type: "danger",
-        text: `Erro ao cancelar sessao: ${formatDatabaseError(error)}`,
+        text: `Erro ao descartar lote: ${formatDatabaseError(error)}`,
       });
     } finally {
       setSavingSession(false);
@@ -568,42 +765,44 @@ export function BipagemForm() {
   }
 
   function requestCancellationMode() {
+    if (loading || loadingOpenSession || savingSession || checkingPackage) {
+      setNotice({
+        type: "warning",
+        text: "Aguarde o lote atual terminar de carregar ou salvar.",
+      });
+      return;
+    }
+
     if (sessionPackages.length || sessionOpen) {
       setNotice({
         type: "warning",
-        text: "Finalize ou cancele a sessão atual antes de entrar no modo de cancelamento.",
+        text: "Finalize ou descarte o lote atual antes de cancelar pacotes finalizados.",
       });
       focusCodeField();
       return;
     }
 
-    if (!selectedLojaId) {
-      setNotice({
-        type: "warning",
-        text: "Selecione a loja antes de entrar no modo de cancelamento.",
-      });
-      focusCodeField();
-      return;
-    }
-
-    setShowCancellationConfirm(true);
+    activateCancellationMode();
   }
 
   function activateCancellationMode() {
-    setShowCancellationConfirm(false);
+    setCancellationLojaId(selectedLojaId);
     setCancellationMode(true);
-    setCodigoRastreio("");
+    clearCodeField();
     setNotice({
       type: "warning",
-      text: "Modo cancelamento ativo. Informe a justificativa geral antes de bipar cancelamentos.",
+      text: "Cancelamento em lote aberto. Selecione a loja, informe o motivo e bipe os rastreios.",
     });
     focusCodeField();
   }
 
   function requestExitCancellationMode() {
+    if (savingCancellation) {
+      return;
+    }
+
     if (
-      codigoRastreio.trim() ||
-      nextIndividualReason.trim() ||
+      getCodeFieldValue() ||
       cancellationReason.trim() ||
       pendingCancellations.length
     ) {
@@ -616,18 +815,27 @@ export function BipagemForm() {
 
   function exitCancellationMode() {
     setCancellationMode(false);
-    setShowCancellationConfirm(false);
     setShowExitCancellationConfirm(false);
-    setCodigoRastreio("");
+    setShowFinalizeCancellationConfirm(false);
+    clearCodeField();
+    setCancellationLojaId("");
     setCancellationReason("");
-    setNextIndividualReason("");
     setPendingCancellations([]);
-    setNotice({ type: "neutral", text: "Modo cancelamento desativado." });
+    setNotice({ type: "neutral", text: "Cancelamento em lote fechado." });
     focusCodeField();
   }
 
   async function cancelPackageByCode(code: string) {
     if (savingCancellation) {
+      return;
+    }
+
+    if (!selectedCancellationLojaId) {
+      setNotice({
+        type: "warning",
+        text: "Selecione a loja dos pacotes antes de bipar.",
+      });
+      focusCodeField();
       return;
     }
 
@@ -651,21 +859,15 @@ export function BipagemForm() {
     }
 
     const normalizedCode = normalizeTrackingCode(code);
-    const activePackage = activePackages.find(
-      (item) =>
-        item.loja_id === selectedLojaId &&
-        normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
+    const lookupKey = getStoreTrackingKey(
+      selectedCancellationLojaId,
+      normalizedCode,
     );
-    const anyPackage = allPackages.find(
-      (item) =>
-        item.loja_id === selectedLojaId &&
-        normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
-    );
-    const alreadyCanceled = cancellations.some(
-      (item) =>
-        item.loja_id === selectedLojaId &&
-        normalizeTrackingCode(item.codigo_pacote) === normalizedCode,
-    );
+    const activePackage = activePackageByStoreAndCode.get(lookupKey);
+    const anyPackage = allPackageByStoreAndCode.get(lookupKey);
+    const alreadyCanceled = activePackage
+      ? canceledPackageIds.has(activePackage.id)
+      : Boolean(anyPackage);
     const alreadyQueued = pendingCancellations.some(
       (item) =>
         item.pacote.id === activePackage?.id ||
@@ -677,7 +879,7 @@ export function BipagemForm() {
         type: "danger",
         text: "Pacote não encontrado. Nada foi cancelado.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -687,7 +889,7 @@ export function BipagemForm() {
         type: "warning",
         text: "Este pacote já foi cancelado anteriormente.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -697,7 +899,7 @@ export function BipagemForm() {
         type: "warning",
         text: "Este pacote ja esta na lista temporaria de cancelamento.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -705,7 +907,7 @@ export function BipagemForm() {
     setPendingCancellations((current) => [
       {
         pacote: activePackage,
-        justificativa_individual: nextIndividualReason.trim(),
+        justificativa_individual: "",
       },
       ...current,
     ]);
@@ -713,28 +915,44 @@ export function BipagemForm() {
       type: "success",
       text: `Pacote ${activePackage.codigo_rastreio} adicionado para cancelamento.`,
     });
-    setCodigoRastreio("");
-    setNextIndividualReason("");
+    clearCodeField();
     focusCodeField();
   }
 
-  function updatePendingCancellationReason(
-    packageId: string,
-    justification: string,
-  ) {
-    setPendingCancellations((current) =>
-      current.map((item) =>
-        item.pacote.id === packageId
-          ? { ...item, justificativa_individual: justification }
-          : item,
-      ),
-    );
-  }
-
   function removePendingCancellation(packageId: string) {
+    if (savingCancellation) {
+      return;
+    }
+
     setPendingCancellations((current) =>
       current.filter((item) => item.pacote.id !== packageId),
     );
+  }
+
+  function requestFinalizePendingCancellations() {
+    if (savingCancellation) {
+      return;
+    }
+
+    if (!cancellationReason.trim()) {
+      setNotice({
+        type: "warning",
+        text: "Informe a justificativa geral antes de finalizar cancelamentos.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    if (!pendingCancellations.length) {
+      setNotice({
+        type: "warning",
+        text: "Adicione ao menos um pacote para cancelar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    setShowFinalizeCancellationConfirm(true);
   }
 
   async function finalizePendingCancellations() {
@@ -761,20 +979,23 @@ export function BipagemForm() {
       return;
     }
 
+    const cancellationSnapshot = [...pendingCancellations];
+    setShowFinalizeCancellationConfirm(false);
     setSavingCancellation(true);
 
     try {
       const savedRows = await finalizarCancelamentosEmLote(
-        pendingCancellations.map((item) => ({
+        cancellationSnapshot.map((item) => ({
           pacote_id: item.pacote.id,
           justificativa_geral: cleanGeneralReason,
           justificativa_individual: item.justificativa_individual,
         })),
+        databaseContext,
       );
       const savedByPackageId = new Map(
         savedRows.map((item) => [item.pacote_id ?? "", item]),
       );
-      const records = pendingCancellations.map((item) => {
+      const records = cancellationSnapshot.map((item) => {
         const saved = savedByPackageId.get(item.pacote.id);
 
         return {
@@ -793,9 +1014,9 @@ export function BipagemForm() {
       setRecentCancellations((current) => [...records, ...current].slice(0, 8));
       setPendingCancellations([]);
       setCancellationMode(false);
+      setCancellationLojaId("");
       setCancellationReason("");
-      setNextIndividualReason("");
-      setCodigoRastreio("");
+      clearCodeField();
       setNotice({
         type: "success",
         text: `${records.length} cancelamento(s) finalizado(s).`,
@@ -826,19 +1047,24 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
-      const itens = await removerItemSessaoBipagem({
-        itemId: item.id,
-        status: "descartado",
-      });
-      setSessionPackages(mapSessionItemsToPackages(itens, activeBatchId));
+      await removerItemSessaoBipagem(
+        {
+          itemId: item.id,
+          status: "descartado",
+        },
+        databaseContext,
+      );
+      setSessionPackages((current) =>
+        current.filter((sessionItem) => sessionItem.id !== item.id),
+      );
       setNotice({
         type: "neutral",
-        text: `Pacote ${item.codigo_rastreio} removido da sessão.`,
+        text: `Pacote ${item.codigo_rastreio} removido do lote.`,
       });
     } catch (error) {
       setNotice({
         type: "danger",
-        text: `Erro ao remover pacote da sessao: ${formatDatabaseError(error)}`,
+        text: `Erro ao remover pacote do lote: ${formatDatabaseError(error)}`,
       });
     } finally {
       setSavingSession(false);
@@ -872,50 +1098,63 @@ export function BipagemForm() {
       const savedPackage = await getPacoteAtivoPorCodigo(
         targetPackage.codigo_rastreio,
         { loja_id: targetPackage.loja_id },
+        databaseContext,
       );
-      const savedRows = await cancelarPacotes({
-        cancelamentos: [
-          {
-            pacote_id: savedPackage?.id ?? null,
-            codigo_pacote: savedPackage?.codigo ?? targetPackage.codigo_rastreio,
-            loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
-            marketplace_id:
-              savedPackage?.marketplace_id ??
-              getMarketplaceIdByName(targetPackage.marketplace),
-            transportadora_id:
-              savedPackage?.transportadora_id ??
-              getCarrierIdByName(targetPackage.transportadora),
-            sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
-            tipo_operacao: savedPackage?.tipo_operacao ?? targetPackage.tipo_operacao,
-            melhor_envio: savedPackage?.melhor_envio ?? targetPackage.melhor_envio,
-            justificativa_geral: cleanReason,
-            justificativa_individual: null,
-            bipado_em: savedPackage?.bipado_em ?? targetPackage.data_hora_bipagem,
-            cancelado_em: canceledAt,
-          },
-        ],
-        movimentacoes: [
-          {
-            pacote_id: savedPackage?.id ?? null,
-            loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
-            sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
-            tipo_movimentacao: "Cancelamento",
-            descricao: `Pacote ${savedPackage?.codigo ?? targetPackage.codigo_rastreio} cancelado na sessao de bipagem.`,
-            criada_em: canceledAt,
-          },
-        ],
-      });
+      const savedRows = await cancelarPacotes(
+        {
+          cancelamentos: [
+            {
+              pacote_id: savedPackage?.id ?? null,
+              codigo_pacote:
+                savedPackage?.codigo ?? targetPackage.codigo_rastreio,
+              loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+              marketplace_id:
+                savedPackage?.marketplace_id ??
+                getMarketplaceIdByName(targetPackage.marketplace),
+              transportadora_id:
+                savedPackage?.transportadora_id ??
+                getCarrierIdByName(targetPackage.transportadora),
+              sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
+              tipo_operacao:
+                savedPackage?.tipo_operacao ?? targetPackage.tipo_operacao,
+              melhor_envio:
+                savedPackage?.melhor_envio ?? targetPackage.melhor_envio,
+              justificativa_geral: cleanReason,
+              justificativa_individual: null,
+              bipado_em:
+                savedPackage?.bipado_em ?? targetPackage.data_hora_bipagem,
+              cancelado_em: canceledAt,
+            },
+          ],
+          movimentacoes: [
+            {
+              pacote_id: savedPackage?.id ?? null,
+              loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+              sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
+              tipo_movimentacao: "Cancelamento",
+              descricao: `Pacote ${savedPackage?.codigo ?? targetPackage.codigo_rastreio} cancelado durante a preparação do lote.`,
+              criada_em: canceledAt,
+            },
+          ],
+        },
+        databaseContext,
+      );
 
       record = {
         ...record,
         id: savedRows[0]?.id ?? record.id,
         pacote_id: savedRows[0]?.pacote_id ?? targetPackage.id,
       };
-      const itens = await removerItemSessaoBipagem({
-        itemId: targetPackage.id,
-        status: "cancelado",
-      });
-      setSessionPackages(mapSessionItemsToPackages(itens, activeBatchId));
+      await removerItemSessaoBipagem(
+        {
+          itemId: targetPackage.id,
+          status: "cancelado",
+        },
+        databaseContext,
+      );
+      setSessionPackages((current) =>
+        current.filter((item) => item.id !== targetPackage.id),
+      );
       await reload();
       setRecentCancellations((current) => [record, ...current].slice(0, 8));
     } catch (error) {
@@ -964,7 +1203,7 @@ export function BipagemForm() {
 
   return (
     <section
-      className={`grid items-start gap-6 rounded-lg p-0 transition xl:grid-cols-[minmax(360px,0.92fr)_minmax(420px,1.08fr)] ${
+      className={`grid items-start gap-5 p-0 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7 ${
         cancellationMode
           ? "border border-rose-200 bg-rose-50/70 p-4"
           : ""
@@ -973,7 +1212,7 @@ export function BipagemForm() {
       {loading || loadingOpenSession ? (
         <div className="xl:col-span-2">
           <FeedbackMessage tone="neutral">
-            Carregando dados e sessao aberta do Supabase...
+            Carregando seus dados e o lote em andamento...
           </FeedbackMessage>
         </div>
       ) : null}
@@ -985,26 +1224,96 @@ export function BipagemForm() {
       ) : null}
 
       {cancellationMode ? (
-        <div className="xl:col-span-2 rounded-lg border border-rose-300 bg-rose-100 px-5 py-4 text-rose-950">
+        <div className="xl:col-span-2 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-6 py-5 text-rose-950 shadow-sm">
           <p className="text-lg font-bold tracking-normal">
-            MODO CANCELAMENTO ATIVO
+            Cancelar pacotes finalizados
           </p>
           <p className="mt-1 text-sm font-medium leading-6">
-            Bipe os pacotes, revise a lista e finalize todos os cancelamentos
-            de uma vez.
+            Bipe todos os rastreios, confira a lista e confirme o cancelamento
+            em uma única etapa.
           </p>
         </div>
       ) : null}
 
       <form
         onSubmit={handleSubmit}
-        className="grid gap-6 self-start xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
+        noValidate
+        className={`grid gap-5 self-start ${
+          cancellationMode
+            ? "xl:col-span-2 xl:grid-cols-[minmax(320px,0.75fr)_minmax(480px,1.25fr)] xl:items-start"
+            : "xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
+        }`}
       >
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:min-h-0 xl:overflow-y-auto">
+        {cancellationMode ? (
+          <div className="rounded-2xl border border-rose-200 bg-white p-6 shadow-sm xl:min-h-0 xl:overflow-y-auto">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">
+                  Cancelamento em lote
+                </p>
+                <h2 className="mt-2 text-xl font-bold text-slate-950">
+                  Cancelar pacotes finalizados
+                </h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                  Selecione a loja, informe o motivo e bipe quantos pacotes
+                  precisar. Nada será cancelado até você confirmar a lista.
+                </p>
+              </div>
+              <Badge tone="red">{pendingCancellations.length} selecionados</Badge>
+            </div>
+
+            <label className="mt-6 grid gap-2 text-sm font-semibold text-slate-800">
+              Loja dos pacotes
+              <select
+                value={selectedCancellationLojaId}
+                onChange={(event) => setCancellationLojaId(event.target.value)}
+                disabled={cancellationStoreLocked || savingCancellation}
+                className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                required
+              >
+                <option value="" disabled>
+                  Selecione uma loja
+                </option>
+                {catalogs.stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                    {store.status === "Inativa" ? " (inativa)" : ""}
+                  </option>
+                ))}
+              </select>
+              {cancellationStoreLocked ? (
+                <span className="text-xs font-medium text-slate-500">
+                  Remova os pacotes da lista para trocar de loja.
+                </span>
+              ) : null}
+            </label>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {[
+                ["1", "Loja e motivo"],
+                ["2", "Bipe os rastreios"],
+                ["3", "Cancele todos"],
+              ].map(([step, label]) => (
+                <div
+                  key={step}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-bold text-white">
+                    {step}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0 xl:overflow-y-auto">
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
-                Configuração da sessão
+                Configuração do lote
               </h2>
               <p className="mt-1 text-sm leading-6 text-slate-500">
                 Configure uma vez. Depois do primeiro pacote, os dados ficam
@@ -1013,7 +1322,7 @@ export function BipagemForm() {
             </div>
             <div className="flex flex-wrap gap-2">
               <Badge tone={sessionOpen ? "green" : "neutral"}>
-                {sessionOpen ? "Sessão aberta" : "Pronta para iniciar"}
+                {sessionOpen ? "Lote em andamento" : "Pronto para iniciar"}
               </Badge>
               {cancellationMode ? (
                 <Badge tone="red">Cancelamento</Badge>
@@ -1167,14 +1476,15 @@ export function BipagemForm() {
 
           {sessionOpen ? (
             <div className="mt-5 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900">
-              Sessão aberta. Para alterar loja, marketplace, operação ou Melhor
-              Envio, finalize ou cancele a bipagem atual.
+              Lote em andamento. Para alterar loja, marketplace, operação ou
+              Melhor Envio, finalize ou descarte o lote atual.
             </div>
           ) : null}
         </div>
+        )}
 
         <div
-          className={`rounded-lg border bg-white p-5 shadow-sm xl:sticky xl:bottom-6 xl:z-10 ${
+          className={`rounded-2xl border bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] xl:sticky xl:bottom-5 xl:z-10 ${
             cancellationMode ? "border-rose-300" : "border-slate-200"
           }`}
         >
@@ -1185,33 +1495,21 @@ export function BipagemForm() {
                 <textarea
                   value={cancellationReason}
                   onChange={(event) => setCancellationReason(event.target.value)}
+                  disabled={savingCancellation}
                   className="min-h-24 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
                   placeholder="Exemplo: pedido removido da expedição"
                   required
                 />
               </label>
 
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                Justificativa individual do próximo pacote
-                <input
-                  value={nextIndividualReason}
-                  onChange={(event) =>
-                    setNextIndividualReason(event.target.value)
-                  }
-                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                  placeholder="Opcional"
-                />
-              </label>
             </div>
           ) : null}
 
           <label className="grid gap-2 text-sm font-medium text-slate-700">
-            {cancellationMode ? "Código para cancelamento" : "Código do pacote"}
+            {cancellationMode ? "Rastreio finalizado" : "Código do pacote"}
             <input
               ref={codeRef}
-              value={codigoRastreio}
-              onChange={(event) => setCodigoRastreio(event.target.value)}
-              className={`min-h-16 rounded-md border bg-white px-4 font-mono text-xl font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 ${
+              className={`min-h-20 rounded-xl border-2 bg-white px-5 font-mono text-2xl font-bold tracking-wide text-slate-950 outline-none transition placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 ${
                 cancellationMode
                   ? "border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
                   : "border-slate-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
@@ -1227,34 +1525,37 @@ export function BipagemForm() {
             />
           </label>
 
-          <div className="mt-5 flex flex-col gap-3 lg:flex-row lg:items-center">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
             <button
               type="submit"
               disabled={submitDisabled}
-              className={`inline-flex min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 ${
+              className={`inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-sm font-bold text-white transition focus:outline-none focus:ring-4 ${
                 cancellationMode
                   ? "bg-rose-700 hover:bg-rose-800 focus:ring-rose-100"
                   : "bg-slate-950 hover:bg-slate-800 focus:ring-slate-200"
               } ${submitDisabled ? "cursor-not-allowed opacity-70" : ""}`}
             >
-              {cancellationMode ? "Adicionar a lista" : "Bipar pacote"}
+              {cancellationMode ? "Adicionar pacote" : "Bipar pacote"}
             </button>
             {cancellationMode ? (
               <>
                 <button
                   type="button"
-                  onClick={finalizePendingCancellations}
+                  onClick={requestFinalizePendingCancellations}
                   disabled={savingCancellation || !pendingCancellations.length}
                   className="inline-flex min-h-12 items-center justify-center rounded-md bg-rose-700 px-5 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  Finalizar cancelamentos
+                  {pendingCancellations.length
+                    ? `Cancelar ${pendingCancellations.length} ${pendingCancellations.length === 1 ? "pacote" : "pacotes"}`
+                    : "Cancelar pacotes"}
                 </button>
                 <button
                   type="button"
                   onClick={requestExitCancellationMode}
-                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-white px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                  disabled={savingCancellation}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-white px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
-                  Sair do modo cancelamento
+                  Voltar para bipar
                 </button>
               </>
             ) : (
@@ -1269,21 +1570,24 @@ export function BipagemForm() {
                       : "bg-teal-700 hover:bg-teal-800 focus:ring-teal-100"
                   }`}
                 >
-                  Finalizar Bipagem
+                  Finalizar lote
                 </button>
                 <button
                   type="button"
                   onClick={clearSession}
                   className="inline-flex min-h-12 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
                 >
-                  Cancelar sessão
+                  Descartar lote
                 </button>
                 <button
                   type="button"
                   onClick={requestCancellationMode}
-                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                  disabled={
+                    loading || loadingOpenSession || savingSession || checkingPackage
+                  }
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                 >
-                  Modo cancelar pacotes
+                  Cancelar finalizados
                 </button>
               </>
             )}
@@ -1329,25 +1633,12 @@ export function BipagemForm() {
                         <button
                           type="button"
                           onClick={() => removePendingCancellation(item.pacote.id)}
-                          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                          disabled={savingCancellation}
+                          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
                         >
                           Remover
                         </button>
                       </div>
-                      <label className="grid gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-                        Justificativa individual
-                        <input
-                          value={item.justificativa_individual}
-                          onChange={(event) =>
-                            updatePendingCancellationReason(
-                              item.pacote.id,
-                              event.target.value,
-                            )
-                          }
-                          className="min-h-10 rounded-md border border-slate-300 bg-white px-3 text-sm font-medium normal-case tracking-normal text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                          placeholder="Opcional"
-                        />
-                      </label>
                     </div>
                   ))}
                 </div>
@@ -1365,7 +1656,7 @@ export function BipagemForm() {
           {!cancellationMode && recentCancellations.length ? (
             <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
               <h3 className="text-sm font-semibold text-slate-950">
-                Ultimos cancelamentos
+                Últimos cancelamentos
               </h3>
               <div className="mt-3 flex flex-wrap gap-2">
                 {recentCancellations.map((item) => (
@@ -1379,18 +1670,19 @@ export function BipagemForm() {
         </div>
       </form>
 
-      <div className="grid min-h-0 gap-6 self-start xl:sticky xl:top-6 xl:h-[calc(100vh-3rem)] xl:grid-rows-[auto_minmax(0,1fr)]">
-        <div className="flex max-h-[640px] min-h-0 flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:max-h-[52vh]">
+      {!cancellationMode ? (
+      <div className="grid min-h-0 gap-5 self-start xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[auto_minmax(0,1fr)]">
+        <div className="flex max-h-[680px] min-h-0 flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:max-h-[54vh]">
           <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
-                Pacotes bipados nesta sessão
+                Pacotes deste lote
               </h2>
               <p className="mt-1 text-sm text-slate-500">
                 {sessionPackages.length} pacotes no lote atual.
               </p>
             </div>
-            <StatusBadge status="Pendente na sessão" />
+            <StatusBadge status="Pendente no lote" />
           </div>
 
           <div
@@ -1408,7 +1700,7 @@ export function BipagemForm() {
               {"\u00daltimo pacote bipado"}
             </p>
             <p className="mt-1 truncate font-mono text-lg font-semibold text-slate-950">
-              {latestSessionPackage?.codigo_rastreio ?? "Aguardando bipagem"}
+              {latestSessionPackage?.codigo_rastreio ?? "Aguardando pacote"}
             </p>
           </div>
 
@@ -1423,11 +1715,11 @@ export function BipagemForm() {
               ) : null}
               <div className="min-h-0 overflow-y-auto pr-1">
                 <ol className="space-y-2">
-                  {sessionPackages.map((item) => {
+                  {visibleSessionPackages.map((item, index) => {
                     const isDuplicate = duplicateSessionCodes.has(
                       normalizeTrackingCode(item.codigo_rastreio),
                     );
-                    const packageNumber = sessionPackageOrder.get(item.id) ?? 1;
+                    const packageNumber = sessionPackages.length - index;
 
                     return (
                       <li
@@ -1471,14 +1763,31 @@ export function BipagemForm() {
                     );
                   })}
                 </ol>
+                {visibleSessionPackages.length < sessionPackages.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleSessionPackageCount((current) =>
+                        Math.min(
+                          current + SESSION_PACKAGE_PAGE_SIZE,
+                          sessionPackages.length,
+                        ),
+                      )
+                    }
+                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    Mostrar mais pacotes ({visibleSessionPackages.length} de{" "}
+                    {sessionPackages.length})
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : (
-            <EmptyState>Nenhum rastreio bipado nesta sessão.</EmptyState>
+            <EmptyState>Nenhum rastreio bipado neste lote.</EmptyState>
           )}
         </div>
 
-        <div className="flex min-h-[320px] flex-col rounded-lg border border-slate-200 bg-white p-5 shadow-sm xl:min-h-0">
+        <div className="flex min-h-[320px] flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0">
           <div className="mb-4 shrink-0">
             <h2 className="text-lg font-semibold text-slate-950">
               Histórico de lotes
@@ -1491,7 +1800,7 @@ export function BipagemForm() {
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {sortedBatches.length ? (
               <div className="space-y-3">
-                {sortedBatches.map((batch) => (
+                {visibleBatches.map((batch) => (
                   <div
                     key={batch.id}
                     className="rounded-lg border border-slate-200 p-3 text-sm transition hover:border-slate-300"
@@ -1517,7 +1826,7 @@ export function BipagemForm() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => setSelectedHistoryBatchId(batch.id)}
+                          onClick={() => openBatchHistory(batch.id)}
                           className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                         >
                           Abrir lote
@@ -1533,6 +1842,23 @@ export function BipagemForm() {
                     </div>
                   </div>
                 ))}
+                {visibleBatches.length < sortedBatches.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleBatchCount((current) =>
+                        Math.min(
+                          current + BATCH_HISTORY_PAGE_SIZE,
+                          sortedBatches.length,
+                        ),
+                      )
+                    }
+                    className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    Mostrar mais lotes ({visibleBatches.length} de{" "}
+                    {sortedBatches.length})
+                  </button>
+                ) : null}
               </div>
             ) : (
               <EmptyState>Nenhum lote finalizado.</EmptyState>
@@ -1540,6 +1866,7 @@ export function BipagemForm() {
           </div>
         </div>
       </div>
+      ) : null}
 
       {selectedBatch ? (
         <div
@@ -1558,7 +1885,7 @@ export function BipagemForm() {
                   id="batch-modal-title"
                   className="mt-1 text-xl font-semibold text-slate-950"
                 >
-                  Lote de bipagem
+                  Detalhes do lote
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
                   {selectedBatch.finalizado_em
@@ -1622,24 +1949,45 @@ export function BipagemForm() {
 
               <div className="mt-5">
                 {selectedBatchPackages.length ? (
-                  <ol className="space-y-2">
-                    {selectedBatchPackages.map((item, index) => (
-                      <li
-                        key={item.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
+                  <>
+                    <ol className="space-y-2">
+                      {visibleSelectedBatchPackages.map((item, index) => (
+                        <li
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <span className="mr-3 text-sm font-semibold text-slate-400">
+                              {index + 1}.
+                            </span>
+                            <span className="break-all font-mono text-sm font-semibold text-slate-950">
+                              {item.codigo_rastreio}
+                            </span>
+                          </div>
+                          <StatusBadge status={item.status} />
+                        </li>
+                      ))}
+                    </ol>
+                    {visibleSelectedBatchPackages.length <
+                    selectedBatchPackages.length ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleSelectedBatchPackageCount((current) =>
+                            Math.min(
+                              current + BATCH_PACKAGE_PAGE_SIZE,
+                              selectedBatchPackages.length,
+                            ),
+                          )
+                        }
+                        className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                       >
-                        <div className="min-w-0">
-                          <span className="mr-3 text-sm font-semibold text-slate-400">
-                            {index + 1}.
-                          </span>
-                          <span className="break-all font-mono text-sm font-semibold text-slate-950">
-                            {item.codigo_rastreio}
-                          </span>
-                        </div>
-                        <StatusBadge status={item.status} />
-                      </li>
-                    ))}
-                  </ol>
+                        Mostrar mais pacotes (
+                        {visibleSelectedBatchPackages.length} de{" "}
+                        {selectedBatchPackages.length})
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <EmptyState>Nenhum pacote encontrado para este lote.</EmptyState>
                 )}
@@ -1651,10 +1999,10 @@ export function BipagemForm() {
 
       <ConfirmDialog
         open={showClearSessionConfirm}
-        title="Cancelar sessão"
-        message="Deseja cancelar a sessão atual e descartar os pacotes bipados neste lote?"
+        title="Descartar lote"
+        message="Deseja descartar o lote atual e remover os pacotes bipados nele?"
         cancelLabel="Voltar"
-        confirmLabel="Cancelar sessão"
+        confirmLabel="Descartar lote"
         tone="danger"
         onCancel={() => {
           setShowClearSessionConfirm(false);
@@ -1665,7 +2013,7 @@ export function BipagemForm() {
 
       <ConfirmDialog
         open={showDuplicateFinalizeDialog}
-        title="Duplicados na sessão"
+        title="Duplicados no lote"
         message={DUPLICATE_FINALIZE_MESSAGE}
         cancelLabel="Voltar"
         confirmLabel="Entendi"
@@ -1681,25 +2029,37 @@ export function BipagemForm() {
       />
 
       <ConfirmDialog
-        open={showCancellationConfirm}
-        title="Ativar modo de cancelamento?"
-        message="Você está entrando no modo de cancelamento. Os pacotes bipados aqui serão removidos dos pacotes ativos e enviados para Pacotes Cancelados."
-        cancelLabel="Cancelar"
-        confirmLabel="Ativar cancelamento"
+        open={showFinalizeCancellationConfirm}
+        title={`Cancelar ${pendingCancellations.length} ${
+          pendingCancellations.length === 1 ? "pacote" : "pacotes"
+        }?`}
+        message={
+          <div className="grid gap-2">
+            <p>
+              Esta ação cancelará todos os rastreios da lista da loja{" "}
+              <strong>{getCatalogStoreName(selectedCancellationLojaId)}</strong>.
+            </p>
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-rose-800">
+              Motivo: {cancellationReason.trim()}
+            </p>
+          </div>
+        }
+        cancelLabel="Revisar lista"
+        confirmLabel="Cancelar todos"
         tone="danger"
         onCancel={() => {
-          setShowCancellationConfirm(false);
+          setShowFinalizeCancellationConfirm(false);
           focusCodeField();
         }}
-        onConfirm={activateCancellationMode}
+        onConfirm={finalizePendingCancellations}
       />
 
       <ConfirmDialog
         open={showExitCancellationConfirm}
-        title="Sair do modo cancelamento?"
-        message="Há informações preenchidas no modo cancelamento. Ao sair, o código e as justificativas em aberto serão limpos."
-        cancelLabel="Continuar cancelando"
-        confirmLabel="Sair do modo"
+        title="Sair do cancelamento em lote?"
+        message="Há informações preenchidas. Ao sair, o rastreio e as justificativas em aberto serão limpos."
+        cancelLabel="Continuar"
+        confirmLabel="Sair"
         tone="danger"
         onCancel={() => {
           setShowExitCancellationConfirm(false);

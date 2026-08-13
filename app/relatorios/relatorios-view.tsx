@@ -92,10 +92,10 @@ function parseManualEmails(value: string) {
 }
 
 export function RelatoriosView() {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const loadRecipientsRequestIdRef = useRef(0);
   const { catalogs, packages, batches, loading, error } =
-    useSupabaseDispatchData();
+    useSupabaseDispatchData("relatorios");
   const [mode, setMode] = useState<ReportMode>("resumido");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const [recipients, setRecipients] = useState<RelatorioDestinatarioRow[]>([]);
@@ -109,8 +109,18 @@ export function RelatoriosView() {
     () => filterPackages(packages, filters),
     [packages, filters],
   );
-  const summary = getReportSummary(filteredPackages, catalogs.stores);
-  const filterSummary = getFilterSummary(filters, catalogs.stores);
+  const databaseContext = useMemo(
+    () => ({ userId: user?.id }),
+    [user?.id],
+  );
+  const summary = useMemo(
+    () => getReportSummary(filteredPackages, catalogs.stores),
+    [catalogs.stores, filteredPackages],
+  );
+  const filterSummary = useMemo(
+    () => getFilterSummary(filters, catalogs.stores),
+    [catalogs.stores, filters],
+  );
   const batchesById = useMemo(
     () => new Map(batches.map((batch) => [batch.id, batch])),
     [batches],
@@ -179,7 +189,10 @@ export function RelatoriosView() {
     setRecipientsError("");
 
     try {
-      const rows = await getRelatorioDestinatarios();
+      const rows = await getRelatorioDestinatarios(
+        undefined,
+        databaseContext,
+      );
       if (!isCurrentRequest()) {
         return;
       }
@@ -199,7 +212,7 @@ export function RelatoriosView() {
         setRecipientsLoading(false);
       }
     }
-  }, []);
+  }, [databaseContext]);
 
   useEffect(() => {
     let cancelled = false;
@@ -333,9 +346,9 @@ export function RelatoriosView() {
         onChange={setFilters}
       />
 
-      <section className="no-print rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 p-5">
-          <h2 className="text-lg font-semibold text-slate-950">
+      <section className="no-print overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-teal-50/80 to-white p-5 sm:p-6">
+          <h2 className="text-lg font-bold text-slate-950">
             Envio por e-mail
           </h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -343,7 +356,7 @@ export function RelatoriosView() {
           </p>
         </div>
 
-        <div className="grid gap-5 p-5">
+        <div className="grid gap-5 p-5 sm:p-6">
           {sendNotice ? (
             <FeedbackMessage tone={sendNotice.tone}>{sendNotice.text}</FeedbackMessage>
           ) : null}
@@ -365,7 +378,7 @@ export function RelatoriosView() {
                   !visibleRecipients.length || recipientsLoadingView || sendingEmail
                 }
                 onClick={toggleAllRecipients}
-                className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
               >
                 {allRecipientsSelected ? "Limpar seleção" : "Selecionar todos"}
               </button>
@@ -383,7 +396,7 @@ export function RelatoriosView() {
                   return (
                     <label
                       key={item.id}
-                      className={`flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition ${
+                      className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${
                         checked
                           ? "border-teal-300 bg-teal-50"
                           : "border-slate-200 bg-white hover:border-slate-300"
@@ -424,7 +437,7 @@ export function RelatoriosView() {
               value={manualEmail}
               onChange={(event) => setManualEmail(event.target.value)}
               disabled={sendingEmail}
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+              className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
               placeholder="exemplo@email.com"
             />
           </label>
@@ -437,7 +450,7 @@ export function RelatoriosView() {
               type="button"
               onClick={sendReportByEmail}
               disabled={sendingEmail || recipientsLoadingView}
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal-700 px-5 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:-translate-y-0.5 hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
             >
               {sendingEmail ? "Enviando..." : "Gerar e enviar por e-mail"}
             </button>
@@ -445,8 +458,8 @@ export function RelatoriosView() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
+        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
               Tipo de relatório
@@ -457,7 +470,7 @@ export function RelatoriosView() {
           </div>
 
           <div className="no-print flex flex-col gap-3 sm:flex-row">
-            <div className="inline-grid grid-cols-2 rounded-lg border border-slate-200 bg-slate-50 p-1 sm:grid-cols-4">
+            <div className="inline-grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-1 sm:grid-cols-4">
               {[
                 { label: "Resumido", value: "resumido" },
                 { label: "Detalhado", value: "detalhado" },
@@ -468,7 +481,7 @@ export function RelatoriosView() {
                   key={item.value}
                   type="button"
                   onClick={() => setMode(item.value as ReportMode)}
-                  className={`min-h-10 rounded-md px-4 text-sm font-semibold transition ${
+                  className={`min-h-10 rounded-lg px-4 text-sm font-semibold transition ${
                     mode === item.value
                       ? "bg-white text-teal-800 shadow-sm"
                       : "text-slate-600 hover:text-slate-950"
@@ -481,7 +494,7 @@ export function RelatoriosView() {
             <button
               type="button"
               onClick={generatePdf}
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-slate-800"
             >
               {mode === "romaneio" ? "Imprimir" : "Gerar PDF"}
             </button>
@@ -556,7 +569,7 @@ export function RelatoriosView() {
               {summary.map((item) => (
                 <article
                   key={item.id}
-                  className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                  className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5"
                 >
                   <div className="min-w-0">
                     <p className="break-words text-base font-semibold text-slate-950">
@@ -585,7 +598,7 @@ export function RelatoriosView() {
                     </p>
                   </div>
 
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 p-3">
+                  <div className="rounded-xl border border-slate-100 bg-slate-50 p-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
                       Por loja
                     </p>
@@ -621,7 +634,7 @@ export function RelatoriosView() {
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
                   <th className="px-5 py-3 font-semibold">ID</th>
-                  <th className="px-5 py-3 font-semibold">Data bipagem</th>
+                  <th className="px-5 py-3 font-semibold">Bipado em</th>
                   <th className="px-5 py-3 font-semibold">Loja</th>
                   <th className="px-5 py-3 font-semibold">Marketplace</th>
                   <th className="px-5 py-3 font-semibold">Melhor Envio</th>

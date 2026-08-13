@@ -1,8 +1,11 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f5f7fb;
-  --foreground: #0f172a;
+  --background: #f4f7fa;
+  --foreground: #102a2e;
+  --surface: #ffffff;
+  --brand: #0f766e;
+  --brand-dark: #115e59;
 }
 
 @theme inline {
@@ -18,12 +21,17 @@
 
 html {
   background: var(--background);
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
+  background:
+    radial-gradient(circle at 8% 0%, rgb(204 251 241 / 45%), transparent 24rem),
+    radial-gradient(circle at 96% 4%, rgb(219 234 254 / 45%), transparent 28rem),
+    var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  text-rendering: optimizeLegibility;
 }
 
 button,
@@ -33,9 +41,55 @@ textarea {
   font: inherit;
 }
 
+button,
+a,
+input,
+select,
+textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+:focus-visible {
+  outline: 3px solid rgb(20 184 166 / 28%);
+  outline-offset: 2px;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 999px;
+  background: rgb(100 116 139 / 48%);
+  background-clip: padding-box;
+}
+
 ::selection {
   background: #0f766e;
   color: white;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @keyframes enter-up {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  main > * {
+    animation: enter-up 320ms ease-out both;
+  }
 }
 
 @media print {
@@ -49,13 +103,19 @@ textarea {
     background: white;
   }
 
+  aside + div {
+    grid-column: 1 / -1 !important;
+  }
+
   main {
     max-width: none !important;
     min-height: auto !important;
     padding: 0 !important;
   }
 
-  .romaneio-sheet {
+  .romaneio-sheet > :first-child,
+  .romaneio-sheet li,
+  .romaneio-sheet footer {
     break-inside: avoid;
     page-break-inside: avoid;
   }

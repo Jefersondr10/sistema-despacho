@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Sistema de Despacho",
-  description: "Primeira versão visual do sistema de despacho.",
+  description: "Gestão de pacotes, despacho, romaneios e rastreios.",
 };
 
 export default function RootLayout({

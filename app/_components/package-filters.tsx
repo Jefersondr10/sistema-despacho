@@ -82,7 +82,7 @@ function MultiSelectDropdown({
       <button
         type="button"
         onClick={() => onOpenChange(!open)}
-        className="flex min-h-11 w-full items-center justify-between gap-3 rounded-md border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-950 transition hover:border-slate-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-100"
+        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-4 text-left text-sm font-semibold text-slate-950 shadow-sm transition hover:border-slate-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-100"
         aria-expanded={open}
       >
         <span className="min-w-0 truncate">{summary}</span>
@@ -92,7 +92,7 @@ function MultiSelectDropdown({
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-lg border border-slate-200 bg-white p-2 shadow-xl">
+        <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
           <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
             <input
               type="checkbox"
@@ -213,14 +213,14 @@ export function PackageFilters({
   }
 
   const chipClass = (active: boolean) =>
-    `inline-flex min-h-10 w-full items-center justify-center rounded-md border px-3 text-sm font-semibold transition ${
+    `inline-flex min-h-10 w-full items-center justify-center rounded-xl border px-3 text-sm font-semibold transition ${
       active
         ? "border-teal-500 bg-teal-50 text-teal-900"
         : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
     }`;
 
   return (
-    <section className="no-print rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="no-print rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6">
       <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950">Filtros</h2>
@@ -231,14 +231,14 @@ export function PackageFilters({
         <button
           type="button"
           onClick={resetFilters}
-          className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950"
         >
           Limpar filtros
         </button>
       </div>
 
       <div className="grid gap-4 xl:grid-cols-[1.1fr_1.4fr]">
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
           <h3 className="text-sm font-semibold text-slate-950">Data</h3>
           <div className="mt-3 grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
             {[
@@ -268,7 +268,7 @@ export function PackageFilters({
                 onChange={(event) =>
                   updateFilter("selectedDate", event.target.value)
                 }
-                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+                className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               />
             </label>
           ) : null}
@@ -284,7 +284,7 @@ export function PackageFilters({
                   onChange={(event) =>
                     updateDateFilter("startDate", event.target.value)
                   }
-                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+                  className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
                 />
               </label>
 
@@ -297,14 +297,14 @@ export function PackageFilters({
                   onChange={(event) =>
                     updateDateFilter("endDate", event.target.value)
                   }
-                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+                  className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
                 />
               </label>
             </div>
           ) : null}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
           <h3 className="text-sm font-semibold text-slate-950">
             Identificação
           </h3>
@@ -358,7 +358,7 @@ export function PackageFilters({
             : "xl:grid-cols-2"
         }`}
       >
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-center">
           {chipControls ? (
             <div className="grid justify-items-center gap-3 text-sm font-medium text-slate-700">
               Melhor Envio
@@ -387,7 +387,7 @@ export function PackageFilters({
           ) : null}
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-center">
+        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-center">
           {chipControls ? (
             <div className="grid justify-items-center gap-3 text-sm font-medium text-slate-700">
               Coleta/Postagem
@@ -417,26 +417,26 @@ export function PackageFilters({
         </div>
 
         {showSearch ? (
-          <label className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
+          <label className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm font-medium text-slate-700">
             {searchLabel}
             <input
               value={filters.query ?? ""}
               onChange={(event) => updateFilter("query", event.target.value)}
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               placeholder="Digite o código/rastreio bipado"
             />
           </label>
         ) : null}
 
         {showBatchCodeSearch ? (
-          <label className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm font-medium text-slate-700">
+          <label className="grid gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-sm font-medium text-slate-700">
             Codigo do lote
             <input
               value={filters.codigoLote ?? ""}
               onChange={(event) =>
                 updateFilter("codigoLote", event.target.value)
               }
-              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               placeholder="LOTE-8F3A92"
             />
           </label>

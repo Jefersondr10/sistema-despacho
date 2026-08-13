@@ -42,7 +42,7 @@ Antes de aplicar a migration nova:
 1. Faça backup do banco.
 2. Garanta que a migration `202607160001_remove_user_isolation.sql` já esteja registrada no histórico do ambiente atual.
 3. Crie a conta proprietária no Supabase Auth.
-4. Abra a migration nova e substitua exatamente `OWNER_EMAIL_AQUI` pelo e-mail dessa conta.
+4. Abra a migration nova e confira se `v_owner_email` corresponde exatamente ao e-mail dessa conta.
 5. Revise o diff e só então aplique pelo fluxo de migrations do ambiente.
 
 O núcleo do backfill executado dentro da transação é:
@@ -59,7 +59,7 @@ set user_id = v_owner_id
 where user_id is null;
 ```
 
-Se o placeholder não for substituído, se o e-mail não existir ou se restar qualquer linha sem dono, a migration lança uma exceção e a transação inteira é revertida. Ela nunca escolhe o primeiro usuário automaticamente e não apaga registros.
+Se o e-mail configurado não existir ou se restar qualquer linha sem dono, a migration lança uma exceção e a transação inteira é revertida. Ela nunca escolhe o primeiro usuário automaticamente e não apaga registros.
 
 Depois do backfill, a migration:
 
@@ -71,6 +71,24 @@ Depois do backfill, a migration:
 - recria RPCs de bipagem como `SECURITY INVOKER`, validando `auth.uid()` e `loja_id`.
 
 Não faça deploy nem aplique a migration sem antes trocar e conferir o e-mail do backfill.
+
+## Migration de desempenho da bipagem
+
+Depois que a migration de isolamento estiver aplicada, execute
+`supabase/migrations/202608120001_bipagem_performance.sql` para ativar a busca
+normalizada, os índices dos caminhos quentes e as RPCs incrementais da bipagem.
+Ela não altera dados existentes e mantém as RPCs antigas durante a transição.
+
+Aplique em um período de menor movimento, pois a criação inicial dos índices
+pode bloquear gravações brevemente. A ordem recomendada é:
+
+1. aplicar `202608120001_bipagem_performance.sql` no Supabase;
+2. publicar a nova versão da aplicação;
+3. confirmar uma bipagem nova, uma duplicada, uma remoção e a finalização do lote.
+
+As RPCs antigas permanecem disponíveis durante a transição. O frontend possui
+fallback temporário caso uma publicação automática anteceda a migration, mas o
+ganho completo de banco só passa a valer depois que ela for aplicada.
 
 ## Testes
 

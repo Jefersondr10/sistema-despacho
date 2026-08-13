@@ -24,7 +24,7 @@ import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
 export function DashboardView() {
   const { catalogs, packages, movements: storedMovements, loading, error } =
-    useSupabaseDispatchData();
+    useSupabaseDispatchData("dashboard");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),
@@ -55,7 +55,7 @@ export function DashboardView() {
         onChange={setFilters}
       />
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Pacotes"
           value={metrics.total}
@@ -91,7 +91,7 @@ export function DashboardView() {
           return (
             <div
               key={store.id}
-              className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm"
+              className="group rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-lg hover:shadow-slate-900/5"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -102,7 +102,7 @@ export function DashboardView() {
                     Pacotes desta loja dentro dos filtros.
                   </p>
                 </div>
-                <p className="text-3xl font-semibold text-slate-950">
+                <p className="rounded-xl bg-teal-50 px-4 py-2 text-3xl font-bold tracking-tight text-teal-800 transition group-hover:bg-teal-100">
                   {storeTotal}
                 </p>
               </div>
@@ -112,7 +112,7 @@ export function DashboardView() {
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
@@ -124,9 +124,9 @@ export function DashboardView() {
             </div>
             <Link
               href="/bipagem"
-              className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl bg-teal-700 px-4 text-sm font-semibold text-white shadow-sm transition hover:-translate-y-0.5 hover:bg-teal-800 hover:shadow-md"
             >
-              Nova bipagem
+              Bipar pacotes
             </Link>
           </div>
 
@@ -134,7 +134,7 @@ export function DashboardView() {
             {summary.map((item) => (
               <div
                 key={item.id}
-                className="flex flex-col gap-4 rounded-lg border border-slate-200 px-4 py-3 sm:flex-row sm:items-start sm:justify-between"
+                className="flex flex-col gap-4 rounded-xl border border-slate-200/80 bg-slate-50/40 px-4 py-3.5 transition hover:border-teal-200 hover:bg-teal-50/30 sm:flex-row sm:items-start sm:justify-between"
               >
                 <div className="min-w-0">
                   <p className="break-words font-medium text-slate-950">
@@ -151,7 +151,7 @@ export function DashboardView() {
                   ) : null}
                 </div>
                 <div className="shrink-0 sm:text-right">
-                  <p className="text-2xl font-semibold text-slate-950">
+                  <p className="text-2xl font-bold tracking-tight text-slate-950">
                     {item.packages}
                   </p>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
@@ -163,8 +163,8 @@ export function DashboardView() {
           </div>
         </div>
 
-        <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
-          <div className="flex items-center justify-between gap-4 border-b border-slate-200 p-5">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+          <div className="flex items-center justify-between gap-4 border-b border-slate-200/80 bg-slate-50/50 p-5 sm:p-6">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
                 Últimos pacotes
@@ -176,11 +176,11 @@ export function DashboardView() {
             <Badge tone="neutral">{latestMovements.length} movimentações</Badge>
           </div>
 
-          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
             {recentPackages.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                className="grid gap-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md"
               >
                 <div className="min-w-0">
                   <p className="break-all font-mono text-sm font-semibold text-slate-950">

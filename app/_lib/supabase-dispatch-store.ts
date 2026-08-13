@@ -14,6 +14,7 @@ import type {
   Store,
 } from "@/app/_lib/mock-data";
 import {
+  type DatabaseContext,
   formatDatabaseError,
   getLojas,
   getMarketplaces,
@@ -79,7 +80,19 @@ function createInitialState(
 
 const initialState = createInitialState();
 
-export function useSupabaseDispatchData() {
+export type DispatchDataProfile =
+  | "full"
+  | "bipagem"
+  | "dashboard"
+  | "pacotes"
+  | "cancelados"
+  | "relatorios"
+  | "romaneio";
+
+export function useSupabaseDispatchData(
+  profile: DispatchDataProfile = "full",
+  sessionId?: string,
+) {
   const { loading: authLoading, user } = useAuth();
   const userId = user?.id ?? null;
   const reloadRequestIdRef = useRef(0);
@@ -108,6 +121,24 @@ export function useSupabaseDispatchData() {
     setState(createInitialState(true, "", requestedUserId));
 
     try {
+      const databaseContext: DatabaseContext = { userId: requestedUserId };
+      const loadActivePackages = [
+        "full",
+        "bipagem",
+        "dashboard",
+        "pacotes",
+        "relatorios",
+      ].includes(profile);
+      const loadAllPackages = ["full", "bipagem", "romaneio"].includes(
+        profile,
+      );
+      const loadBatches = ["full", "bipagem", "relatorios", "romaneio"].includes(
+        profile,
+      );
+      const loadMovements = ["full", "dashboard"].includes(profile);
+      const loadCancellations = ["full", "bipagem", "cancelados"].includes(
+        profile,
+      );
       const [
         lojasRows,
         marketplacesRows,
@@ -118,20 +149,54 @@ export function useSupabaseDispatchData() {
         movementRows,
         cancellationRows,
       ] = await Promise.all([
-        getLojas({ incluirInativos: true }),
-        getMarketplaces({ incluirInativos: true }),
-        getTransportadoras({ incluirInativos: true }),
-        getPacotesComRelacionamentos(),
-        getPacotesComRelacionamentos(
-          { incluirCancelados: true },
-        ),
-        getSessoesBipagemComRelacionamentos(),
-        getMovimentacoes(),
-        getPacotesCanceladosComRelacionamentos(),
+        getLojas({ incluirInativos: true }, databaseContext),
+        getMarketplaces({ incluirInativos: true }, databaseContext),
+        getTransportadoras({ incluirInativos: true }, databaseContext),
+        loadActivePackages
+          ? getPacotesComRelacionamentos(undefined, databaseContext)
+          : Promise.resolve([]),
+        loadAllPackages
+          ? getPacotesComRelacionamentos(
+              {
+                incluirCancelados: true,
+                sessao_id: profile === "romaneio" ? sessionId : undefined,
+              },
+              databaseContext,
+            )
+          : Promise.resolve([]),
+        loadBatches
+          ? getSessoesBipagemComRelacionamentos(
+              {
+                id: profile === "romaneio" ? sessionId : undefined,
+                incluirTotais: false,
+              },
+              databaseContext,
+            )
+          : Promise.resolve([]),
+        loadMovements
+          ? getMovimentacoes(undefined, databaseContext)
+          : Promise.resolve([]),
+        loadCancellations
+          ? getPacotesCanceladosComRelacionamentos(undefined, databaseContext)
+          : Promise.resolve([]),
       ]);
 
-      const packages = pacoteRows.map(mapPacoteRowToDispatchPackage);
       const allPackages = allPacoteRows.map(mapPacoteRowToDispatchPackage);
+      const packages = pacoteRows.map(mapPacoteRowToDispatchPackage);
+      const packageTotalsBySession = new Map<string, number>();
+      const packageRowsForTotals = allPacoteRows.length
+        ? allPacoteRows
+        : pacoteRows;
+      for (const row of packageRowsForTotals) {
+        if (!row.sessao_id || row.status === "cancelado") {
+          continue;
+        }
+
+        packageTotalsBySession.set(
+          row.sessao_id,
+          (packageTotalsBySession.get(row.sessao_id) ?? 0) + 1,
+        );
+      }
 
       if (!isCurrentRequest()) {
         return;
@@ -146,7 +211,12 @@ export function useSupabaseDispatchData() {
         },
         packages,
         allPackages,
-        batches: sessaoRows.map((row) => mapSessaoRowToDispatchBatch(row, allPackages)),
+        batches: sessaoRows.map((row) =>
+          mapSessaoRowToDispatchBatch({
+            ...row,
+            total_pacotes: packageTotalsBySession.get(row.id) ?? 0,
+          }),
+        ),
         movements: movementRows.map(mapMovimentacaoRowToPackageMovement),
         cancellations: cancellationRows.map(mapCancelamentoRowToPackageCancellation),
         loading: false,
@@ -165,7 +235,7 @@ export function useSupabaseDispatchData() {
         ),
       );
     }
-  }, [authLoading, userId]);
+  }, [authLoading, profile, sessionId, userId]);
 
   useEffect(() => {
     let cancelled = false;

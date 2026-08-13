@@ -55,15 +55,189 @@ function getOperationLabel(value: unknown) {
   if (value === "coleta") return "Coleta";
   if (value === "postagem") return "Postagem";
 
-  return String(value ?? "");
+  return getOptionalString(value) || "Operação não informada";
+}
+
+type ReportOperation = "coleta" | "postagem" | "outros";
+
+type ReportSummaryEntry = {
+  marketplace: string;
+  operation: ReportOperation;
+  melhorEnvio: boolean;
+  transportadora: string;
+  packages: number;
+  lojas: ReturnType<typeof getSummaryStores>;
+};
+
+const MAX_STORES_PER_SUMMARY = 12;
+const MAX_SHIPPING_DETAILS_PER_MARKETPLACE = 12;
+const emailDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+const operationThemes: Array<{
+  key: ReportOperation;
+  label: string;
+  background: string;
+  color: string;
+  border: string;
+}> = [
+  {
+    key: "coleta",
+    label: "Coleta",
+    background: "#ccfbf1",
+    color: "#115e59",
+    border: "#5eead4",
+  },
+  {
+    key: "postagem",
+    label: "Postagem",
+    background: "#dbeafe",
+    color: "#1e40af",
+    border: "#93c5fd",
+  },
+  {
+    key: "outros",
+    label: "Outras operações",
+    background: "#f1f5f9",
+    color: "#334155",
+    border: "#cbd5e1",
+  },
+];
+
+function getPackageCount(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.trunc(value));
+}
+
+function formatPackageCount(value: number) {
+  return `${value} ${value === 1 ? "pacote" : "pacotes"}`;
+}
+
+function formatEmailDate(value: unknown) {
+  const rawValue = getOptionalString(value);
+  const date = new Date(rawValue);
+
+  return rawValue && !Number.isNaN(date.getTime())
+    ? emailDateFormatter.format(date)
+    : rawValue || "Não informada";
+}
+
+function compactStores(lojas: ReportSummaryEntry["lojas"]) {
+  const orderedStores = [...lojas].sort(
+    (first, second) =>
+      second.packages - first.packages ||
+      first.nome.localeCompare(second.nome, "pt-BR"),
+  );
+  const visible = orderedStores.slice(0, MAX_STORES_PER_SUMMARY);
+  const omitted = orderedStores.slice(MAX_STORES_PER_SUMMARY);
+
+  return {
+    visible,
+    omittedCount: omitted.length,
+    omittedPackages: omitted.reduce(
+      (total, loja) => total + loja.packages,
+      0,
+    ),
+  };
+}
+
+function compactShippingDetails(items: ReportSummaryEntry[]) {
+  const orderedItems = [...items].sort(
+    (first, second) =>
+      second.packages - first.packages ||
+      first.transportadora.localeCompare(second.transportadora, "pt-BR"),
+  );
+  const visible = orderedItems.slice(0, MAX_SHIPPING_DETAILS_PER_MARKETPLACE);
+  const omitted = orderedItems.slice(MAX_SHIPPING_DETAILS_PER_MARKETPLACE);
+
+  return {
+    visible,
+    omittedCount: omitted.length,
+    omittedPackages: omitted.reduce(
+      (total, item) => total + item.packages,
+      0,
+    ),
+  };
+}
+
+function chunkTrackingItems<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function getReportOperation(value: unknown) {
+  if (value === "coleta") {
+    return "coleta" as const;
+  }
+
+  if (value === "postagem") {
+    return "postagem" as const;
+  }
+
+  return "outros" as const;
+}
+
+function getReportSummaryEntries(relatorio: Record<string, unknown>) {
+  const resumo = Array.isArray(relatorio.resumo)
+    ? relatorio.resumo.filter(isRecord)
+    : [];
+
+  return resumo.map<ReportSummaryEntry>((item) => {
+    const melhorEnvio = Boolean(item.melhor_envio);
+
+    return {
+      marketplace:
+        getOptionalString(item.marketplace) || "Marketplace não informado",
+      operation: getReportOperation(item.tipo_operacao),
+      melhorEnvio,
+      transportadora: melhorEnvio
+        ? getOptionalString(item.transportadora) || "Não informada"
+        : "Sem Melhor Envio",
+      packages: getPackageCount(item.packages),
+      lojas: getSummaryStores(item),
+    };
+  });
+}
+
+function groupEntriesByMarketplace(entries: ReportSummaryEntry[]) {
+  const groups = new Map<string, ReportSummaryEntry[]>();
+
+  for (const entry of entries) {
+    const current = groups.get(entry.marketplace);
+
+    if (current) {
+      current.push(entry);
+    } else {
+      groups.set(entry.marketplace, [entry]);
+    }
+  }
+
+  return Array.from(groups, ([marketplace, items]) => ({
+    marketplace,
+    items,
+    total: items.reduce((sum, item) => sum + item.packages, 0),
+  })).sort((first, second) =>
+    first.marketplace.localeCompare(second.marketplace, "pt-BR"),
+  );
 }
 
 function getSummaryStores(item: Record<string, unknown>) {
   const lojas = Array.isArray(item.lojas) ? item.lojas.filter(isRecord) : [];
 
   return lojas.map((loja) => ({
-    nome: getOptionalString(loja.loja_nome) || "Loja nao informada",
-    packages: typeof loja.packages === "number" ? loja.packages : 0,
+    nome: getOptionalString(loja.loja_nome) || "Loja não informada",
+    packages: getPackageCount(loja.packages),
   }));
 }
 
@@ -73,18 +247,19 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
     : [];
 
   return groups.map((group) => ({
-    codigo_lote: getOptionalString(group.codigo_lote) || "Lote sem codigo",
-    loja_nome: getOptionalString(group.loja_nome) || "Loja nao informada",
+    codigo_lote: getOptionalString(group.codigo_lote) || "Lote sem código",
+    loja_nome: getOptionalString(group.loja_nome) || "Loja não informada",
     marketplace:
-      getOptionalString(group.marketplace) || "Marketplace nao informado",
+      getOptionalString(group.marketplace) || "Marketplace não informado",
     tipo_operacao: getOperationLabel(group.tipo_operacao),
     melhor_envio: Boolean(group.melhor_envio),
     transportadora:
       getOptionalString(group.transportadora) || "Sem transportadora",
+    data: formatEmailDate(group.data),
     pacotes: Array.isArray(group.pacotes)
       ? group.pacotes.filter(isRecord).map((item) => ({
           codigo_rastreio:
-            getOptionalString(item.codigo_rastreio) || "Sem codigo",
+            getOptionalString(item.codigo_rastreio) || "Sem código",
         }))
       : [],
   }));
@@ -104,56 +279,113 @@ function buildRomaneioEmail(
   const groupsHtml = groups.length
     ? groups
         .map((group) => {
-          const rows = group.pacotes.length
-            ? group.pacotes
+          const numberedPackages = group.pacotes.map((item, index) => ({
+            ...item,
+            number: index + 1,
+          }));
+          const rows = numberedPackages.length
+            ? chunkTrackingItems(numberedPackages, 3)
                 .map(
-                  (item, index) => `
+                  (row) => `
                     <tr>
-                      <td>${index + 1}</td>
-                      <td>${escapeHtml(item.codigo_rastreio)}</td>
-                      <td></td>
+                      ${Array.from({ length: 3 }, (_, columnIndex) => {
+                        const item = row[columnIndex];
+
+                        return item
+                          ? `
+                              <td width="33.33%" style="padding: 10px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < 2 ? "1px solid #e2e8f0" : "0"}; color: #0f172a; font-size: 12px; vertical-align: top; word-break: break-all;">
+                                <strong style="color: #2563eb;">${item.number}.</strong>
+                                ${escapeHtml(item.codigo_rastreio)}
+                              </td>
+                            `
+                          : `<td width="33.33%" style="padding: 10px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < 2 ? "1px solid #e2e8f0" : "0"};">&nbsp;</td>`;
+                      }).join("")}
                     </tr>
                   `,
                 )
                 .join("")
-            : '<tr><td colspan="3">Nenhum pacote neste lote.</td></tr>';
+            : '<tr><td colspan="3" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste lote.</td></tr>';
+          const carrier = group.melhor_envio
+            ? `${group.transportadora} · Melhor Envio`
+            : group.transportadora;
 
           return `
-            <section style="margin: 0 0 28px">
-              <h2 style="font-size: 18px; margin: 0 0 10px">${escapeHtml(group.codigo_lote)}</h2>
-              <p style="margin: 0 0 10px">
-                <strong>Loja:</strong> ${escapeHtml(group.loja_nome)} |
-                <strong>Marketplace:</strong> ${escapeHtml(group.marketplace)} |
-                <strong>Operacao:</strong> ${escapeHtml(group.tipo_operacao)} |
-                <strong>Melhor Envio:</strong> ${group.melhor_envio ? "Sim" : "Nao"} |
-                <strong>Transportadora:</strong> ${escapeHtml(group.transportadora)}
-              </p>
-              <p style="margin: 0 0 12px"><strong>Data:</strong> ____/____/______</p>
-              <table cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px">
-                <thead>
-                  <tr style="background: #f8fafc">
-                    <th align="left">No</th>
-                    <th align="left">Codigo/rastreio</th>
-                    <th align="left">Observacao</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </section>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: separate; border-spacing: 0;">
+              <tr>
+                <td style="padding: 18px 20px; background-color: #172554;">
+                  <p style="margin: 0 0 4px; color: #bfdbfe; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Romaneio de pacotes</p>
+                  <h2 style="margin: 0; color: #ffffff; font-size: 21px; line-height: 1.25;">${escapeHtml(group.loja_nome)}</h2>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 14px 20px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td width="50%" style="padding: 5px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        DATA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.data)}</strong>
+                      </td>
+                      <td width="50%" style="padding: 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        TOTAL DE PACOTES<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.pacotes.length)}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="50%" style="padding: 7px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        LOTE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.codigo_lote)}</strong>
+                      </td>
+                      <td width="50%" style="padding: 7px 0 5px; color: #64748b; font-size: 11px; vertical-align: top;">
+                        MARKETPLACE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.marketplace)}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="50%" style="padding: 7px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        OPERAÇÃO<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.tipo_operacao)}</strong>
+                      </td>
+                      <td width="50%" style="padding: 7px 0 5px; color: #64748b; font-size: 11px; vertical-align: top;">
+                        TRANSPORTADORA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(carrier)}</strong>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 0 20px 18px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-collapse: separate; border-spacing: 0;">
+                    <tr>
+                      <td colspan="3" style="padding: 8px 10px; background-color: #f8fafc; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;">Rastreios</td>
+                    </tr>
+                    ${rows}
+                  </table>
+                  <p style="margin: 18px 0 22px; color: #475569; font-size: 11px; line-height: 1.5;">Confirmamos a entrega e o recebimento dos pacotes relacionados neste romaneio.</p>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td width="48%" style="padding: 24px 8px 0 0; border-top: 1px solid #64748b; color: #0f172a; font-size: 11px; font-weight: 700; text-align: center;">Transportadora</td>
+                      <td width="4%"></td>
+                      <td width="48%" style="padding: 24px 0 0 8px; border-top: 1px solid #64748b; color: #0f172a; font-size: 11px; font-weight: 700; text-align: center;">Responsável pela expedição</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
           `;
         })
         .join("")
-    : "<p>Nenhum pacote encontrado para os filtros aplicados.</p>";
+    : '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px; text-align: center;">Nenhum pacote encontrado para os filtros aplicados.</td></tr></table>';
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5">
-      <h1 style="font-size: 22px; margin: 0 0 12px">ROMANEIO DE ENTREGA / COLETA</h1>
-      <p style="margin: 0 0 16px">Total geral: <strong>${totalPacotes}</strong> pacotes.</p>
-      ${groupsHtml}
-      <p style="margin-top: 24px">Declaro que os pacotes listados neste romaneio foram entregues/recebidos conforme relacao acima.</p>
-      <p style="margin-top: 24px"><strong>Quem entrega</strong><br />Nome: ____________________<br />Documento: _______________<br />Assinatura: ______________</p>
-      <p style="margin-top: 24px"><strong>Quem coleta/recebe</strong><br />Nome: ____________________<br />Documento: _______________<br />Assinatura: ______________</p>
-    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 0; background-color: #f1f5f9; font-family: Arial, Helvetica, sans-serif;">
+      <tr>
+        <td align="center" style="padding: 24px 12px;">
+          <table role="presentation" width="720" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 720px; border-collapse: separate; border-spacing: 0;">
+            <tr>
+              <td style="padding: 0 0 16px; color: #334155; font-size: 12px;">
+                <strong style="color: #0f172a; font-size: 16px;">Romaneios de pacotes</strong><br />${escapeHtml(formatPackageCount(totalPacotes))} em ${escapeHtml(groups.length)} ${groups.length === 1 ? "lote" : "lotes"}
+              </td>
+            </tr>
+            <tr><td>${groupsHtml}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `;
 
   const text = [
@@ -161,11 +393,25 @@ function buildRomaneioEmail(
     `Total geral: ${totalPacotes} pacotes`,
     "",
     ...groups.flatMap((group) => [
-      group.codigo_lote,
-      `${group.loja_nome} | ${group.marketplace} | ${group.tipo_operacao}`,
-      ...group.pacotes.map(
-        (item, index) => `${index + 1}. ${item.codigo_rastreio}`,
+      `LOJA: ${group.loja_nome}`,
+      `Data: ${group.data}`,
+      `Total: ${formatPackageCount(group.pacotes.length)}`,
+      `Lote: ${group.codigo_lote}`,
+      `Marketplace: ${group.marketplace}`,
+      `Operação: ${group.tipo_operacao}`,
+      `Transportadora: ${group.transportadora}${group.melhor_envio ? " (Melhor Envio)" : ""}`,
+      "Rastreios:",
+      ...chunkTrackingItems(group.pacotes, 3).map((row, rowIndex) =>
+        row
+          .map(
+            (item, columnIndex) =>
+              `${rowIndex * 3 + columnIndex + 1}. ${item.codigo_rastreio}`,
+          )
+          .join(" | "),
       ),
+      "",
+      "Transportadora: ______________________________",
+      "Responsável pela expedição: ___________________",
       "",
     ]),
   ].join("\n");
@@ -180,98 +426,251 @@ function buildReportEmail(payload: Record<string, unknown>): EmailContent {
     ? payload.filtrosResumo
     : {};
   const relatorio = isRecord(payload.relatorio) ? payload.relatorio : {};
-  const totalPacotes =
-    typeof relatorio.totalPacotes === "number" ? relatorio.totalPacotes : 0;
+  const totalPacotes = getPackageCount(relatorio.totalPacotes);
   const modo = getOptionalString(relatorio.modo) || "resumido";
   if (modo === "romaneio") {
     return buildRomaneioEmail(payload, relatorio);
   }
 
-  const resumo = Array.isArray(relatorio.resumo) ? relatorio.resumo : [];
-  const resumoRows = resumo.filter(isRecord).slice(0, 40);
+  const summaryEntries = getReportSummaryEntries(relatorio);
   const filterItems = Object.entries(filtrosResumo);
+
+  const operationSections = operationThemes
+    .map((theme) => {
+      const items = summaryEntries.filter(
+        (entry) => entry.operation === theme.key,
+      );
+
+      return {
+        ...theme,
+        items,
+        marketplaces: groupEntriesByMarketplace(items),
+        total: items.reduce((sum, item) => sum + item.packages, 0),
+      };
+    })
+    .filter((section) => section.items.length > 0);
+  const coletaTotal =
+    operationSections.find((section) => section.key === "coleta")?.total ?? 0;
+  const postagemTotal =
+    operationSections.find((section) => section.key === "postagem")?.total ?? 0;
 
   const filterHtml = filterItems.length
     ? filterItems
         .map(
-          ([key, value]) =>
-            `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}</li>`,
+          ([key, value]) => `
+            <tr>
+              <td style="padding: 5px 12px 5px 0; color: #64748b; font-size: 12px; vertical-align: top; white-space: nowrap;">${escapeHtml(key)}</td>
+              <td style="padding: 5px 0; color: #0f172a; font-size: 12px; font-weight: 700; vertical-align: top;">${escapeHtml(value)}</td>
+            </tr>
+          `,
         )
         .join("")
-    : "<li>Nenhum filtro informado.</li>";
+    : '<tr><td style="padding: 5px 0; color: #64748b; font-size: 12px;">Nenhum filtro informado.</td></tr>';
 
-  const summaryRowsHtml = resumoRows.length
-    ? resumoRows
-        .map((item) => {
-          const lojasHtml =
-            getSummaryStores(item)
-              .map(
-                (loja) =>
-                  `${escapeHtml(loja.nome)}: <strong>${escapeHtml(loja.packages)}</strong>`,
-              )
-              .join("<br />") || "Sem detalhamento";
+  const operationSectionsHtml = operationSections.length
+    ? operationSections
+        .map((section) => {
+          const marketplacesHtml = section.marketplaces
+            .map((marketplace) => {
+              const compactedItems = compactShippingDetails(
+                marketplace.items,
+              );
+              const detailRows = compactedItems.visible
+                .map((item) => {
+                  const compactedStores = compactStores(item.lojas);
+                  const storesHtml = compactedStores.visible.length
+                    ? `
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          ${compactedStores.visible
+                            .map(
+                              (loja) => `
+                                <tr>
+                                  <td style="padding: 1px 8px 1px 0; color: #475569; font-size: 12px;">${escapeHtml(loja.nome)}</td>
+                                  <td align="right" style="padding: 1px 0; color: #0f172a; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(loja.packages)}</td>
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                          ${
+                            compactedStores.omittedCount
+                              ? `
+                                  <tr>
+                                    <td colspan="2" style="padding: 5px 0 0; color: #b45309; font-size: 10px; line-height: 1.4;">
+                                      + ${escapeHtml(compactedStores.omittedCount)} lojas resumidas (${escapeHtml(formatPackageCount(compactedStores.omittedPackages))})
+                                    </td>
+                                  </tr>
+                                `
+                              : ""
+                          }
+                        </table>
+                      `
+                    : '<span style="color: #94a3b8; font-size: 12px;">Sem detalhamento por loja</span>';
+                  const shippingLabel = item.melhorEnvio
+                    ? "Melhor Envio"
+                    : "Envio direto";
+
+                  return `
+                    <tr>
+                      <td style="padding: 12px; border-top: 1px solid #e2e8f0; vertical-align: top;">
+                        <strong style="display: block; color: #0f172a; font-size: 13px;">${shippingLabel}</strong>
+                        <span style="color: #64748b; font-size: 12px;">${escapeHtml(item.transportadora)}</span>
+                      </td>
+                      <td align="center" style="padding: 12px; border-top: 1px solid #e2e8f0; color: #0f172a; font-size: 15px; font-weight: 700; vertical-align: top; white-space: nowrap;">${escapeHtml(item.packages)}</td>
+                      <td style="padding: 12px; border-top: 1px solid #e2e8f0; vertical-align: top;">${storesHtml}</td>
+                    </tr>
+                  `;
+                })
+                .join("");
+              const omittedDetailsRow = compactedItems.omittedCount
+                ? `
+                    <tr>
+                      <td colspan="3" style="padding: 10px 12px; border-top: 1px solid #e2e8f0; background-color: #fffbeb; color: #92400e; font-size: 11px; line-height: 1.4;">
+                        Mais ${escapeHtml(compactedItems.omittedCount)} formas de envio foram resumidas (${escapeHtml(formatPackageCount(compactedItems.omittedPackages))}). Os totais do marketplace permanecem completos.
+                      </td>
+                    </tr>
+                  `
+                : "";
+
+              return `
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 16px; border: 1px solid #e2e8f0; border-collapse: separate; border-spacing: 0; border-radius: 8px; overflow: hidden;">
+                  <tr>
+                    <td colspan="3" style="padding: 12px 14px; background-color: #f8fafc;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td style="color: #0f172a; font-size: 15px; font-weight: 700;">${escapeHtml(marketplace.marketplace)}</td>
+                          <td align="right" style="color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(formatPackageCount(marketplace.total))}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr style="background-color: #ffffff;">
+                    <th align="left" width="35%" style="padding: 8px 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Envio / transportadora</th>
+                    <th align="center" width="15%" style="padding: 8px 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Pacotes</th>
+                    <th align="left" width="50%" style="padding: 8px 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Por loja</th>
+                  </tr>
+                  ${detailRows}
+                  ${omittedDetailsRow}
+                </table>
+              `;
+            })
+            .join("");
 
           return `
-            <tr>
-              <td>${escapeHtml(item.marketplace)}</td>
-              <td>${escapeHtml(getOperationLabel(item.tipo_operacao))}</td>
-              <td>${escapeHtml(item.melhor_envio ? "Sim" : "Não")}</td>
-              <td>${escapeHtml(item.melhor_envio ? item.transportadora || "Não informada" : "Sem Melhor Envio")}</td>
-              <td style="text-align:right">${escapeHtml(item.packages)}</td>
-              <td>${lojasHtml}</td>
-            </tr>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0 12px; border-collapse: separate; border-spacing: 0;">
+              <tr>
+                <td style="padding: 12px 14px; background-color: ${section.background}; border: 1px solid ${section.border}; color: ${section.color}; font-size: 16px; font-weight: 700;">${escapeHtml(section.label)}</td>
+                <td align="right" style="padding: 12px 14px; background-color: ${section.background}; border-top: 1px solid ${section.border}; border-right: 1px solid ${section.border}; border-bottom: 1px solid ${section.border}; color: ${section.color}; font-size: 13px; font-weight: 700; white-space: nowrap;">${escapeHtml(formatPackageCount(section.total))}</td>
+              </tr>
+            </table>
+            ${marketplacesHtml}
           `;
         })
         .join("")
     : `
-        <tr>
-          <td colspan="6">Nenhum dado encontrado para os filtros aplicados.</td>
-        </tr>
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px; text-align: center;">Nenhum dado encontrado para os filtros aplicados.</td>
+          </tr>
+        </table>
       `;
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5">
-      <h1 style="font-size: 22px; margin: 0 0 12px">Relatório de Despacho</h1>
-      <p style="margin: 0 0 16px">Modo: <strong>${escapeHtml(modo)}</strong></p>
-      <p style="margin: 0 0 16px">Total geral: <strong>${escapeHtml(totalPacotes)}</strong> pacotes.</p>
-
-      <h2 style="font-size: 16px; margin: 24px 0 8px">Filtros</h2>
-      <ul>${filterHtml}</ul>
-
-      <h2 style="font-size: 16px; margin: 24px 0 8px">Resumo agrupado</h2>
-      <table cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px">
-        <thead>
-          <tr style="background: #f8fafc">
-            <th align="left">Marketplace</th>
-            <th align="left">Operação</th>
-            <th align="left">Melhor Envio</th>
-            <th align="left">Transportadora</th>
-            <th align="right">Pacotes</th>
-            <th align="left">Por loja</th>
-          </tr>
-        </thead>
-        <tbody>${summaryRowsHtml}</tbody>
-      </table>
-    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 0; background-color: #f1f5f9; font-family: Arial, Helvetica, sans-serif;">
+      <tr>
+        <td align="center" style="padding: 24px 12px;">
+          <table role="presentation" width="720" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 720px; background-color: #ffffff; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden;">
+            <tr>
+              <td style="padding: 24px; background-color: #172554;">
+                <p style="margin: 0 0 6px; color: #bfdbfe; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Sistema de despacho</p>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; line-height: 1.25;">Relatório de pacotes</h1>
+                <p style="margin: 8px 0 0; color: #dbeafe; font-size: 13px; line-height: 1.5;">Coletas e postagens organizadas por marketplace</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 20px 24px 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate; border-spacing: 6px;">
+                  <tr>
+                    <td width="34%" align="center" style="padding: 14px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                      <strong style="display: block; color: #0f172a; font-size: 22px; line-height: 1.1;">${escapeHtml(totalPacotes)}</strong>
+                      <span style="color: #64748b; font-size: 11px;">Total geral</span>
+                    </td>
+                    <td width="33%" align="center" style="padding: 14px 8px; background-color: #ccfbf1; border: 1px solid #99f6e4;">
+                      <strong style="display: block; color: #115e59; font-size: 22px; line-height: 1.1;">${escapeHtml(coletaTotal)}</strong>
+                      <span style="color: #0f766e; font-size: 11px;">Coleta</span>
+                    </td>
+                    <td width="33%" align="center" style="padding: 14px 8px; background-color: #dbeafe; border: 1px solid #bfdbfe;">
+                      <strong style="display: block; color: #1e40af; font-size: 22px; line-height: 1.1;">${escapeHtml(postagemTotal)}</strong>
+                      <span style="color: #1d4ed8; font-size: 11px;">Postagem</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 24px 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                  <tr>
+                    <td style="padding: 12px 14px;">
+                      <p style="margin: 0 0 5px; color: #334155; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Filtros aplicados</p>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">${filterHtml}</table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 0 24px 8px;">${operationSectionsHtml}</td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 24px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 11px; text-align: center;">Relatório gerado automaticamente pelo sistema de despacho.</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `;
 
   const text = [
-    "Relatório de Despacho",
-    `Modo: ${modo}`,
+    "RELATÓRIO DE PACOTES",
     `Total geral: ${totalPacotes} pacotes`,
+    `Coleta: ${coletaTotal} pacotes`,
+    `Postagem: ${postagemTotal} pacotes`,
     "",
-    "Filtros:",
+    "FILTROS APLICADOS",
     ...filterItems.map(([key, value]) => `${key}: ${String(value ?? "")}`),
     "",
-    "Resumo agrupado:",
-    ...resumoRows.map((item) => {
-      const lojasText =
-        getSummaryStores(item)
-          .map((loja) => `${loja.nome}: ${loja.packages}`)
-          .join(", ") || "Sem detalhamento";
+    ...operationSections.flatMap((section) => [
+      `${section.label.toUpperCase()} — ${formatPackageCount(section.total)}`,
+      ...section.marketplaces.flatMap((marketplace) => {
+        const compactedItems = compactShippingDetails(marketplace.items);
 
-      return `${String(item.marketplace ?? "")} | ${getOperationLabel(item.tipo_operacao)} | Melhor Envio: ${item.melhor_envio ? "Sim" : "Não"} | Transportadora: ${String(item.melhor_envio ? item.transportadora || "Não informada" : "Sem Melhor Envio")} | ${String(item.packages ?? 0)} pacotes | Por loja: ${lojasText}`;
-    }),
+        return [
+          `  ${marketplace.marketplace} — ${formatPackageCount(marketplace.total)}`,
+          ...compactedItems.visible.map((item) => {
+            const compactedStores = compactStores(item.lojas);
+            const lojasText = compactedStores.visible.length
+              ? compactedStores.visible
+                  .map((loja) => `${loja.nome}: ${loja.packages}`)
+                  .join(", ")
+              : "Sem detalhamento por loja";
+            const omittedStoresText = compactedStores.omittedCount
+              ? `; + ${compactedStores.omittedCount} lojas resumidas (${formatPackageCount(compactedStores.omittedPackages)})`
+              : "";
+            const shippingLabel = item.melhorEnvio
+              ? "Melhor Envio"
+              : "Envio direto";
+
+            return `    ${shippingLabel} | ${item.transportadora} | ${formatPackageCount(item.packages)} | Por loja: ${lojasText}${omittedStoresText}`;
+          }),
+          ...(compactedItems.omittedCount
+            ? [
+                `    + ${compactedItems.omittedCount} formas de envio resumidas (${formatPackageCount(compactedItems.omittedPackages)}); totais preservados.`,
+              ]
+            : []),
+        ];
+      }),
+      "",
+    ]),
   ].join("\n");
 
   return { subject, html, text };
@@ -379,7 +778,7 @@ export async function POST(request: Request) {
 
   const databaseContext: DatabaseContext = {
     supabase: authenticatedClient,
-    accessToken: token,
+    userId: userData.user.id,
   };
 
   let payload: unknown;

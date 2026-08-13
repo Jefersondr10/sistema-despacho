@@ -17,6 +17,14 @@ import { getSupabaseClient } from "@/lib/supabaseClient";
 export type DatabaseContext = {
   supabase?: SupabaseClient;
   accessToken?: string;
+  /**
+   * User id already resolved by a trusted authentication boundary.
+   *
+   * Browser callers get this value from AuthProvider's authenticated session.
+   * Server callers must only set it after validating the bearer token.
+   * RLS remains the final authorization boundary for every query.
+   */
+  userId?: string;
 };
 
 type ResolvedDatabaseContext = {
@@ -208,6 +216,7 @@ export type PacoteFilters = {
 };
 
 export type SessaoBipagemFilters = {
+  id?: string;
   loja_id?: string;
   marketplace_id?: string;
   transportadora_id?: string | null;
@@ -215,6 +224,7 @@ export type SessaoBipagemFilters = {
   limit?: number;
   incluirCanceladosNoTotal?: boolean;
   incluirCanceladas?: boolean;
+  incluirTotais?: boolean;
 };
 
 export type PacoteCanceladoFilters = {
@@ -336,6 +346,12 @@ async function getDatabaseContext(
   context?: DatabaseContext,
 ): Promise<ResolvedDatabaseContext> {
   const supabase = context?.supabase ?? getSupabaseClient();
+  const resolvedUserId = context?.userId?.trim();
+
+  if (resolvedUserId) {
+    return { supabase, userId: resolvedUserId };
+  }
+
   const accessToken = context?.accessToken?.trim();
   const { data, error } = await supabase.auth.getUser(accessToken || undefined);
   const userId = data.user?.id;
@@ -448,6 +464,21 @@ export function formatDatabaseError(error: unknown) {
   }
 
   return "Nao foi possivel concluir a operacao no Supabase.";
+}
+
+function isMissingRpcFunctionError(error: unknown) {
+  if (typeof error !== "object" || error === null) {
+    return false;
+  }
+
+  const code = "code" in error ? String(error.code ?? "") : "";
+  const message = "message" in error ? String(error.message ?? "") : "";
+
+  return (
+    code === "PGRST202" ||
+    code === "42883" ||
+    /could not find the function|function .+ does not exist/i.test(message)
+  );
 }
 
 export function mapLojaRowToStore(row: LojaRow): Store {
@@ -682,8 +713,14 @@ export function mapSessaoRowToDispatchBatch(
   row: SessaoComRelacionamentosRow,
   packages: DispatchPackage[] = [],
 ): DispatchBatch {
-  const sessionPackages = packages.filter((item) => item.lote_id === row.id);
-  const totalPacotes = row.total_pacotes ?? sessionPackages.length;
+  // Session queries normally provide the aggregate. Only scan packages for
+  // backwards-compatible callers that pass rows without that aggregate.
+  const totalPacotes =
+    row.total_pacotes ??
+    packages.reduce(
+      (total, item) => total + (item.lote_id === row.id ? 1 : 0),
+      0,
+    );
 
   return {
     id: row.id,
@@ -1482,16 +1519,23 @@ export async function adicionarItemSessaoBipagem(
   context?: DatabaseContext,
 ): Promise<ItemSessaoBipagemRow[]> {
   const { supabase } = await getDatabaseContext(context);
-  const { data, error } = await supabase.rpc("adicionar_item_sessao_bipagem", {
+  const args = {
     p_sessao_id: input.sessao_id,
     p_codigo: input.codigo,
-  });
+  };
+  let result = await supabase.rpc("adicionar_item_sessao_bipagem_v2", args);
 
-  if (error) {
-    throw error;
+  // Permite publicar o frontend antes da migration sem interromper a bipagem.
+  // A RPC antiga retorna a sessao inteira, com o item novo na primeira linha.
+  if (result.error && isMissingRpcFunctionError(result.error)) {
+    result = await supabase.rpc("adicionar_item_sessao_bipagem", args);
   }
 
-  return (data ?? []) as ItemSessaoBipagemRow[];
+  if (result.error) {
+    throw result.error;
+  }
+
+  return (result.data ?? []) as ItemSessaoBipagemRow[];
 }
 
 export async function removerItemSessaoBipagem({
@@ -1502,16 +1546,21 @@ export async function removerItemSessaoBipagem({
   status?: "descartado" | "cancelado";
 }, context?: DatabaseContext): Promise<ItemSessaoBipagemRow[]> {
   const { supabase } = await getDatabaseContext(context);
-  const { data, error } = await supabase.rpc("remover_item_sessao_bipagem", {
+  const args = {
     p_item_id: itemId,
     p_status: status,
-  });
+  };
+  let result = await supabase.rpc("remover_item_sessao_bipagem_v2", args);
 
-  if (error) {
-    throw error;
+  if (result.error && isMissingRpcFunctionError(result.error)) {
+    result = await supabase.rpc("remover_item_sessao_bipagem", args);
   }
 
-  return (data ?? []) as ItemSessaoBipagemRow[];
+  if (result.error) {
+    throw result.error;
+  }
+
+  return (result.data ?? []) as ItemSessaoBipagemRow[];
 }
 
 export async function finalizarSessaoBipagemAberta(
@@ -1613,6 +1662,10 @@ export async function getSessoesBipagemComRelacionamentos(
     .order("finalizada_em", { ascending: false, nullsFirst: false })
     .order("iniciada_em", { ascending: false });
 
+  if (options?.id) {
+    query = query.eq("id", options.id);
+  }
+
   if (options?.loja_id) {
     query = query.eq("loja_id", options.loja_id);
   }
@@ -1648,6 +1701,10 @@ export async function getSessoesBipagemComRelacionamentos(
   const sessoes = data ?? [];
   if (!sessoes.length) {
     return [];
+  }
+
+  if (options?.incluirTotais === false) {
+    return sessoes;
   }
 
   let pacotesQuery = supabase
@@ -1806,32 +1863,58 @@ export async function getPacoteAtivoPorCodigo(
   }
 
   const { supabase, userId } = await getDatabaseContext(context);
-  const query = supabase
+  const { data: matches, error: lookupError } = await supabase.rpc(
+    "buscar_pacote_ativo_normalizado",
+    {
+      p_codigo: normalizedCode,
+      p_loja_id: lojaId,
+    },
+  );
+
+  let pacoteId = (matches as Array<{ id: string }> | null)?.[0]?.id;
+
+  if (lookupError && isMissingRpcFunctionError(lookupError)) {
+    // Compatibilidade temporaria para deploy frontend-first. Continua sendo
+    // uma busca estreita; o antigo download do historico completo nao volta.
+    const { data: legacyMatch, error: legacyLookupError } = await supabase
+      .from("pacotes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("codigo", normalizedCode)
+      .eq("loja_id", lojaId)
+      .neq("status", "cancelado")
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+
+    if (legacyLookupError) {
+      throw legacyLookupError;
+    }
+
+    pacoteId = legacyMatch?.id;
+  } else if (lookupError) {
+    throw lookupError;
+  }
+
+  if (!pacoteId) {
+    return null;
+  }
+
+  // The RPC intentionally returns only the id so the common "new package"
+  // path stays tiny. Fetch relationships only for the uncommon matching row.
+  const { data, error } = await supabase
     .from("pacotes")
     .select(pacoteComRelacionamentosSelect)
     .eq("user_id", userId)
-    .eq("codigo", normalizedCode)
+    .eq("id", pacoteId)
     .eq("loja_id", lojaId)
     .neq("status", "cancelado")
-    .limit(1);
-
-  const { data, error } = await query.maybeSingle<PacoteComRelacionamentosRow>();
+    .maybeSingle<PacoteComRelacionamentosRow>();
 
   if (error) {
     throw error;
   }
 
-  if (data) {
-    return data;
-  }
-
-  const rows = await getPacotesComRelacionamentos(filters, context);
-
-  return (
-    rows.find(
-      (item) => normalizeDatabaseTrackingCode(item.codigo) === normalizedCode,
-    ) ?? null
-  );
+  return data ?? null;
 }
 
 export async function buscarPacoteAtivoPorCodigoNormalizado(

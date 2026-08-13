@@ -17,12 +17,22 @@ import {
 } from "@/app/_lib/mock-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
+const CANCELLATION_PAGE_SIZE = 100;
+
 export function PacotesCanceladosView() {
-  const { catalogs, cancellations, loading, error } = useSupabaseDispatchData();
+  const { catalogs, cancellations, loading, error } =
+    useSupabaseDispatchData("cancelados");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
+  const [visibleCancellationCount, setVisibleCancellationCount] = useState(
+    CANCELLATION_PAGE_SIZE,
+  );
   const filteredCancellations = useMemo(
     () => filterCancellations(cancellations, filters),
     [cancellations, filters],
+  );
+  const visibleCancellations = useMemo(
+    () => filteredCancellations.slice(0, visibleCancellationCount),
+    [filteredCancellations, visibleCancellationCount],
   );
 
   return (
@@ -42,11 +52,14 @@ export function PacotesCanceladosView() {
         carriers={catalogs.carriers}
         showSearch
         searchLabel="Buscar pacote cancelado"
-        onChange={setFilters}
+        onChange={(nextFilters) => {
+          setVisibleCancellationCount(CANCELLATION_PAGE_SIZE);
+          setFilters(nextFilters);
+        }}
       />
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-2 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="flex flex-col gap-2 border-b border-slate-200/80 bg-rose-50/35 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
               Histórico de cancelamentos
@@ -59,14 +72,14 @@ export function PacotesCanceladosView() {
         </div>
 
         {filteredCancellations.length ? (
-          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredCancellations.map((item) => (
+          <div className="grid gap-4 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3">
+            {visibleCancellations.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                className="group grid gap-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-rose-200 hover:shadow-md hover:shadow-slate-900/5"
               >
                 <div className="min-w-0">
-                  <p className="break-all font-mono text-sm font-semibold text-slate-950">
+                  <p className="break-all font-mono text-sm font-bold tracking-tight text-slate-950 transition group-hover:text-rose-700">
                     {item.codigo_pacote}
                   </p>
                   <p className="mt-2 text-sm font-medium text-slate-700">
@@ -89,7 +102,7 @@ export function PacotesCanceladosView() {
                   </p>
                   <p>
                     <span className="font-semibold text-slate-700">
-                      Bipagem original:
+                      Bipado em:
                     </span>{" "}
                     {formatPackageDate(item.data_hora_bipagem)}
                   </p>
@@ -101,7 +114,7 @@ export function PacotesCanceladosView() {
                   </p>
                 </div>
 
-                <div className="grid gap-2 rounded-lg border border-slate-100 bg-slate-50 p-3 text-sm text-slate-600">
+                <div className="grid gap-2 rounded-xl border border-slate-100 bg-slate-50/80 p-3 text-sm text-slate-600">
                   <p>
                     <span className="font-semibold text-slate-700">
                       Justificativa geral:
@@ -117,9 +130,26 @@ export function PacotesCanceladosView() {
                 </div>
               </article>
             ))}
+            {visibleCancellations.length < filteredCancellations.length ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCancellationCount((current) =>
+                    Math.min(
+                      current + CANCELLATION_PAGE_SIZE,
+                      filteredCancellations.length,
+                    ),
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-rose-300 hover:bg-rose-50 hover:text-rose-700 md:col-span-2 xl:col-span-3"
+              >
+                Mostrar mais cancelamentos ({visibleCancellations.length} de{" "}
+                {filteredCancellations.length})
+              </button>
+            ) : null}
           </div>
         ) : (
-          <div className="p-5">
+          <div className="p-5 sm:p-6">
             <EmptyState>Nenhum pacote cancelado encontrado.</EmptyState>
           </div>
         )}

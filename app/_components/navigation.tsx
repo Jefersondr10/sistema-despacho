@@ -5,9 +5,9 @@ import { usePathname } from "next/navigation";
 
 const navItems = [
   { href: "/dashboard", label: "Dashboard", marker: "D" },
-  { href: "/bipagem", label: "Bipagem", marker: "B" },
+  { href: "/bipagem", label: "Bipar Pacotes", marker: "BP" },
   { href: "/pacotes", label: "Pacotes", marker: "P" },
-  { href: "/pacotes-cancelados", label: "Pacotes Cancelados", marker: "!" },
+  { href: "/pacotes-cancelados", label: "Cancelados", marker: "X" },
   { href: "/relatorios", label: "Relatórios", marker: "R" },
   { href: "/cadastros", label: "Cadastros", marker: "C" },
 ];
@@ -19,8 +19,8 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
     <nav
       className={
         compact
-          ? "flex flex-wrap gap-2 pb-1"
-          : "flex flex-wrap items-center gap-2"
+          ? "flex gap-2 overflow-x-auto pb-2"
+          : "flex flex-col gap-1.5"
       }
       aria-label="Navegação principal"
     >
@@ -33,17 +33,17 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`group flex min-h-11 items-center gap-3 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+            className={`group flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition duration-200 ${
               isActive
-                ? "border-teal-200 bg-teal-50 text-teal-800"
-                : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-950"
-            } ${compact ? "min-w-max" : ""}`}
+                ? "border-teal-200 bg-teal-50 text-teal-900 shadow-sm shadow-teal-950/5"
+                : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950 hover:shadow-sm"
+            } ${compact ? "min-w-max" : "w-full"}`}
           >
             <span
-              className={`grid size-7 place-items-center rounded-md text-xs font-semibold ${
+              className={`grid size-8 shrink-0 place-items-center rounded-lg text-[10px] font-bold tracking-tight transition ${
                 isActive
-                  ? "bg-teal-700 text-white"
-                  : "bg-slate-100 text-slate-500 group-hover:bg-slate-200"
+                  ? "bg-teal-700 text-white shadow-sm"
+                  : "bg-slate-100 text-slate-500 group-hover:bg-teal-50 group-hover:text-teal-700"
               }`}
               aria-hidden="true"
             >
