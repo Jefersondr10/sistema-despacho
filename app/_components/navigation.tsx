@@ -19,7 +19,7 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
     <nav
       className={
         compact
-          ? "flex gap-2 overflow-x-auto pb-2"
+          ? "app-scroll-region-x flex max-w-full snap-x gap-2"
           : "flex flex-col gap-1.5"
       }
       aria-label="Navegação principal"
@@ -33,11 +33,12 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
           <Link
             key={item.href}
             href={item.href}
+            aria-current={isActive ? "page" : undefined}
             className={`group flex min-h-12 items-center gap-3 rounded-xl border px-3 py-2.5 text-sm font-semibold transition duration-200 ${
               isActive
                 ? "border-teal-200 bg-teal-50 text-teal-900 shadow-sm shadow-teal-950/5"
                 : "border-transparent text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950 hover:shadow-sm"
-            } ${compact ? "min-w-max" : "w-full"}`}
+            } ${compact ? "min-w-max snap-start" : "w-full"}`}
           >
             <span
               className={`grid size-8 shrink-0 place-items-center rounded-lg text-[10px] font-bold tracking-tight transition ${
@@ -49,7 +50,7 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
             >
               {item.marker}
             </span>
-            {item.label}
+            <span className="min-w-0">{item.label}</span>
           </Link>
         );
       })}

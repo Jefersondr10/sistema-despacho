@@ -1917,6 +1917,69 @@ export async function getPacoteAtivoPorCodigo(
   return data ?? null;
 }
 
+export async function getPacotesFinalizadosPorCodigo(
+  codigo: string,
+  context?: DatabaseContext,
+) {
+  const normalizedCode = normalizeDatabaseTrackingCode(codigo);
+  if (!normalizedCode) {
+    return [];
+  }
+
+  const { supabase, userId } = await getDatabaseContext(context);
+  const { data: matches, error: lookupError } = await supabase.rpc(
+    "buscar_pacotes_finalizados_normalizado",
+    { p_codigo: normalizedCode },
+  );
+
+  let pacoteIds = Array.from(
+    new Set(
+      ((matches as Array<{ id: string }> | null) ?? [])
+        .map((item) => item.id)
+        .filter(Boolean),
+    ),
+  );
+
+  if (lookupError && isMissingRpcFunctionError(lookupError)) {
+    // Compatibilidade temporaria para deploy frontend-first. Pacotes novos ja
+    // persistem o codigo normalizado; a RPC deve ser aplicada logo depois para
+    // tambem localizar codigos legados com espacos ou caixa diferente.
+    const { data: legacyMatches, error: legacyLookupError } = await supabase
+      .from("pacotes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("codigo", normalizedCode)
+      .eq("status", "finalizado")
+      .returns<Array<{ id: string }>>();
+
+    if (legacyLookupError) {
+      throw legacyLookupError;
+    }
+
+    pacoteIds = (legacyMatches ?? []).map((item) => item.id);
+  } else if (lookupError) {
+    throw lookupError;
+  }
+
+  if (!pacoteIds.length) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("pacotes")
+    .select(pacoteComRelacionamentosSelect)
+    .eq("user_id", userId)
+    .eq("status", "finalizado")
+    .in("id", pacoteIds)
+    .returns<PacoteComRelacionamentosRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
 export async function buscarPacoteAtivoPorCodigoNormalizado(
   codigo: string,
   filters: Pick<PacoteFilters, "loja_id">,
@@ -2217,12 +2280,43 @@ export async function finalizarCancelamentosEmLote(
     return [];
   }
 
+  const justificativaGeral = cancelamentos[0]?.justificativa_geral.trim();
+  if (!justificativaGeral) {
+    throw new Error("justificativa_geral obrigatoria para cancelamento.");
+  }
+  if (
+    cancelamentos.some(
+      (item) => item.justificativa_geral.trim() !== justificativaGeral,
+    )
+  ) {
+    throw new Error("Todos os cancelamentos devem usar a mesma justificativa geral.");
+  }
+
   const { supabase } = await getDatabaseContext(context);
+  const cancelamentosV2 = cancelamentos.map((item) => ({
+    pacote_id: item.pacote_id,
+    justificativa_individual: item.justificativa_individual?.trim() || null,
+  }));
+  const result = await supabase.rpc("finalizar_cancelamentos_lote_v2", {
+    p_justificativa_geral: justificativaGeral,
+    p_cancelamentos: cancelamentosV2,
+  });
+
+  if (!result.error) {
+    return (result.data ?? []) as PacoteCanceladoRow[];
+  }
+
+  if (!isMissingRpcFunctionError(result.error)) {
+    throw result.error;
+  }
+
+  // Compatibilidade temporaria enquanto a migration nova ainda nao foi
+  // aplicada. A RPC anterior continua atomica e recebe o mesmo motivo geral
+  // repetido em cada item.
   const { data, error } = await supabase.rpc("finalizar_cancelamentos_lote", {
-    p_cancelamentos: cancelamentos.map((item) => ({
-      pacote_id: item.pacote_id,
-      justificativa_geral: item.justificativa_geral,
-      justificativa_individual: item.justificativa_individual ?? null,
+    p_cancelamentos: cancelamentosV2.map((item) => ({
+      ...item,
+      justificativa_geral: justificativaGeral,
     })),
   });
 

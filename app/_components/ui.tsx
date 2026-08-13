@@ -23,7 +23,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex min-h-7 items-center rounded-full border px-2.5 py-1 text-xs font-semibold leading-none ${badgeClasses[tone]}`}
+      className={`inline-flex min-h-7 max-w-full min-w-0 items-center justify-center whitespace-normal break-words rounded-full border px-2.5 py-1 text-center text-xs font-semibold leading-4 ${badgeClasses[tone]}`}
     >
       {children}
     </span>
@@ -74,21 +74,26 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-5 border-b border-slate-200/70 pb-6 md:flex-row md:items-end md:justify-between">
+    <div className="relative overflow-hidden rounded-3xl border border-white/90 bg-white/90 px-5 py-5 shadow-sm shadow-slate-900/5 ring-1 ring-slate-200/70 sm:px-7 sm:py-6 md:flex md:items-end md:justify-between md:gap-6">
+      <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-teal-500 via-teal-700 to-sky-600" aria-hidden="true" />
       <div className="min-w-0">
         <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-teal-700 before:block before:size-2 before:rounded-full before:bg-teal-500">
           Central de despacho
         </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-[-0.035em] text-slate-950 sm:text-4xl">
+        <h1 className="mt-2 break-words text-[clamp(1.8rem,4vw,2.5rem)] font-bold leading-tight tracking-[-0.035em] text-slate-950">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
             {description}
           </p>
         ) : null}
       </div>
-      {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+      {action ? (
+        <div className="mt-5 flex w-full min-w-0 flex-wrap items-center gap-2 md:mt-0 md:w-auto md:shrink-0 md:justify-end">
+          {action}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -113,14 +118,14 @@ export function StatCard({
   };
 
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5">
+    <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5 sm:p-5">
       <div className="absolute -right-8 -top-8 size-24 rounded-full bg-gradient-to-br from-teal-50 to-transparent opacity-80" />
       <div
         className={`relative mb-4 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${toneClasses[tone]}`}
       >
         {label}
       </div>
-      <p className="relative text-3xl font-bold tracking-tight text-slate-950">{value}</p>
+      <p className="relative break-words text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-none tracking-tight text-slate-950">{value}</p>
       <p className="relative mt-2 text-sm leading-6 text-slate-500">{detail}</p>
     </div>
   );
@@ -128,7 +133,7 @@ export function StatCard({
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-8 text-center text-sm leading-6 text-slate-600">
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-5 text-center text-sm leading-6 text-slate-600 sm:p-8">
       {children}
     </div>
   );
@@ -191,17 +196,17 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 grid place-items-center bg-slate-950/55 px-4 py-6 backdrop-blur-sm"
+      className="app-scroll-region fixed inset-0 z-50 grid overflow-y-auto bg-slate-950/55 px-3 py-4 backdrop-blur-sm sm:place-items-center sm:px-4 sm:py-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="dialog-title"
     >
-      <div className="w-full max-w-md rounded-2xl border border-white/80 bg-white p-6 shadow-2xl shadow-slate-950/20">
+      <div className="app-scroll-region my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/80 bg-white p-5 shadow-2xl shadow-slate-950/20 sm:max-h-[calc(100dvh-3rem)] sm:p-6">
         <h2 id="dialog-title" className="text-xl font-bold tracking-tight text-slate-950">
           {title}
         </h2>
         <div className="mt-2 text-sm leading-6 text-slate-600">{message}</div>
-        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+        <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end">
           <button
             type="button"
             onClick={onCancel}

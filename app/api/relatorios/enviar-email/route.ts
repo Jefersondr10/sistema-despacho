@@ -51,13 +51,6 @@ function escapeHtml(value: unknown) {
     .replace(/'/g, "&#039;");
 }
 
-function getOperationLabel(value: unknown) {
-  if (value === "coleta") return "Coleta";
-  if (value === "postagem") return "Postagem";
-
-  return getOptionalString(value) || "Operação não informada";
-}
-
 type ReportOperation = "coleta" | "postagem" | "outros";
 
 type ReportSummaryEntry = {
@@ -176,6 +169,16 @@ function chunkTrackingItems<T>(items: T[], size: number) {
   return chunks;
 }
 
+function getRomaneioTrackingColumnCount(
+  packages: Array<{ codigo_rastreio: string }>,
+) {
+  const hasLongTrackingCode = packages.some(
+    (item) => item.codigo_rastreio.trim().length > 18,
+  );
+
+  return hasLongTrackingCode ? 4 : 5;
+}
+
 function getReportOperation(value: unknown) {
   if (value === "coleta") {
     return "coleta" as const;
@@ -251,10 +254,6 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
     loja_nome: getOptionalString(group.loja_nome) || "Loja não informada",
     marketplace:
       getOptionalString(group.marketplace) || "Marketplace não informado",
-    tipo_operacao: getOperationLabel(group.tipo_operacao),
-    melhor_envio: Boolean(group.melhor_envio),
-    transportadora:
-      getOptionalString(group.transportadora) || "Sem transportadora",
     data: formatEmailDate(group.data),
     pacotes: Array.isArray(group.pacotes)
       ? group.pacotes.filter(isRecord).map((item) => ({
@@ -266,11 +265,10 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
 }
 
 function buildRomaneioEmail(
-  payload: Record<string, unknown>,
+  _payload: Record<string, unknown>,
   relatorio: Record<string, unknown>,
 ): EmailContent {
-  const subject =
-    getOptionalString(payload.assunto) || "Romaneio de Entrega / Coleta";
+  const subject = "Romaneio de Pacotes";
   const groups = getRomaneioGroups(relatorio);
   const totalPacotes = groups.reduce(
     (total, group) => total + group.pacotes.length,
@@ -283,65 +281,62 @@ function buildRomaneioEmail(
             ...item,
             number: index + 1,
           }));
+          const trackingColumnCount = getRomaneioTrackingColumnCount(
+            group.pacotes,
+          );
+          const trackingColumnWidth = `${100 / trackingColumnCount}%`;
           const rows = numberedPackages.length
-            ? chunkTrackingItems(numberedPackages, 3)
+            ? chunkTrackingItems(numberedPackages, trackingColumnCount)
                 .map(
                   (row) => `
                     <tr>
-                      ${Array.from({ length: 3 }, (_, columnIndex) => {
-                        const item = row[columnIndex];
+                      ${Array.from(
+                        { length: trackingColumnCount },
+                        (_, columnIndex) => {
+                          const item = row[columnIndex];
 
-                        return item
-                          ? `
-                              <td width="33.33%" style="padding: 10px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < 2 ? "1px solid #e2e8f0" : "0"}; color: #0f172a; font-size: 12px; vertical-align: top; word-break: break-all;">
+                          return item
+                            ? `
+                              <td width="${trackingColumnWidth}" style="padding: 9px 8px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < trackingColumnCount - 1 ? "1px solid #e2e8f0" : "0"}; color: #0f172a; font-family: Consolas, 'Courier New', monospace; font-size: 11px; font-weight: 700; line-height: 1.35; vertical-align: top; word-break: break-all;">
                                 <strong style="color: #2563eb;">${item.number}.</strong>
                                 ${escapeHtml(item.codigo_rastreio)}
                               </td>
                             `
-                          : `<td width="33.33%" style="padding: 10px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < 2 ? "1px solid #e2e8f0" : "0"};">&nbsp;</td>`;
-                      }).join("")}
+                            : `<td width="${trackingColumnWidth}" style="padding: 9px 8px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < trackingColumnCount - 1 ? "1px solid #e2e8f0" : "0"};">&nbsp;</td>`;
+                        },
+                      ).join("")}
                     </tr>
                   `,
                 )
                 .join("")
-            : '<tr><td colspan="3" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste lote.</td></tr>';
-          const carrier = group.melhor_envio
-            ? `${group.transportadora} · Melhor Envio`
-            : group.transportadora;
+            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste lote.</td></tr>`;
 
           return `
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: separate; border-spacing: 0;">
               <tr>
-                <td style="padding: 18px 20px; background-color: #172554;">
-                  <p style="margin: 0 0 4px; color: #bfdbfe; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Romaneio de pacotes</p>
-                  <h2 style="margin: 0; color: #ffffff; font-size: 21px; line-height: 1.25;">${escapeHtml(group.loja_nome)}</h2>
+                <td style="padding: 20px 22px; background-color: #172554;">
+                  <p style="margin: 0 0 5px; color: #bfdbfe; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">Loja</p>
+                  <h2 style="margin: 0; color: #ffffff; font-size: 25px; font-weight: 800; line-height: 1.2;">${escapeHtml(group.loja_nome)}</h2>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 13px 22px; background-color: #f0fdfa; border-bottom: 2px solid #0d9488;">
+                  <p style="margin: 0 0 4px; color: #0f766e; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">Marketplace</p>
+                  <p style="margin: 0; color: #134e4a; font-size: 18px; font-weight: 800; line-height: 1.25;">${escapeHtml(group.marketplace)}</p>
                 </td>
               </tr>
               <tr>
                 <td style="padding: 14px 20px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td width="50%" style="padding: 5px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                      <td width="38%" style="padding: 5px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
                         DATA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.data)}</strong>
                       </td>
-                      <td width="50%" style="padding: 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                      <td width="27%" style="padding: 5px 12px; color: #64748b; font-size: 11px; vertical-align: top;">
                         TOTAL DE PACOTES<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.pacotes.length)}</strong>
                       </td>
-                    </tr>
-                    <tr>
-                      <td width="50%" style="padding: 7px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                      <td width="35%" style="padding: 5px 0 5px 12px; color: #64748b; font-size: 11px; vertical-align: top;">
                         LOTE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.codigo_lote)}</strong>
-                      </td>
-                      <td width="50%" style="padding: 7px 0 5px; color: #64748b; font-size: 11px; vertical-align: top;">
-                        MARKETPLACE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.marketplace)}</strong>
-                      </td>
-                    </tr>
-                    <tr>
-                      <td width="50%" style="padding: 7px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
-                        OPERAÇÃO<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.tipo_operacao)}</strong>
-                      </td>
-                      <td width="50%" style="padding: 7px 0 5px; color: #64748b; font-size: 11px; vertical-align: top;">
-                        TRANSPORTADORA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(carrier)}</strong>
                       </td>
                     </tr>
                   </table>
@@ -351,7 +346,7 @@ function buildRomaneioEmail(
                 <td style="padding: 0 20px 18px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-collapse: separate; border-spacing: 0;">
                     <tr>
-                      <td colspan="3" style="padding: 8px 10px; background-color: #f8fafc; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;">Rastreios</td>
+                      <td colspan="${trackingColumnCount}" style="padding: 8px 10px; background-color: #f8fafc; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;">Rastreios · ${trackingColumnCount} por linha</td>
                     </tr>
                     ${rows}
                   </table>
@@ -389,31 +384,36 @@ function buildRomaneioEmail(
   `;
 
   const text = [
-    "ROMANEIO DE ENTREGA / COLETA",
+    "ROMANEIO DE PACOTES",
     `Total geral: ${totalPacotes} pacotes`,
     "",
-    ...groups.flatMap((group) => [
-      `LOJA: ${group.loja_nome}`,
-      `Data: ${group.data}`,
-      `Total: ${formatPackageCount(group.pacotes.length)}`,
-      `Lote: ${group.codigo_lote}`,
-      `Marketplace: ${group.marketplace}`,
-      `Operação: ${group.tipo_operacao}`,
-      `Transportadora: ${group.transportadora}${group.melhor_envio ? " (Melhor Envio)" : ""}`,
-      "Rastreios:",
-      ...chunkTrackingItems(group.pacotes, 3).map((row, rowIndex) =>
-        row
-          .map(
-            (item, columnIndex) =>
-              `${rowIndex * 3 + columnIndex + 1}. ${item.codigo_rastreio}`,
-          )
-          .join(" | "),
-      ),
-      "",
-      "Transportadora: ______________________________",
-      "Responsável pela expedição: ___________________",
-      "",
-    ]),
+    ...groups.flatMap((group) => {
+      const trackingColumnCount = getRomaneioTrackingColumnCount(
+        group.pacotes,
+      );
+
+      return [
+        `LOJA: ${group.loja_nome}`,
+        `MARKETPLACE: ${group.marketplace}`,
+        `Data: ${group.data}`,
+        `Total: ${formatPackageCount(group.pacotes.length)}`,
+        `Lote: ${group.codigo_lote}`,
+        `Rastreios (${trackingColumnCount} por linha):`,
+        ...chunkTrackingItems(group.pacotes, trackingColumnCount).map(
+          (row, rowIndex) =>
+            row
+              .map(
+                (item, columnIndex) =>
+                  `${rowIndex * trackingColumnCount + columnIndex + 1}. ${item.codigo_rastreio}`,
+              )
+              .join(" | "),
+        ),
+        "",
+        "Transportadora: ______________________________",
+        "Responsável pela expedição: ___________________",
+        "",
+      ];
+    }),
   ].join("\n");
 
   return { subject, html, text };
