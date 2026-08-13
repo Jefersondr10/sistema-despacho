@@ -49,11 +49,11 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] print:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
-          <div className="rounded-xl bg-slate-900 px-4 py-3 text-white print:border-2 print:border-slate-900 print:bg-white print:text-slate-950">
+          <div className="grid grid-rows-[auto_1fr] rounded-xl bg-slate-900 px-4 py-3 text-white print:border-2 print:border-slate-900 print:bg-white print:text-slate-950">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-300 print:text-slate-500">
               Loja
             </p>
-            <p className="mt-1 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl print:text-xl">
+            <p className="romaneio-store-name mt-1 grid min-h-10 place-items-center text-center text-xl font-extrabold leading-tight tracking-tight text-balance sm:text-2xl print:text-xl">
               {group.loja_nome}
             </p>
           </div>
