@@ -403,4 +403,489 @@ function buildRomaneioEmail(
       "Rastreios:",
       ...chunkTrackingItems(group.pacotes, 3).map((row, rowIndex) =>
         row
-         ×®µ¶‰žËkºwµçe¡Ðè€ÜÀÀìÙ•ÉÑ¥…°µ…±¥¸èÑ½ÀìÝ¡¥Ñ”µÍÁ…”è¹½ÝÉ…Àìˆø‘í•Í…Á•!Ñµ°¡¥Ñ•´¹Á…­…•Ì¥ôð½Ñø(€€€€€€€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜ÀìÙ•ÉÑ¥…°µ…±¥¸èÑ½Àìˆø‘íÍÑ½É•Í!Ñµ±ôð½Ñø(€€€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€ô¤(€€€€€€€€€€€€€€€€¹©½¥¸ ˆˆ¤ì(€€€€€€€€€€€€€½¹ÍÐ½µ¥ÑÑ•‘•Ñ…¥±ÍI½Ü€ô½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ð(€€€€€€€€€€€€€€€€ü€(€€€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€€€ñÑ½±ÍÁ…¸ôˆÌˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÁÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì‰…­É½Õ¹µ½±½Èè€™™™‰•ˆì½±½Èè€ŒäÈÐÀÁ”ì™½¹ÐµÍ¥é”è€ÄÅÁàì±¥¹”µ¡•¥¡Ðè€Ä¸Ðìˆø(€€€€€€€€€€€€€€€€€€€€€€€5…¥Ì€‘í•Í…Á•!Ñµ°¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ð¥ô™½Éµ…Ì‘”•¹Ù¥¼™½É…´É•ÍÕµ¥‘…Ì€ ‘í•Í…Á•!Ñµ°¡™½Éµ…ÑA…­…•½Õ¹Ð¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘A…­…•Ì¤¥ô¤¸=ÌÑ½Ñ…¥Ì‘¼µ…É­•ÑÁ±…”Á•Éµ…¹••´½µÁ±•Ñ½Ì¸(€€€€€€€€€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€€€(€€€€€€€€€€€€€€€€è€ˆˆì((€€€€€€€€€€€€€É•ÑÕÉ¸€(€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰µ…É¥¸è€À€À€ÄÙÁàì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àì‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€Àì‰½É‘•ÈµÉ…‘¥ÕÌè€áÁàì½Ù•É™±½Üè¡¥‘‘•¸ìˆø(€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€ñÑ½±ÍÁ…¸ôˆÌˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆø(€€€€€€€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰½±½Èè€ŒÁ˜ÄÜÉ„ì™½¹ÐµÍ¥é”è€ÄÕÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀìˆø‘í•Í…Á•!Ñµ°¡µ…É­•ÑÁ±…”¹µ…É­•ÑÁ±…”¥ôð½Ñø(€€€€€€€€€€€€€€€€€€€€€€€€€€ñÑ…±¥¸ô‰É¥¡ÐˆÍÑå±”ô‰½±½Èè€ŒÐÜÔÔØäì™½¹ÐµÍ¥é”è€ÄÉÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀìÝ¡¥Ñ”µÍÁ…”è¹½ÝÉ…Àìˆø‘í•Í…Á•!Ñµ°¡™½Éµ…ÑA…­…•½Õ¹Ð¡µ…É­•ÑÁ±…”¹Ñ½Ñ…°¤¥ôð½Ñø(€€€€€€€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€€€€€€€ð½Ñ…‰±”ø(€€€€€€€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€€€ñÑÈÍÑå±”ô‰‰…­É½Õ¹µ½±½Èè€™™™™™˜ìˆø(€€€€€€€€€€€€€€€€€€€€ñÑ …±¥¸ô‰±•™ÐˆÝ¥‘Ñ ôˆÌÔ”ˆÍÑå±”ô‰Á…‘‘¥¹œè€áÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØÐÜÐáˆì™½¹ÐµÍ¥é”è€ÄÁÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áÐµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆù¹Ù¥¼€¼ÑÉ…¹ÍÁ½ÉÑ…‘½É„ð½Ñ ø(€€€€€€€€€€€€€€€€€€€€ñÑ …±¥¸ô‰•¹Ñ•ÈˆÝ¥‘Ñ ôˆÄÔ”ˆÍÑå±”ô‰Á…‘‘¥¹œè€áÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØÐÜÐáˆì™½¹ÐµÍ¥é”è€ÄÁÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áÐµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆùA…½Ñ•Ìð½Ñ ø(€€€€€€€€€€€€€€€€€€€€ñÑ …±¥¸ô‰±•™ÐˆÝ¥‘Ñ ôˆÔÀ”ˆÍÑå±”ô‰Á…‘‘¥¹œè€áÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØÐÜÐáˆì™½¹ÐµÍ¥é”è€ÄÁÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áÐµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆùA½È±½©„ð½Ñ ø(€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€€€‘í‘•Ñ…¥±I½ÝÍô(€€€€€€€€€€€€€€€€€€‘í½µ¥ÑÑ•‘•Ñ…¥±ÍI½Ýô(€€€€€€€€€€€€€€€€ð½Ñ…‰±”ø(€€€€€€€€€€€€€€ì(€€€€€€€€€€€ô¤(€€€€€€€€€€€€¹©½¥¸ ˆˆ¤ì((€€€€€€€€€É•ÑÕÉ¸€(€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰µ…É¥¸è€ÈÑÁà€À€ÄÉÁàì‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€Àìˆø(€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàì‰…­É½Õ¹µ½±½Èè€‘íÍ•Ñ¥½¸¹‰…­É½Õ¹‘ôì‰½É‘•Èè€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì½±½Èè€‘íÍ•Ñ¥½¸¹½±½Éôì™½¹ÐµÍ¥é”è€ÄÙÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀìˆø‘í•Í…Á•!Ñµ°¡Í•Ñ¥½¸¹±…‰•°¥ôð½Ñø(€€€€€€€€€€€€€€€€ñÑ…±¥¸ô‰É¥¡ÐˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàì‰…­É½Õ¹µ½±½Èè€‘íÍ•Ñ¥½¸¹‰…­É½Õ¹‘ôì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì‰½É‘•ÈµÉ¥¡Ðè€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì‰½É‘•Èµ‰½ÑÑ½´è€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì½±½Èè€‘íÍ•Ñ¥½¸¹½±½Éôì™½¹ÐµÍ¥é”è€ÄÍÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀìÝ¡¥Ñ”µÍÁ…”è¹½ÝÉ…Àìˆø‘í•Í…Á•!Ñµ°¡™½Éµ…ÑA…­…•½Õ¹Ð¡Í•Ñ¥½¸¹Ñ½Ñ…°¤¥ôð½Ñø(€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€ð½Ñ…‰±”ø(€€€€€€€€€€€€‘íµ…É­•ÑÁ±…•Í!Ñµ±ô(€€€€€€€€€€ì(€€€€€€€ô¤(€€€€€€€€¹©½¥¸ ˆˆ¤(€€€€è€(€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆø(€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÈÁÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØÐÜÐáˆì™½¹ÐµÍ¥é”è€ÄÍÁàìÑ•áÐµ…±¥¸è•¹Ñ•Èìˆù9•¹¡Õ´‘…‘¼•¹½¹ÑÉ…‘¼Á…É„½Ì™¥±ÑÉ½Ì…Á±¥…‘½Ì¸ð½Ñø(€€€€€€€€€€ð½ÑÈø(€€€€€€€€ð½Ñ…‰±”ø(€€€€€€ì((€½¹ÍÐ¡Ñµ°€ô€(€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰Ý¥‘Ñ è€ÄÀÀ”ìµ…É¥¸è€Àì‰…­É½Õ¹µ½±½Èè€˜Å˜Õ˜äì™½¹Ðµ™…µ¥±äèÉ¥…°°!•±Ù•Ñ¥„°Í…¹ÌµÍ•É¥˜ìˆø(€€€€€€ñÑÈø(€€€€€€€€ñÑ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÈÑÁà€ÄÉÁàìˆø(€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÜÈÀˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰Ý¥‘Ñ è€ÄÀÀ”ìµ…àµÝ¥‘Ñ è€ÜÈÁÁàì‰…­É½Õ¹µ½±½Èè€™™™™™˜ì‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€Àì‰½É‘•ÈµÉ…‘¥ÕÌè€ÄÉÁàì½Ù•É™±½Üè¡¥‘‘•¸ìˆø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÈÑÁàì‰…­É½Õ¹µ½±½Èè€ŒÄÜÈÔÔÐìˆø(€€€€€€€€€€€€€€€€ñÀÍÑå±”ô‰µ…É¥¸è€À€À€ÙÁàì½±½Èè€‰™‘‰™”ì™½¹ÐµÍ¥é”è€ÄÅÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€ÅÁàìÑ•áÐµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆùM¥ÍÑ•µ„‘”‘•ÍÁ…¡¼ð½Àø(€€€€€€€€€€€€€€€€ñ ÄÍÑå±”ô‰µ…É¥¸è€Àì½±½Èè€™™™™™˜ì™½¹ÐµÍ¥é”è€ÈÑÁàì±¥¹”µ¡•¥¡Ðè€Ä¸ÈÔìˆùI•±…ÓÍÉ¥¼‘”Á…½Ñ•Ìð½ Äø(€€€€€€€€€€€€€€€€ñÀÍÑå±”ô‰µ…É¥¸è€áÁà€À€Àì½±½Èè€‘‰•…™”ì™½¹ÐµÍ¥é”è€ÄÍÁàì±¥¹”µ¡•¥¡Ðè€Ä¸Ôìˆù½±•Ñ…Ì”Á½ÍÑ…•¹Ì½É…¹¥é…‘…ÌÁ½Èµ…É­•ÑÁ±…”ð½Àø(€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÈÁÁà€ÈÑÁà€Àìˆø(€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€ÙÁàìˆø(€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€ñÑÝ¥‘Ñ ôˆÌÐ”ˆ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÑÁà€áÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÍÑÉ½¹œÍÑå±”ô‰‘¥ÍÁ±…äè‰±½¬ì½±½Èè€ŒÁ˜ÄÜÉ„ì™½¹ÐµÍ¥é”è€ÈÉÁàì±¥¹”µ¡•¥¡Ðè€Ä¸Äìˆø‘í•Í…Á•!Ñµ°¡Ñ½Ñ…±A…½Ñ•Ì¥ôð½ÍÑÉ½¹œø(€€€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ÍÑå±”ô‰½±½Èè€ŒØÐÜÐáˆì™½¹ÐµÍ¥é”è€ÄÅÁàìˆùQ½Ñ…°•É…°ð½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€€€€€€€€€ñÑÝ¥‘Ñ ôˆÌÌ”ˆ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÑÁà€áÁàì‰…­É½Õ¹µ½±½Èè€™‰˜Äì‰½É‘•Èè€ÅÁàÍ½±¥€Œäå˜Ù”Ðìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÍÑÉ½¹œÍÑå±”ô‰‘¥ÍÁ±…äè‰±½¬ì½±½Èè€ŒÄÄÕ”Ôäì™½¹ÐµÍ¥é”è€ÈÉÁàì±¥¹”µ¡•¥¡Ðè€Ä¸Äìˆø‘í•Í…Á•!Ñµ°¡½±•Ñ…Q½Ñ…°¥ôð½ÍÑÉ½¹œø(€€€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ÍÑå±”ô‰½±½Èè€ŒÁ˜ÜØÙ”ì™½¹ÐµÍ¥é”è€ÄÅÁàìˆù½±•Ñ„ð½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€€€€€€€€€ñÑÝ¥‘Ñ ôˆÌÌ”ˆ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÑÁà€áÁàì‰…­É½Õ¹µ½±½Èè€‘‰•…™”ì‰½É‘•Èè€ÅÁàÍ½±¥€‰™‘‰™”ìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÍÑÉ½¹œÍÑå±”ô‰‘¥ÍÁ±…äè‰±½¬ì½±½Èè€ŒÅ”ÐÁ…˜ì™½¹ÐµÍ¥é”è€ÈÉÁàì±¥¹”µ¡•¥¡Ðè€Ä¸Äìˆø‘í•Í…Á•!Ñµ°¡Á½ÍÑ…•µQ½Ñ…°¥ôð½ÍÑÉ½¹œø(€€€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ÍÑå±”ô‰½±½Èè€ŒÅÑ•àì™½¹ÐµÍ¥é”è€ÄÅÁàìˆùA½ÍÑ…•´ð½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€ð½Ñ…‰±”ø(€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÙÁà€ÈÑÁà€Àìˆø(€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆÝ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àìˆø(€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÀÍÑå±”ô‰µ…É¥¸è€À€À€ÕÁàì½±½Èè€ŒÌÌÐÄÔÔì™½¹ÐµÍ¥é”è€ÄÅÁàì™½¹ÐµÝ•¥¡Ðè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áÐµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆù¥±ÑÉ½Ì…Á±¥…‘½Ìð½Àø(€€€€€€€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆø‘í™¥±Ñ•É!Ñµ±ôð½Ñ…‰±”ø(€€€€€€€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€€€€€ð½Ñ…‰±”ø(€€€€€€€€€€€€€€ð½Ñø(€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€À€ÈÑÁà€áÁàìˆø‘í½Á•É…Ñ¥½¹M•Ñ¥½¹Í!Ñµ±ôð½Ñø(€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÙÁà€ÈÑÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØÐÜÐáˆì™½¹ÐµÍ¥é”è€ÄÅÁàìÑ•áÐµ…±¥¸è•¹Ñ•ÈìˆùI•±…ÓÍÉ¥¼•É…‘¼…ÕÑ½µ…Ñ¥…µ•¹Ñ”Á•±¼Í¥ÍÑ•µ„‘”‘•ÍÁ…¡¼¸ð½Ñø(€€€€€€€€€€€€ð½ÑÈø(€€€€€€€€€€ð½Ñ…‰±”ø(€€€€€€€€ð½Ñø(€€€€€€ð½ÑÈø(€€€€ð½Ñ…‰±”ø(€€ì((€½¹ÍÐÑ•áÐ€ôl(€€€€‰I1SMI%<A=QLˆ°(€€€Q½Ñ…°•É…°è€‘íÑ½Ñ…±A…½Ñ•ÍôÁ…½Ñ•Í€°(€€€½±•Ñ„è€‘í½±•Ñ…Q½Ñ…±ôÁ…½Ñ•Í€°(€€€A½ÍÑ…•´è€‘íÁ½ÍÑ…•µQ½Ñ…±ôÁ…½Ñ•Í€°(€€€€ˆˆ°(€€€€‰%1QI=LA1%=Lˆ°(€€€€¸¸¹™¥±Ñ•É%Ñ•µÌ¹µ…À ¡m­•ä°Ù…±Õ•t¤€ôø€‘í­•åôè€‘íMÑÉ¥¹œ¡Ù…±Õ”€üü€ˆˆ¥õ€¤°(€€€€ˆˆ°(€€€€¸¸¹½Á•É…Ñ¥½¹M•Ñ¥½¹Ì¹™±…Ñ5…À ¡Í•Ñ¥½¸¤€ôøl(€€€€€€‘íÍ•Ñ¥½¸¹±…‰•°¹Ñ½UÁÁ•É…Í” ¥ôƒŠP€‘í™½Éµ…ÑA…­…•½Õ¹Ð¡Í•Ñ¥½¸¹Ñ½Ñ…°¥õ€°(€€€€€€¸¸¹Í•Ñ¥½¸¹µ…É­•ÑÁ±…•Ì¹™±…Ñ5…À ¡µ…É­•ÑÁ±…”¤€ôøì(€€€€€€€½¹ÍÐ½µÁ…Ñ•‘%Ñ•µÌ€ô½µÁ…ÑM¡¥ÁÁ¥¹•Ñ…¥±Ì¡µ…É­•ÑÁ±…”¹¥Ñ•µÌ¤ì((€€€€€€€É•ÑÕÉ¸l(€€€€€€€€€€€€‘íµ…É­•ÑÁ±…”¹µ…É­•ÑÁ±…•ôƒŠP€‘í™½Éµ…ÑA…­…•½Õ¹Ð¡µ…É­•ÑÁ±…”¹Ñ½Ñ…°¥õ€°(€€€€€€€€€€¸¸¹½µÁ…Ñ•‘%Ñ•µÌ¹Ù¥Í¥‰±”¹µ…À ¡¥Ñ•´¤€ôøì(€€€€€€€€€€€½¹ÍÐ½µÁ…Ñ•‘MÑ½É•Ì€ô½µÁ…ÑMÑ½É•Ì¡¥Ñ•´¹±½©…Ì¤ì(€€€€€€€€€€€½¹ÍÐ±½©…ÍQ•áÐ€ô½µÁ…Ñ•‘MÑ½É•Ì¹Ù¥Í¥‰±”¹±•¹Ñ (€€€€€€€€€€€€€€ü½µÁ…Ñ•‘MÑ½É•Ì¹Ù¥Í¥‰±”(€€€€€€€€€€€€€€€€€€¹µ…À ¡±½©„¤€ôø€‘í±½©„¹¹½µ•ôè€‘í±½©„¹Á…­…•Íõ€¤(€€€€€€€€€€€€€€€€€€¹©½¥¸ ˆ°€ˆ¤(€€€€€€€€€€€€€€è€‰M•´‘•Ñ…±¡…µ•¹Ñ¼Á½È±½©„ˆì(€€€€€€€€€€€½¹ÍÐ½µ¥ÑÑ•‘MÑ½É•ÍQ•áÐ€ô½µÁ…Ñ•‘MÑ½É•Ì¹½µ¥ÑÑ•‘½Õ¹Ð(€€€€€€€€€€€€€€ü€ì€¬€‘í½µÁ…Ñ•‘MÑ½É•Ì¹½µ¥ÑÑ•‘½Õ¹Ñô±½©…ÌÉ•ÍÕµ¥‘…Ì€ ‘í™½Éµ…ÑA…­…•½Õ¹Ð¡½µÁ…Ñ•‘MÑ½É•Ì¹½µ¥ÑÑ•‘A…­…•Ì¥ô¥€(€€€€€€€€€€€€€€è€ˆˆì(€€€€€€€€€€€½¹ÍÐÍ¡¥ÁÁ¥¹1…‰•°€ô¥Ñ•´¹µ•±¡½É¹Ù¥¼(€€€€€€€€€€€€€€ü€‰5•±¡½È¹Ù¥¼ˆ(€€€€€€€€€€€€€€è€‰¹Ù¥¼‘¥É•Ñ¼ˆì((€€€€€€€€€€€É•ÑÕÉ¸€€€€€‘íÍ¡¥ÁÁ¥¹1…‰•±ôð€‘í¥Ñ•´¹ÑÉ…¹ÍÁ½ÉÑ…‘½É…ôð€‘í™½Éµ…ÑA…­…•½Õ¹Ð¡¥Ñ•´¹Á…­…•Ì¥ôðA½È±½©„è€‘í±½©…ÍQ•áÑô‘í½µ¥ÑÑ•‘MÑ½É•ÍQ•áÑõ€ì(€€€€€€€€€ô¤°(€€€€€€€€€€¸¸¸¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ð(€€€€€€€€€€€€ül(€€€€€€€€€€€€€€€€€€€€¬€‘í½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ñô™½Éµ…Ì‘”•¹Ù¥¼É•ÍÕµ¥‘…Ì€ ‘í™½Éµ…ÑA…­…•½Õ¹Ð¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘A…­…•Ì¥ô¤ìÑ½Ñ…¥ÌÁÉ•Í•ÉÙ…‘½Ì¹€°(€€€€€€€€€€€€€t(€€€€€€€€€€€€èmt¤°(€€€€€€€tì(€€€€€ô¤°(€€€€€€ˆˆ°(€€€t¤°(€t¹©½¥¸ ‰q¸ˆ¤ì((€É•ÑÕÉ¸ìÍÕ‰©•Ð°¡Ñµ°°Ñ•áÐôì)ô()…Íå¹Œ™Õ¹Ñ¥½¸Í•¹‘µ…¥±]¥Ñ¡I•Í•¹¡ì(€Ñ¼°(€ÍÕ‰©•Ð°(€¡Ñµ°°(€Ñ•áÐ°)ôèµ…¥±½¹Ñ•¹Ð€˜ìÑ¼èÍÑÉ¥¹mtô¤ì(€½¹ÍÐ…Á¥-•ä€ôÁÉ½•ÍÌ¹•¹Ø¹IM9}A%}-dü¹ÑÉ¥´ ¤ì(€½¹ÍÐ™É½´€ôÁÉ½•ÍÌ¹•¹Ø¹I1Q=I%=M}5%1}I=4ü¹ÑÉ¥´ ¤ì(€½¹ÍÐÉ•Á±åQ¼€ôÁÉ½•ÍÌ¹•¹Ø¹I1Q=I%=M}5%1}IA1e}Q<ü¹ÑÉ¥´ ¤ì((€¥˜€ ……Á¥-•äñð€…™É½´¤ì(€€€Ñ¡É½Ü¹•Üµ…¥±½¹™¥ÉÉ½È (€€€€€€‰¹Ù¥¼‘””µµ…¥°¹…¼½¹™¥ÕÉ…‘¼¸•™¥¹„IM9}A%}-d”I1Q=I%=M}5%1}I=4¹¼…µ‰¥•¹Ñ”‘¼‰…­•¹¸ˆ°(€€€€¤ì(€ô((€½¹ÍÐÉ•ÍÁ½¹Í”€ô…Ý…¥Ð™•Ñ  ‰¡ÑÑÁÌè¼½…Á¤¹É•Í•¹¹½´½•µ…¥±Ìˆ°ì(€€€µ•Ñ¡½è€‰A=MPˆ°(€€€¡•…‘•ÉÌèì(€€€€€ÕÑ¡½É¥é…Ñ¥½¸è	•…É•È€‘í…Á¥-•åõ€°(€€€€€€‰½¹Ñ•¹ÐµQåÁ”ˆè€‰…ÁÁ±¥…Ñ¥½¸½©Í½¸ˆ°(€€€€€€‰%‘•µÁ½Ñ•¹äµ-•äˆèÉåÁÑ¼¹É…¹‘½µUU% ¤°(€€€ô°(€€€‰½‘äè)M=8¹ÍÑÉ¥¹¥™ä¡ì(€€€€€™É½´°(€€€€€Ñ¼°(€€€€€ÍÕ‰©•Ð°(€€€€€¡Ñµ°°(€€€€€Ñ•áÐ°(€€€€€€¸¸¸¡É•Á±åQ¼€üìÉ•Á±å}Ñ¼èÉ•Á±åQ¼ô€èíô¤°(€€€ô¤°(€ô¤ì((€¥˜€ …É•ÍÁ½¹Í”¹½¬¤ì(€€€½¹ÍÐ‰½‘ä€ô…Ý…¥ÐÉ•ÍÁ½¹Í”¹Ñ•áÐ ¤ì(€€€Ñ¡É½Ü¹•ÜÉÉ½È (€€€€€…±¡„¹¼ÁÉ½Ù•‘½È‘””µµ…¥°€ ‘íÉ•ÍÁ½¹Í”¹ÍÑ…ÑÕÍô¤è€‘í‰½‘äñðÉ•ÍÁ½¹Í”¹ÍÑ…ÑÕÍQ•áÑõ€°(€€€€¤ì(€ô((€É•ÑÕÉ¸É•ÍÁ½¹Í”¹©Í½¸ ¤ì)ô()…Íå¹Œ™Õ¹Ñ¥½¸Í…Ù•!¥ÍÑ½Éä¡ì(€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€…ÍÍÕ¹Ñ¼°(€™¥±ÑÉ½Ì°(€ÍÑ…ÑÕÌ°(€•ÉÉ¼°)ôèì(€‘•ÍÑ¥¹…Ñ…É¥½ÌèÍÑÉ¥¹mtì(€…ÍÍÕ¹Ñ¼èÍÑÉ¥¹œì(€™¥±ÑÉ½ÌèI•½ÉñÍÑÉ¥¹œ°Õ¹­¹½Ý¸øì(€ÍÑ…ÑÕÌè€‰ÍÕ•ÍÍ¼ˆð€‰•ÉÉ¼ˆì(€•ÉÉ¼üèÍÑÉ¥¹œð¹Õ±°ì)ô°½¹Ñ•áÐè…Ñ…‰…Í•½¹Ñ•áÐ¤ì(€ÑÉäì(€€€…Ý…¥ÐÉ•…Ñ•I•±…Ñ½É¥½¹Ù¥½!¥ÍÑ½É¥¼¡ì(€€€€€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€€€€€…ÍÍÕ¹Ñ¼°(€€€€€™¥±ÑÉ½Ì°(€€€€€ÍÑ…ÑÕÌ°(€€€€€•ÉÉ¼°(€€€ô°½¹Ñ•áÐ¤ì(€ô…Ñ €¡¡¥ÍÑ½ÉåÉÉ½È¤ì(€€€½¹Í½±”¹•ÉÉ½È ‰…±¡„…¼Í…±Ù…È¡¥ÍÑ½É¥¼‘”•¹Ù¥¼èˆ°¡¥ÍÑ½ÉåÉÉ½È¤ì(€ô)ô()•áÁ½ÉÐ…Íå¹Œ™Õ¹Ñ¥½¸A=MP¡É•ÅÕ•ÍÐèI•ÅÕ•ÍÐ¤ì(€¥˜€ …¥ÍMÕÁ…‰…Í•½¹™¥ÕÉ• ¤¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰MÕÁ…‰…Í”¹…¼½¹™¥ÕÉ…‘¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ÔÀÌô°(€€€€¤ì(€ô((€½¹ÍÐ…ÕÑ¡½É¥é…Ñ¥½¸€ôÉ•ÅÕ•ÍÐ¹¡•…‘•ÉÌ¹•Ð ‰…ÕÑ¡½É¥é…Ñ¥½¸ˆ¤€üü€ˆˆì(€½¹ÍÐÑ½­•¸€ô…ÕÑ¡½É¥é…Ñ¥½¸¹ÍÑ…ÉÑÍ]¥Ñ  ‰	•…É•È€ˆ¤(€€€€ü…ÕÑ¡½É¥é…Ñ¥½¸¹Í±¥” ‰	•…É•È€ˆ¹±•¹Ñ ¤¹ÑÉ¥´ ¤(€€€€è€ˆˆì((€¥˜€ …Ñ½­•¸¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰M•ÍÍ…¼½‰É¥…Ñ½É¥„Á…É„•¹Ù¥…È¼É•±…Ñ½É¥¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÄô°(€€€€¤ì(€ô((€½¹ÍÐ…ÕÑ¡•¹Ñ¥…Ñ•‘±¥•¹Ð€ôÉ•…Ñ•MÕÁ…‰…Í•±¥•¹Ñ½É•ÍÍQ½­•¸¡Ñ½­•¸¤ì(€½¹ÍÐì‘…Ñ„èÕÍ•É…Ñ„°•ÉÉ½ÈèÕÍ•ÉÉÉ½Èô€ô(€€€…Ý…¥Ð…ÕÑ¡•¹Ñ¥…Ñ•‘±¥•¹Ð¹…ÕÑ ¹•ÑUÍ•È¡Ñ½­•¸¤ì((€¥˜€¡ÕÍ•ÉÉÉ½Èñð€…ÕÍ•É…Ñ„¹ÕÍ•È¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰M•ÍÍ…¼¥¹Ù…±¥‘„½Ô•áÁ¥É…‘„¸¹ÑÉ”¹½Ù…µ•¹Ñ”¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÄô°(€€€€¤ì(€ô((€½¹ÍÐ‘…Ñ…‰…Í•½¹Ñ•áÐè…Ñ…‰…Í•½¹Ñ•áÐ€ôì(€€€ÍÕÁ…‰…Í”è…ÕÑ¡•¹Ñ¥…Ñ•‘±¥•¹Ð°(€€€ÕÍ•É%èÕÍ•É…Ñ„¹ÕÍ•È¹¥°(€ôì((€±•ÐÁ…å±½…èÕ¹­¹½Ý¸ì(€ÑÉäì(€€€Á…å±½…€ô…Ý…¥ÐÉ•ÅÕ•ÍÐ¹©Í½¸ ¤ì(€ô…Ñ ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰A…å±½…¥¹Ù…±¥‘¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÀô°(€€€€¤ì(€ô((€¥˜€ …¥ÍI•½É¡Á…å±½…¤¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰A…å±½…¥¹Ù…±¥‘¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÀô°(€€€€¤ì(€ô((€½¹ÍÐ‘•ÍÑ¥¹…Ñ…É¥½%‘Ì€ôÕ¹¥ÅÕ”¡•ÑMÑÉ¥¹ÉÉ…ä¡Á…å±½…¹‘•ÍÑ¥¹…Ñ…É¥½%‘Ì¤¤ì(€±•Ð•µ…¥±Í5…¹Õ…¥ÌèÍÑÉ¥¹mtì(€ÑÉäì(€€€•µ…¥±Í5…¹Õ…¥Ì€ôÕ¹¥ÅÕ” (€€€€€•ÑMÑÉ¥¹ÉÉ…ä¡Á…å±½…¹•µ…¥±Í5…¹Õ…¥Ì¤¹µ…À ¡•µ…¥°¤€ôø(€€€€€€€Ù…±¥‘…Ñ•µ…¥±‘‘É•ÍÌ¡•µ…¥°¤°(€€€€€€¤°(€€€€¤ì(€ô…Ñ €¡Ù…±¥‘…Ñ¥½¹ÉÉ½È¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è™½Éµ…Ñ…Ñ…‰…Í•ÉÉ½È¡Ù…±¥‘…Ñ¥½¹ÉÉ½È¤ô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÀô°(€€€€¤ì(€ô((€±•Ð…Ñ¥Ù½ÌèÝ…¥Ñ•ñI•ÑÕÉ¹QåÁ”ñÑåÁ•½˜•ÑI•±…Ñ½É¥½•ÍÑ¥¹…Ñ…É¥½Ìøøì(€ÑÉäì(€€€…Ñ¥Ù½Ì€ô…Ý…¥Ð•ÑI•±…Ñ½É¥½•ÍÑ¥¹…Ñ…É¥½Ì¡Õ¹‘•™¥¹•°‘…Ñ…‰…Í•½¹Ñ•áÐ¤ì(€ô…Ñ €¡‘…Ñ…‰…Í•ÉÉ½È¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì(€€€€€€€½¬è™…±Í”°(€€€€€€€µ•ÍÍ…”èÉÉ¼…¼…ÉÉ•…È‘•ÍÑ¥¹…Ñ…É¥½Ìè€‘í™½Éµ…Ñ…Ñ…‰…Í•ÉÉ½È¡‘…Ñ…‰…Í•ÉÉ½È¥õ€°(€€€€€ô°(€€€€€ìÍÑ…ÑÕÌè€ÔÀÀô°(€€€€¤ì(€ô((€½¹ÍÐ…Ñ¥Ù½ÍA½É%€ô¹•Ü5…À¡…Ñ¥Ù½Ì¹µ…À ¡¥Ñ•´¤€ôøm¥Ñ•´¹¥°¥Ñ•µt¤¤ì(€½¹ÍÐ‘•ÍÑ¥¹…Ñ…É¥½Í…‘…ÍÑÉ…‘½Ì€ô‘•ÍÑ¥¹…Ñ…É¥½%‘Ì¹™±…Ñ5…À ¡¥¤€ôøì(€€€½¹ÍÐ¥Ñ•´€ô…Ñ¥Ù½ÍA½É%¹•Ð¡¥¤ì((€€€É•ÑÕÉ¸¥Ñ•´€üm¥Ñ•´¹•µ…¥±t€èmtì(€ô¤ì(€½¹ÍÐ‘•ÍÑ¥¹…Ñ…É¥½Ì€ôÕ¹¥ÅÕ”¡l¸¸¹‘•ÍÑ¥¹…Ñ…É¥½Í…‘…ÍÑÉ…‘½Ì°€¸¸¹•µ…¥±Í5…¹Õ…¥Ít¤ì(€½¹ÍÐ•µ…¥±½¹Ñ•¹Ð€ô‰Õ¥±‘I•Á½ÉÑµ…¥°¡Á…å±½…¤ì(€½¹ÍÐ™¥±ÑÉ½Ì€ôì(€€€™¥±ÑÉ½Ìè¥ÍI•½É¡Á…å±½…¹™¥±ÑÉ½Ì¤€üÁ…å±½…¹™¥±ÑÉ½Ì€èíô°(€€€™¥±ÑÉ½ÍI•ÍÕµ¼è¥ÍI•½É¡Á…å±½…¹™¥±ÑÉ½ÍI•ÍÕµ¼¤€üÁ…å±½…¹™¥±ÑÉ½ÍI•ÍÕµ¼€èíô°(€€€É•±…Ñ½É¥¼è¥ÍI•½É¡Á…å±½…¹É•±…Ñ½É¥¼¤€üÁ…å±½…¹É•±…Ñ½É¥¼€èíô°(€ôì((€¥˜€ …‘•ÍÑ¥¹…Ñ…É¥½Ì¹±•¹Ñ ¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì(€€€€€€€½¬è™…±Í”°(€€€€€€€µ•ÍÍ…”è€‰M•±•¥½¹”…¼µ•¹½ÌÕ´‘•ÍÑ¥¹…Ñ…É¥¼…Ñ¥Ù¼Á…É„•¹Ù¥…È¸ˆ°(€€€€€ô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÀô°(€€€€¤ì(€ô((€¥˜€¡‘•ÍÑ¥¹…Ñ…É¥½Ì¹±•¹Ñ €ø€ÔÀ¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì(€€€€€€€½¬è™…±Í”°(€€€€€€€µ•ÍÍ…”è€‰<•¹Ù¥¼…•¥Ñ„¹¼µ…á¥µ¼€ÔÀ‘•ÍÑ¥¹…Ñ…É¥½ÌÁ½ÈÙ•è¸ˆ°(€€€€€ô°(€€€€€ìÍÑ…ÑÕÌè€ÐÀÀô°(€€€€¤ì(€ô((€ÑÉäì(€€€…Ý…¥ÐÍ•¹‘µ…¥±]¥Ñ¡I•Í•¹¡ì€¸¸¹•µ…¥±½¹Ñ•¹Ð°Ñ¼è‘•ÍÑ¥¹…Ñ…É¥½Ìô¤ì(€€€…Ý…¥ÐÍ…Ù•!¥ÍÑ½Éä¡ì(€€€€€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€€€€€…ÍÍÕ¹Ñ¼è•µ…¥±½¹Ñ•¹Ð¹ÍÕ‰©•Ð°(€€€€€™¥±ÑÉ½Ì°(€€€€€ÍÑ…ÑÕÌè€‰ÍÕ•ÍÍ¼ˆ°(€€€ô°‘…Ñ…‰…Í•½¹Ñ•áÐ¤ì((€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸¡ì(€€€€€½¬èÑÉÕ”°(€€€€€Ñ½Ñ…±•ÍÑ¥¹…Ñ…É¥½Ìè‘•ÍÑ¥¹…Ñ…É¥½Ì¹±•¹Ñ °(€€€ô¤ì(€ô…Ñ €¡•ÉÉ½È¤ì(€€€½¹ÍÐµ•ÍÍ…”€ô™½Éµ…Ñ…Ñ…‰…Í•ÉÉ½È¡•ÉÉ½È¤ì(€€€…Ý…¥ÐÍ…Ù•!¥ÍÑ½Éä¡ì(€€€€€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€€€€€…ÍÍÕ¹Ñ¼è•µ…¥±½¹Ñ•¹Ð¹ÍÕ‰©•Ð°(€€€€€™¥±ÑÉ½Ì°(€€€€€ÍÑ…ÑÕÌè€‰•ÉÉ¼ˆ°(€€€€€•ÉÉ¼èµ•ÍÍ…”°(€€€ô°‘…Ñ…‰…Í•½¹Ñ•áÐ¤ì((€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”ô°(€€€€€ìÍÑ…ÑÕÌè•ÉÉ½È¥¹ÍÑ…¹•½˜µ…¥±½¹™¥ÉÉ½È€ü€ÔÀÄ€è€ÔÀÀô°(€€€€¤ì(€ô)ô
+          .map(
+            (item, columnIndex) =>
+              `${rowIndex * 3 + columnIndex + 1}. ${item.codigo_rastreio}`,
+          )
+          .join(" | "),
+      ),
+      "",
+      "Transportadora: ______________________________",
+      "ResponsÃ¡vel pela expediÃ§Ã£o: ___________________",
+      "",
+    ]),
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+function buildReportEmail(payload: Record<string, unknown>): EmailContent {
+  const subject =
+    getOptionalString(payload.assunto) || "RelatÃ³rio de Despacho";
+  const filtrosResumo = isRecord(payload.filtrosResumo)
+    ? payload.filtrosResumo
+    : {};
+  const relatorio = isRecord(payload.relatorio) ? payload.relatorio : {};
+  const totalPacotes = getPackageCount(relatorio.totalPacotes);
+  const modo = getOptionalString(relatorio.modo) || "resumido";
+  if (modo === "romaneio") {
+    return buildRomaneioEmail(payload, relatorio);
+  }
+
+  const summaryEntries = getReportSummaryEntries(relatorio);
+  const filterItems = Object.entries(filtrosResumo);
+
+  const operationSections = operationThemes
+    .map((theme) => {
+      const items = summaryEntries.filter(
+        (entry) => entry.operation === theme.key,
+      );
+
+      return {
+        ...theme,
+        items,
+        marketplaces: groupEntriesByMarketplace(items),
+        total: items.reduce((sum, item) => sum + item.packages, 0),
+      };
+    })
+    .filter((section) => section.items.length > 0);
+  const coletaTotal =
+    operationSections.find((section) => section.key === "coleta")?.total ?? 0;
+  const postagemTotal =
+    operationSections.find((section) => section.key === "postagem")?.total ?? 0;
+
+  const filterHtml = filterItems.length
+    ? filterItems
+        .map(
+          ([key, value]) => `
+            <tr>
+              <td style="padding: 5px 12px 5px 0; color: #64748b; font-size: 12px; vertical-align: top; white-space: nowrap;">${escapeHtml(key)}</td>
+              <td style="padding: 5px 0; color: #0f172a; font-size: 12px; font-weight: 700; vertical-align: top;">${escapeHtml(value)}</td>
+            </tr>
+          `,
+        )
+        .join("")
+    : '<tr><td style="padding: 5px 0; color: #64748b; font-size: 12px;">Nenhum filtro informado.</td></tr>';
+
+  const operationSectionsHtml = operationSections.length
+    ? operationSections
+        .map((section) => {
+          const marketplacesHtml = section.marketplaces
+            .map((marketplace) => {
+              const compactedItems = compactShippingDetails(
+                marketplace.items,
+              );
+              const detailRows = compactedItems.visible
+                .map((item) => {
+                  const compactedStores = compactStores(item.lojas);
+                  const storesHtml = compactedStores.visible.length
+                    ? `
+                        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                          ${compactedStores.visible
+                            .map(
+                              (loja) => `
+                                <tr>
+                                  <td style="padding: 1px 8px 1px 0; color: #475569; font-size: 12px;">${escapeHtml(loja.nome)}</td>
+                                  <td align="right" style="padding: 1px 0; color: #0f172a; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(loja.packages)}</td>
+                                </tr>
+                              `,
+                            )
+                            .join("")}
+                          ${
+                            compactedStores.omittedCount
+                              ? `
+                                  <tr>
+                                    <td colspan="2" style="padding: 5px 0 0; color: #b45309; font-size: 10px; line-height: 1.4;">
+                                      + ${escapeHtml(compactedStores.omittedCount)} lojas resumidas (${escapeHtml(formatPackageCount(compactedStores.omittedPackages))})
+                                    </td>
+                                  </tr>
+                                `
+                              : ""
+                          }
+                        </table>
+                      `
+                    : '<span style="color: #94a3b8; font-size: 12px;">Sem detalhamento por loja</span>';
+                  const shippingLabel = item.melhorEnvio
+                    ? "Melhor Envio"
+                    : "Envio direto";
+
+                  return `
+                    <tr>
+                      <td style="padding: 12px; border-top: 1px solid #e2e8f0; vertical-align: top;">
+                        <strong style="display: block; color: #0f172a; font-size: 13px;">${shippingLabel}</strong>
+                        <span style="color: #64748b; font-size: 12px;">${escapeHtml(item.transportadora)}</span>
+                      </td>
+                      <td align="center" style="padding: 12px; border-top: 1px solid #e2e8f0; color: #0f172a; font-size: 15px; font-weight: 700; vertical-align: top; white-space: nowrap;">${escapeHtml(item.packages)}</td>
+                      <td style="padding: 12px; border-top: 1px solid #e2e8f0; vertical-align: top;">${storesHtml}</td>
+                    </tr>
+                  `;
+                })
+                .join("");
+              const omittedDetailsRow = compactedItems.omittedCount
+                ? `
+                    <tr>
+                      <td colspan="3" style="padding: 10px 12px; border-top: 1px solid #e2e8f0; background-color: #fffbeb; color: #92400e; font-size: 11px; line-height: 1.4;">
+                        Mais ${escapeHtml(compactedItems.omittedCount)} formas de envio foram resumidas (${escapeHtml(formatPackageCount(compactedItems.omittedPackages))}). Os totais do marketplace permanecem completos.
+                      </td>
+                    </tr>
+                  `
+                : "";
+
+              return `
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 16px; border: 1px solid #e2e8f0; border-collapse: separate; border-spacing: 0; border-radius: 8px; overflow: hidden;">
+                  <tr>
+                    <td colspan="3" style="padding: 12px 14px; background-color: #f8fafc;">
+                      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                        <tr>
+                          <td style="color: #0f172a; font-size: 15px; font-weight: 700;">${escapeHtml(marketplace.marketplace)}</td>
+                          <td align="right" style="color: #475569; font-size: 12px; font-weight: 700; white-space: nowrap;">${escapeHtml(formatPackageCount(marketplace.total))}</td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr style="background-color: #ffffff;">
+                    <th align="left" width="35%" style="padding: 8px 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Envio / transportadora</th>
+                    <th align="center" width="15%" style="padding: 8px 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Pacotes</th>
+                    <th align="left" width="50%" style="padding: 8px 12px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 10px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Por loja</th>
+                  </tr>
+                  ${detailRows}
+                  ${omittedDetailsRow}
+                </table>
+              `;
+            })
+            .join("");
+
+          return `
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0 12px; border-collapse: separate; border-spacing: 0;">
+              <tr>
+                <td style="padding: 12px 14px; background-color: ${section.background}; border: 1px solid ${section.border}; color: ${section.color}; font-size: 16px; font-weight: 700;">${escapeHtml(section.label)}</td>
+                <td align="right" style="padding: 12px 14px; background-color: ${section.background}; border-top: 1px solid ${section.border}; border-right: 1px solid ${section.border}; border-bottom: 1px solid ${section.border}; color: ${section.color}; font-size: 13px; font-weight: 700; white-space: nowrap;">${escapeHtml(formatPackageCount(section.total))}</td>
+              </tr>
+            </table>
+            ${marketplacesHtml}
+          `;
+        })
+        .join("")
+    : `
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+          <tr>
+            <td style="padding: 20px; background-color: #f8fafc; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px; text-align: center;">Nenhum dado encontrado para os filtros aplicados.</td>
+          </tr>
+        </table>
+      `;
+
+  const html = `
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 0; background-color: #f1f5f9; font-family: Arial, Helvetica, sans-serif;">
+      <tr>
+        <td align="center" style="padding: 24px 12px;">
+          <table role="presentation" width="720" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 720px; background-color: #ffffff; border-collapse: separate; border-spacing: 0; border-radius: 12px; overflow: hidden;">
+            <tr>
+              <td style="padding: 24px; background-color: #172554;">
+                <p style="margin: 0 0 6px; color: #bfdbfe; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Sistema de despacho</p>
+                <h1 style="margin: 0; color: #ffffff; font-size: 24px; line-height: 1.25;">RelatÃ³rio de pacotes</h1>
+                <p style="margin: 8px 0 0; color: #dbeafe; font-size: 13px; line-height: 1.5;">Coletas e postagens organizadas por marketplace</p>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 20px 24px 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border-collapse: separate; border-spacing: 6px;">
+                  <tr>
+                    <td width="34%" align="center" style="padding: 14px 8px; background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                      <strong style="display: block; color: #0f172a; font-size: 22px; line-height: 1.1;">${escapeHtml(totalPacotes)}</strong>
+                      <span style="color: #64748b; font-size: 11px;">Total geral</span>
+                    </td>
+                    <td width="33%" align="center" style="padding: 14px 8px; background-color: #ccfbf1; border: 1px solid #99f6e4;">
+                      <strong style="display: block; color: #115e59; font-size: 22px; line-height: 1.1;">${escapeHtml(coletaTotal)}</strong>
+                      <span style="color: #0f766e; font-size: 11px;">Coleta</span>
+                    </td>
+                    <td width="33%" align="center" style="padding: 14px 8px; background-color: #dbeafe; border: 1px solid #bfdbfe;">
+                      <strong style="display: block; color: #1e40af; font-size: 22px; line-height: 1.1;">${escapeHtml(postagemTotal)}</strong>
+                      <span style="color: #1d4ed8; font-size: 11px;">Postagem</span>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 24px 0;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0;">
+                  <tr>
+                    <td style="padding: 12px 14px;">
+                      <p style="margin: 0 0 5px; color: #334155; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase;">Filtros aplicados</p>
+                      <table role="presentation" cellpadding="0" cellspacing="0" border="0">${filterHtml}</table>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding: 0 24px 8px;">${operationSectionsHtml}</td>
+            </tr>
+            <tr>
+              <td style="padding: 16px 24px; background-color: #f8fafc; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 11px; text-align: center;">RelatÃ³rio gerado automaticamente pelo sistema de despacho.</td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  const text = [
+    "RELATÃ“RIO DE PACOTES",
+    `Total geral: ${totalPacotes} pacotes`,
+    `Coleta: ${coletaTotal} pacotes`,
+    `Postagem: ${postagemTotal} pacotes`,
+    "",
+    "FILTROS APLICADOS",
+    ...filterItems.map(([key, value]) => `${key}: ${String(value ?? "")}`),
+    "",
+    ...operationSections.flatMap((section) => [
+      `${section.label.toUpperCase()} â€” ${formatPackageCount(section.total)}`,
+      ...section.marketplaces.flatMap((marketplace) => {
+        const compactedItems = compactShippingDetails(marketplace.items);
+
+        return [
+          `  ${marketplace.marketplace} â€” ${formatPackageCount(marketplace.total)}`,
+          ...compactedItems.visible.map((item) => {
+            const compactedStores = compactStores(item.lojas);
+            const lojasText = compactedStores.visible.length
+              ? compactedStores.visible
+                  .map((loja) => `${loja.nome}: ${loja.packages}`)
+                  .join(", ")
+              : "Sem detalhamento por loja";
+            const omittedStoresText = compactedStores.omittedCount
+              ? `; + ${compactedStores.omittedCount} lojas resumidas (${formatPackageCount(compactedStores.omittedPackages)})`
+              : "";
+            const shippingLabel = item.melhorEnvio
+              ? "Melhor Envio"
+              : "Envio direto";
+
+            return `    ${shippingLabel} | ${item.transportadora} | ${formatPackageCount(item.packages)} | Por loja: ${lojasText}${omittedStoresText}`;
+          }),
+          ...(compactedItems.omittedCount
+            ? [
+                `    + ${compactedItems.omittedCount} formas de envio resumidas (${formatPackageCount(compactedItems.omittedPackages)}); totais preservados.`,
+              ]
+            : []),
+        ];
+      }),
+      "",
+    ]),
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+async function sendEmailWithResend({
+  to,
+  subject,
+  html,
+  text,
+}: EmailContent & { to: string[] }) {
+  const apiKey = process.env.RESEND_API_KEY?.trim();
+  const from = process.env.RELATORIOS_EMAIL_FROM?.trim();
+  const replyTo = process.env.RELATORIOS_EMAIL_REPLY_TO?.trim();
+
+  if (!apiKey || !from) {
+    throw new EmailConfigError(
+      "Envio de e-mail nao configurado. Defina RESEND_API_KEY e RELATORIOS_EMAIL_FROM no ambiente do backend.",
+    );
+  }
+
+  const response = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Idempotency-Key": crypto.randomUUID(),
+    },
+    body: JSON.stringify({
+      from,
+      to,
+      subject,
+      html,
+      text,
+      ...(replyTo ? { reply_to: replyTo } : {}),
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(
+      `Falha no provedor de e-mail (${response.status}): ${body || response.statusText}`,
+    );
+  }
+
+  return response.json();
+}
+
+async function saveHistory({
+  destinatarios,
+  assunto,
+  filtros,
+  status,
+  erro,
+}: {
+  destinatarios: string[];
+  assunto: string;
+  filtros: Record<string, unknown>;
+  status: "sucesso" | "erro";
+  erro?: string | null;
+}, context: DatabaseContext) {
+  try {
+    await createRelatorioEnvioHistorico({
+      destinatarios,
+      assunto,
+      filtros,
+      status,
+      erro,
+    }, context);
+  } catch (historyError) {
+    console.error("Falha ao salvar historico de envio:", historyError);
+  }
+}
+
+export async function POST(request: Request) {
+  if (!isSupabaseConfigured()) {
+    return NextResponse.json(
+      { ok: false, message: "Supabase nao configurado." },
+      { status: 503 },
+    );
+  }
+
+  const authorization = request.headers.get("authorization") ?? "";
+  const token = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length).trim()
+    : "";
+
+  if (!token) {
+    return NextResponse.json(
+      { ok: false, message: "Sessao obrigatoria para enviar o relatorio." },
+      { status: 401 },
+    );
+  }
+
+  const authenticatedClient = createSupabaseClientForAccessToken(token);
+  const { data: userData, error: userError } =
+    await authenticatedClient.auth.getUser(token);
+
+  if (userError || !userData.user) {
+    return NextResponse.json(
+      { ok: false, message: "Sessao invalida ou expirada. Entre novamente." },
+      { status: 401 },
+    );
+  }
+
+  const databaseContext: DatabaseContext = {
+    supabase: authenticatedClient,
+    userId: userData.user.id,
+  };
+
+  let payload: unknown;
+  try {
+    payload = await request.json();
+  } catch {
+    return NextResponse.json(
+      { ok: false, message: "Payload invalido." },
+      { status: 400 },
+    );
+  }
+
+  if (!isRecord(payload)) {
+    return NextResponse.json(
+      { ok: false, message: "Payload invalido." },
+      { status: 400 },
+    );
+  }
+
+  const destinatarioIds = unique(getStringArray(payload.destinatarioIds));
+  let emailsManuais: string[];
+  try {
+    emailsManuais = unique(
+      getStringArray(payload.emailsManuais).map((email) =>
+        validateEmailAddress(email),
+      ),
+    );
+  } catch (validationError) {
+    return NextResponse.json(
+      { ok: false, message: formatDatabaseError(validationError) },
+      { status: 400 },
+    );
+  }
+
+  let ativos: Awaited<ReturnType<typeof getRelatorioDestinatarios>>;
+  try {
+    ativos = await getRelatorioDestinatarios(undefined, databaseContext);
+  } catch (databaseError) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: `Erro ao carregar destinatarios: ${formatDatabaseError(databaseError)}`,
+      },
+      { status: 500 },
+    );
+  }
+
+  const ativosPorId = new Map(ativos.map((item) => [item.id, item]));
+  const destinatariosCadastrados = destinatarioIds.flatMap((id) => {
+    const item = ativosPorId.get(id);
+
+    return item ? [item.email] : [];
+  });
+  const destinatarios = unique([...destinatariosCadastrados, ...emailsManuais]);
+  const emailContent = buildReportEmail(payload);
+  const filtros = {
+    filtros: isRecord(payload.filtros) ? payload.filtros : {},
+    filtrosResumo: isRecord(payload.filtrosResumo) ? payload.filtrosResumo : {},
+    relatorio: isRecord(payload.relatorio) ? payload.relatorio : {},
+  };
+
+  if (!destinatarios.length) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "Selecione ao menos um destinatario ativo para enviar.",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (destinatarios.length > 50) {
+    return NextResponse.json(
+      {
+        ok: false,
+        message: "O envio aceita no maximo 50 destinatarios por vez.",
+      },
+      { status: 400 },
+    );
+  }
+
+  try {
+    await sendEmailWithResend({ ...emailContent, to: destinatarios });
+    await saveHistory({
+      destinatarios,
+      assunto: emailContent.subject,
+      filtros,
+      status: "sucesso",
+    }, databaseContext);
+
+    return NextResponse.json({
+      ok: true,
+      totalDestinatarios: destinatarios.length,
+    });
+  } catch (error) {
+    const message = formatDatabaseError(error);
+    await saveHistory({
+      destinatarios,
+      assunto: emailContent.subject,
+      filtros,
+      status: "erro",
+      erro: message,
+    }, databaseContext);
+
+    return NextResponse.json(
+      { ok: false, message },
+      { status: error instanceof EmailConfigError ? 501 : 500 },
+    );
+  }
+}

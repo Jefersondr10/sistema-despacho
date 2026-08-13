@@ -505,4 +505,1633 @@ export function BipagemForm() {
       return "Informe ou bipe o cÃ³digo do pacote.";
     }
 
-   ×ŸtŞÚ$z{-®éÜj×¢ÆF—b6Æ74æÖSÒ&fÆW‚Ö–âÖ‚Õ³3#…ÒfÆW‚Ö6öÂ&÷VæFVBÓ'†Â&÷&FW"&÷&FW"×6ÆFRÓ#ó“&r×v†—FRÓb6†F÷rÕ³ó‡…óS…òÓ3'…÷&v&ƒRÃ#2ÃC"Ãã3‚•Ò†Ã¦Ö–âÖ‚Ó#à¢ÆF—b6Æ74æÖSÒ&Ö"ÓB6‡&–æ²Ó#à¢Æƒ"6Æ74æÖSÒ'FW‡BÖÆrföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“S#à¢†—7L;7&–6òFRÆ÷FW0¢Âöƒ#à¢Ç6Æ74æÖSÒ&×BÓFW‡B×6ÒFW‡B×6ÆFRÓS#à¢'&VÒÆ÷FR&fW"6öÖVçFR÷26÷FW2f–æ7VÆF÷2VÆRà¢Â÷à¢ÂöF—cà ¢ÆF—b6Æ74æÖSÒ&Ö–âÖ‚ÓfÆW‚Ó÷fW&fÆ÷r×’ÖWFò"Ó#à¢·6÷'FVD&F6†W2æÆVæwF‚ò€¢ÆF—b6Æ74æÖSÒ'76R×’Ó2#à¢·f—6–&ÆT&F6†W2æÖ‚†&F6‚’Óâ€¢ÆF—`¢¶W“×¶&F6‚æ–GĞ¢6Æ74æÖSÒ'&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#Ó2FW‡B×6ÒG&ç6—F–öâ†÷fW#¦&÷&FW"×6ÆFRÓ3 ¢à¢ÆF—b6Æ74æÖSÒ&fÆW‚fÆW‚Ö6öÂvÓ2#à¢ÆF—b6Æ74æÖSÒ&Ö–â×rÓ#à¢Ç6Æ74æÖSÒ&föçBÖÖöæòFW‡BÖ&6RföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“S#à¢¶vWD&F6„6öFR†&F6‚—Ğ¢Â÷à¢Ç6Æ74æÖSÒ&×BÓFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#à¢¶vWD6FÆöu7F÷&TæÖR†&F6‚æÆö¦ö–B—Ò+r¶&F6‚æÖ&¶WGÆ6WÒ+w²"'Ğ¢¶vWD÷W&F–öäÆ&VÂ†&F6‚çF—õö÷W&6ò—Ğ¢Â÷à¢Ç6Æ74æÖSÒ&×BÓFW‡B×6ÒFW‡B×6ÆFRÓS#à¢¶&F6‚æf–æÆ—¦FõöVĞ¢òf÷&ÖE6¶vTFFR†&F6‚æf–æÆ—¦FõöVÒ¢¢&VÒ&W'Fò'Ğ¢Â÷à¢Ç6Æ74æÖSÒ&×BÓFW‡B×6ÒFW‡B×6ÆFRÓc#à¢¶&F6‚çF÷FÅ÷6÷FW7Ò¶&F6‚çF÷FÅ÷6÷FW2ÓÓÒò'6÷FR"¢'6÷FW2'Ğ¢Â÷à¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&fÆW‚fÆW‚×w&vÓ"#à¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óâ÷Vä&F6„†—7F÷'’†&F6‚æ–B—Ğ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó’—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&÷&FW"&÷&FW"×6ÆFRÓ3&r×v†—FR‚Ó2FW‡B×‡2föçB×6VÖ–&öÆBFW‡B×6ÆFRÓsG&ç6—F–öâ†÷fW#¦&÷&FW"×6ÆFRÓC†÷fW#§FW‡B×6ÆFRÓ“S ¢à¢'&—"Æ÷FP¢Âö'WGFöãà¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óâ÷Vä&F6…&öÖæV–ò†&F6‚æ–B—Ğ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó’—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&r×6ÆFRÓ“S‚Ó2FW‡B×‡2föçB×6VÖ–&öÆBFW‡B×v†—FRG&ç6—F–öâ†÷fW#¦&r×6ÆFRÓƒ ¢à¢&öÖæV–ğ¢Âö'WGFöãà¢ÂöF—cà¢ÂöF—cà¢ÂöF—cà¢’—Ğ¢·f—6–&ÆT&F6†W2æÆVæwF‚Â6÷'FVD&F6†W2æÆVæwF‚ò€¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óà¢6WEf—6–&ÆT&F6„6÷VçB‚†7W'&VçB’Óà¢ÖF‚æÖ–â€¢7W'&VçB²$D4…ô„•5Dõ%•õtUõ4•¤RÀ¢6÷'FVD&F6†W2æÆVæwF‚À¢’À¢¢Ğ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚ÓrÖgVÆÂ—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&÷&FW"&÷&FW"×6ÆFRÓ3&r×v†—FR‚ÓBFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓsG&ç6—F–öâ†÷fW#¦&÷&FW"×6ÆFRÓC†÷fW#§FW‡B×6ÆFRÓ“S ¢à¢Ö÷7G&"Ö—2Æ÷FW2‡·f—6–&ÆT&F6†W2æÆVæwF‡ÒFW²"'Ğ¢·6÷'FVD&F6†W2æÆVæwF‡Ò¢Âö'WGFöãà¢’¢çVÆÇĞ¢ÂöF—cà¢’¢€¢ÄV×G•7FFSäæVæ‡VÒÆ÷FRf–æÆ—¦FòãÂôV×G•7FFSà¢—Ğ¢ÂöF—cà¢ÂöF—cà¢ÂöF—cà¢’¢çVÆÇĞ ¢·6VÆV7FVD&F6‚ò€¢ÆF—`¢6Æ74æÖSÒ&f—†VB–ç6WBÓ¢ÓSfÆW‚—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&r×6ÆFRÓ“SóCR‚ÓB’Ób ¢&öÆSÒ&F–Æör ¢&–ÖÖöFÃÒ'G'VR ¢&–ÖÆ&VÆÆVF'“Ò&&F6‚ÖÖöFÂ×F—FÆR ¢à¢ÆF—b6Æ74æÖSÒ&fÆW‚Ö‚Ö‚Õ³ƒ‡f…ÒrÖgVÆÂÖ‚×rÓW†ÂfÆW‚Ö6öÂ&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FR6†F÷r×†Â#à¢ÆF—b6Æ74æÖSÒ&fÆW‚fÆW‚Ö6öÂvÓ2&÷&FW"Ö"&÷&FW"×6ÆFRÓ#ÓRÖC¦fÆW‚×&÷rÖC¦—FV×2×7F'BÖC¦§W7F–g’Ö&WGvVVâ#à¢ÆF—cà¢Ç6Æ74æÖSÒ&föçBÖÖöæòFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×FVÂÓs#à¢¶vWD&F6„6öFR‡6VÆV7FVD&F6‚—Ğ¢Â÷à¢Æƒ ¢–CÒ&&F6‚ÖÖöFÂ×F—FÆR ¢6Æ74æÖSÒ&×BÓFW‡B×†ÂföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“S ¢à¢FWFÆ†W2FòÆ÷FP¢Âöƒ#à¢Ç6Æ74æÖSÒ&×BÓFW‡B×6ÒFW‡B×6ÆFRÓS#à¢·6VÆV7FVD&F6‚æf–æÆ—¦FõöVĞ¢òf÷&ÖE6¶vTFFR‡6VÆV7FVD&F6‚æf–æÆ—¦FõöVÒ¢¢$Æ÷FR6VÒf–æÆ—¦6ò'Ğ¢Â÷à¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&fÆW‚fÆW‚×w&vÓ"#à¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óâ÷Vä&F6…&öÖæV–ò‡6VÆV7FVD&F6‚æ–B—Ğ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&r×6ÆFRÓ“S‚ÓBFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×v†—FRG&ç6—F–öâ†÷fW#¦&r×6ÆFRÓƒ ¢à¢–×&–Ö—"&öÖæV–ğ¢Âö'WGFöãà¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óâ6WE6VÆV7FVD†—7F÷'”&F6„–B‚""—Ğ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&÷&FW"&÷&FW"×6ÆFRÓ3&r×v†—FR‚ÓBFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓsG&ç6—F–öâ†÷fW#¦&÷&FW"×6ÆFRÓC†÷fW#§FW‡B×6ÆFRÓ“S ¢à¢fV6† ¢Âö'WGFöãà¢ÂöF—cà¢ÂöF—cà ¢ÆF—b6Æ74æÖSÒ&Ö–âÖ‚Ó÷fW&fÆ÷r×’ÖWFòÓR#à¢ÆF—b6Æ74æÖSÒ&w&–BvÓ2FW‡B×6ÒÖC¦w&–BÖ6öÇ2Ó2#à¢ÆF—cà¢Ç7â6Æ74æÖSÒ&föçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#äÆö¦£Â÷7ãç²"'Ğ¢¶vWD6FÆöu7F÷&TæÖR‡6VÆV7FVD&F6‚æÆö¦ö–B—Ğ¢ÂöF—cà¢ÆF—cà¢Ç7â6Æ74æÖSÒ&föçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#à¢Ö&¶WGÆ6S ¢Â÷7ãç²"'Ğ¢·6VÆV7FVD&F6‚æÖ&¶WGÆ6WĞ¢ÂöF—cà¢ÆF—cà¢Ç7â6Æ74æÖSÒ&föçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#à¢÷W&6ó ¢Â÷7ãç²"'Ğ¢¶vWD÷W&F–öäÆ&VÂ‡6VÆV7FVD&F6‚çF—õö÷W&6ò—Ğ¢ÂöF—cà¢ÆF—cà¢Ç7â6Æ74æÖSÒ&föçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#à¢ÖVÆ†÷"Vçf–ó ¢Â÷7ãç²"'Ğ¢·6VÆV7FVD&F6‚æÖVÆ†÷%öVçf–òò%6–Ò"¢$æò'Ğ¢ÂöF—cà¢ÆF—cà¢Ç7â6Æ74æÖSÒ&föçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#à¢G&ç7÷'FF÷& ¢Â÷7ãç²"'Ğ¢·6VÆV7FVD&F6‚çG&ç7÷'FF÷&ÇÂ%6VÒG&ç7÷'FF÷&'Ğ¢ÂöF—cà¢ÆF—cà¢Ç7â6Æ74æÖSÒ&föçB×6VÖ–&öÆBFW‡B×6ÆFRÓs#åF÷FÃ£Â÷7ãç²"'Ğ¢·6VÆV7FVD&F6…6¶vW2æÆVæwF‡Ò6÷FW0¢ÂöF—cà¢ÂöF—cà ¢ÆF—b6Æ74æÖSÒ&×BÓR#à¢·6VÆV7FVD&F6…6¶vW2æÆVæwF‚ò€¢Ãà¢ÆöÂ6Æ74æÖSÒ'76R×’Ó"#à¢·f—6–&ÆU6VÆV7FVD&F6…6¶vW2æÖ‚†—FVÒÂ–æFW‚’Óâ€¢ÆÆ¢¶W“×¶—FVÒæ–GĞ¢6Æ74æÖSÒ&fÆW‚—FV×2Ö6VçFW"§W7F–g’Ö&WGvVVâvÓ2&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#‚Ó2’Ó2 ¢à¢ÆF—b6Æ74æÖSÒ&Ö–â×rÓ#à¢Ç7â6Æ74æÖSÒ&×"Ó2FW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓC#à¢¶–æFW‚²Òà¢Â÷7ãà¢Ç7â6Æ74æÖSÒ&'&V²ÖÆÂföçBÖÖöæòFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“S#à¢¶—FVÒæ6öF–võ÷&7G&V–÷Ğ¢Â÷7ãà¢ÂöF—cà¢Å7FGW4&FvR7FGW3×¶—FVÒç7FGW7Òóà¢ÂöÆ“à¢’—Ğ¢ÂööÃà¢·f—6–&ÆU6VÆV7FVD&F6…6¶vW2æÆVæwF‚À¢6VÆV7FVD&F6…6¶vW2æÆVæwF‚ò€¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óà¢6WEf—6–&ÆU6VÆV7FVD&F6…6¶vT6÷VçB‚†7W'&VçB’Óà¢ÖF‚æÖ–â€¢7W'&VçB²$D4…õ4´tUõtUõ4•¤RÀ¢6VÆV7FVD&F6…6¶vW2æÆVæwF‚À¢’À¢¢Ğ¢6Æ74æÖSÒ&×BÓ2–æÆ–æRÖfÆW‚Ö–âÖ‚ÓrÖgVÆÂ—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&÷&FW"&÷&FW"×6ÆFRÓ3&r×v†—FR‚ÓBFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓsG&ç6—F–öâ†÷fW#¦&÷&FW"×6ÆFRÓC†÷fW#§FW‡B×6ÆFRÓ“S ¢à¢Ö÷7G&"Ö—26÷FW2€¢·f—6–&ÆU6VÆV7FVD&F6…6¶vW2æÆVæwF‡ÒFW²"'Ğ¢·6VÆV7FVD&F6…6¶vW2æÆVæwF‡Ò¢Âö'WGFöãà¢’¢çVÆÇĞ¢Âóà¢’¢€¢ÄV×G•7FFSäæVæ‡VÒ6÷FRVæ6öçG&Fò&W7FRÆ÷FRãÂôV×G•7FFSà¢—Ğ¢ÂöF—cà¢ÂöF—cà¢ÂöF—cà¢ÂöF—cà¢’¢çVÆÇĞ ¢Ä6öæf—&ÔF–Æöp¢÷Vã×·6†÷t6ÆV%6W76–öä6öæf—&×Ğ¢F—FÆSÒ$FW66'F"Æ÷FR ¢ÖW76vSÒ$FW6V¦FW66'F"òÆ÷FRGVÂR&VÖ÷fW"÷26÷FW2&—F÷2æVÆSò ¢6æ6VÄÆ&VÃÒ%föÇF" ¢6öæf—&ÔÆ&VÃÒ$FW66'F"Æ÷FR ¢FöæSÒ&FævW" ¢öä6æ6VÃ×²‚’Óâ°¢6WE6†÷t6ÆV%6W76–öä6öæf—&Ò†fÇ6R“°¢fö7W46öFTf–VÆB‚“°¢×Ğ¢öä6öæf—&Ó×¶6öæf—&Ô6ÆV%6W76–öçĞ¢óà ¢Ä6öæf—&ÔF–Æöp¢÷Vã×·6†÷tGWÆ–6FTf–æÆ—¦TF–ÆöwĞ¢F—FÆSÒ$GWÆ–6F÷2æòÆ÷FR ¢ÖW76vS×´EUÄ”4DUôd”äÄ•¤UôÔU54tWĞ¢6æ6VÄÆ&VÃÒ%föÇF" ¢6öæf—&ÔÆ&VÃÒ$VçFVæF’ ¢FöæSÒ&FævW" ¢öä6æ6VÃ×²‚’Óâ°¢6WE6†÷tGWÆ–6FTf–æÆ—¦TF–Æör†fÇ6R“°¢fö7W46öFTf–VÆB‚“°¢×Ğ¢öä6öæf—&Ó×²‚’Óâ°¢6WE6†÷tGWÆ–6FTf–æÆ—¦TF–Æör†fÇ6R“°¢fö7W46öFTf–VÆB‚“°¢×Ğ¢óà ¢Ä6öæf—&ÔF–Æöp¢÷Vã×·6†÷tf–æÆ—¦T6æ6VÆÆF–öä6öæf—&×Ğ¢F—FÆS×¶6æ6VÆ"G·VæF–æt6æ6VÆÆF–öç2æÆVæwF‡ÒG°¢VæF–æt6æ6VÆÆF–öç2æÆVæwF‚ÓÓÒò'6÷FR"¢'6÷FW2 ¢ÓöĞ¢ÖW76vS×°¢ÆF—b6Æ74æÖSÒ&w&–BvÓ"#à¢Çà¢W7F:|:6ò6æ6VÆ,:FöF÷2÷2&7G&V–÷2FÆ—7FFÆö¦²"'Ğ¢Ç7G&öæsç¶vWD6FÆöu7F÷&TæÖR‡6VÆV7FVD6æ6VÆÆF–öäÆö¦–B—ÓÂ÷7G&öæsâà¢Â÷à¢Ç6Æ74æÖSÒ'&÷VæFVBÖÆr&r×&÷6RÓS‚Ó2’Ó"FW‡B×&÷6RÓƒ#à¢Ö÷F—fó¢¶6æ6VÆÆF–öå&V6öâçG&–Ò‚—Ğ¢Â÷à¢ÂöF—cà¢Ğ¢6æ6VÄÆ&VÃÒ%&Wf—6"Æ—7F ¢6öæf—&ÔÆ&VÃÒ$6æ6VÆ"FöF÷2 ¢FöæSÒ&FævW" ¢öä6æ6VÃ×²‚’Óâ°¢6WE6†÷tf–æÆ—¦T6æ6VÆÆF–öä6öæf—&Ò†fÇ6R“°¢fö7W46öFTf–VÆB‚“°¢×Ğ¢öä6öæf—&Ó×¶f–æÆ—¦UVæF–æt6æ6VÆÆF–öç7Ğ¢óà ¢Ä6öæf—&ÔF–Æöp¢÷Vã×·6†÷tW†—D6æ6VÆÆF–öä6öæf—&×Ğ¢F—FÆSÒ%6—"Fò6æ6VÆÖVçFòVÒÆ÷FSò ¢ÖW76vSÒ$Œ:–æf÷&Ö:|;VW2&VVæ6†–F2âò6—"Âò&7G&V–òR2§W7F–f–6F—f2VÒ&W'Fò6W,:6òÆ–×÷2â ¢6æ6VÄÆ&VÃÒ$6öçF–çV" ¢6öæf—&ÔÆ&VÃÒ%6—" ¢FöæSÒ&FævW" ¢öä6æ6VÃ×²‚’Óâ°¢6WE6†÷tW†—D6æ6VÆÆF–öä6öæf—&Ò†fÇ6R“°¢fö7W46öFTf–VÆB‚“°¢×Ğ¢öä6öæf—&Ó×¶W†—D6æ6VÆÆF–öäÖöFWĞ¢óà ¢·VæF–æu6W76–öä6æ6VÅ6¶vRò€¢ÆF—`¢6Æ74æÖSÒ&f—†VB–ç6WBÓ¢ÓSw&–BÆ6RÖ—FV×2Ö6VçFW"&r×6ÆFRÓ“SóCR‚ÓB’Ób ¢&öÆSÒ&F–Æör ¢&–ÖÖöFÃÒ'G'VR ¢&–ÖÆ&VÆÆVF'“Ò&6æ6VÂ×6¶vR×F—FÆR ¢à¢ÆF—b6Æ74æÖSÒ'rÖgVÆÂÖ‚×rÖÖB&÷VæFVBÖÆr&÷&FW"&÷&FW"×6ÆFRÓ#&r×v†—FRÓR6†F÷r×†Â#à¢Æƒ ¢–CÒ&6æ6VÂ×6¶vR×F—FÆR ¢6Æ74æÖSÒ'FW‡BÖÆrföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“S ¢à¢6æ6VÆ"6÷FP¢Âöƒ#à¢Ç6Æ74æÖSÒ&×BÓ"FW‡B×6ÒÆVF–ærÓbFW‡B×6ÆFRÓc#à¢–æf÷&ÖR§W7F–f–6F—f&6æ6VÆ'²"'Ğ¢Ç7â6Æ74æÖSÒ&föçBÖÖöæòföçB×6VÖ–&öÆBFW‡B×6ÆFRÓ“S#à¢·VæF–æu6W76–öä6æ6VÅ6¶vRæ6öF–võ÷&7G&V–÷Ğ¢Â÷7ãà¢à¢Â÷à¢ÆÆ&VÂ6Æ74æÖSÒ&×BÓBw&–BvÓ"FW‡B×6ÒföçBÖÖVF—VÒFW‡B×6ÆFRÓs#à¢§W7F–f–6F—f¢ÇFW‡F&V¢fÇVS×·6W76–öä6æ6VÅ&V6öçĞ¢öä6†ævS×²†WfVçB’Óâ°¢6WE6W76–öä6æ6VÅ&V6öâ†WfVçBçF&vWBçfÇVR“°¢6WE6W76–öä6æ6VÄW'&÷"‚""“°¢×Ğ¢6Æ74æÖSÒ&Ö–âÖ‚Ó#‚&÷VæFVBÖÖB&÷&FW"&÷&FW"×6ÆFRÓ3&r×v†—FR‚Ó2’Ó"FW‡B×6ÒFW‡B×6ÆFRÓ“S÷WFÆ–æRÖæöæRG&ç6—F–öâfö7W3¦&÷&FW"×&÷6RÓcfö7W3§&–ærÓBfö7W3§&–ær×&÷6RÓ ¢Æ6V†öÆFW#Ò$ö'&–vL;7&– ¢&WV—&V@¢óà¢ÂöÆ&VÃà¢·6W76–öä6æ6VÄW'&÷"ò€¢ÄfVVF&6´ÖW76vRFöæSÒ'v&æ–ær#à¢·6W76–öä6æ6VÄW'&÷'Ğ¢ÂôfVVF&6´ÖW76vSà¢’¢çVÆÇĞ¢ÆF—b6Æ74æÖSÒ&×BÓRfÆW‚fÆW‚Ö6öÂ×&WfW'6RvÓ26Ó¦fÆW‚×&÷r6Ó¦§W7F–g’ÖVæB#à¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×²‚’Óâ°¢6WEVæF–æu6W76–öä6æ6VÅ6¶vR†çVÆÂ“°¢6WE6W76–öä6æ6VÅ&V6öâ‚""“°¢6WE6W76–öä6æ6VÄW'&÷"‚""“°¢fö7W46öFTf–VÆB‚“°¢×Ğ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&÷&FW"&÷&FW"×6ÆFRÓ3&r×v†—FR‚ÓBFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×6ÆFRÓsG&ç6—F–öâ†÷fW#¦&÷&FW"×6ÆFRÓC†÷fW#§FW‡B×6ÆFRÓ“Sfö7W3¦÷WFÆ–æRÖæöæRfö7W3§&–ærÓBfö7W3§&–ær×6ÆFRÓ ¢à¢6æ6VÆ ¢Âö'WGFöãà¢Æ'WGFöà¢G—SÒ&'WGFöâ ¢öä6Æ–6³×¶6öæf—&Õ6W76–öå6¶vT6æ6VÆÆF–öçĞ¢F—6&ÆVC×·6f–æt6æ6VÆÆF–öçĞ¢6Æ74æÖSÒ&–æÆ–æRÖfÆW‚Ö–âÖ‚Ó—FV×2Ö6VçFW"§W7F–g’Ö6VçFW"&÷VæFVBÖÖB&r×&÷6RÓs‚ÓBFW‡B×6ÒföçB×6VÖ–&öÆBFW‡B×v†—FRG&ç6—F–öâ†÷fW#¦&r×&÷6RÓƒfö7W3¦÷WFÆ–æRÖæöæRfö7W3§&–ærÓBfö7W3§&–ær×&÷6RÓF—6&ÆVC¦7W'6÷"Öæ÷BÖÆÆ÷vVBF—6&ÆVC¦÷6—G’Ós ¢à¢6æ6VÆ"6÷FP¢Âö'WGFöãà¢ÂöF—cà¢ÂöF—cà¢ÂöF—cà¢’¢çVÆÇĞ¢Â÷6V7F–öãà¢“°§Ğ 
+    if (melhorEnvio && !transportadora) {
+      return "Selecione a transportadora para Melhor Envio.";
+    }
+
+    return "";
+  }
+
+  async function ensureOpenSession(selectedOperation: OperationType) {
+    if (activeBatchId) {
+      return activeBatchId;
+    }
+
+    if (!selectedMarketplaceItem) {
+      throw new Error("Marketplace nao encontrado nos cadastros.");
+    }
+
+    if (melhorEnvio && !selectedCarrierItem) {
+      throw new Error("Transportadora nao encontrada nos cadastros.");
+    }
+
+    const timestamp = nowIso();
+    const sessao = await createSessaoBipagem(
+      {
+        loja_id: selectedLojaId,
+        marketplace_id: selectedMarketplaceItem.id,
+        tipo_operacao: selectedOperation,
+        melhor_envio: melhorEnvio,
+        transportadora_id: melhorEnvio ? selectedCarrierItem?.id ?? null : null,
+        status: "aberta",
+        iniciada_em: timestamp,
+      },
+      databaseContext,
+    );
+
+    setActiveBatchId(sessao.id);
+
+    return sessao.id;
+  }
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const code = getCodeFieldValue();
+    if (cancellationMode) {
+      void cancelPackageByCode(code);
+      return;
+    }
+
+    const validationMessage = validateSessionConfig(code);
+    if (validationMessage) {
+      setNotice({ type: "warning", text: validationMessage });
+      focusCodeField();
+      return;
+    }
+
+    const selectedOperation = tipoOperacao as OperationType;
+    const normalizedCode = normalizeTrackingCode(code);
+    const duplicatedInSession = sessionNormalizedCodes.has(normalizedCode);
+
+    let duplicatedSavedPackage = null;
+    setCheckingPackage(true);
+    try {
+      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(
+        normalizedCode,
+        { loja_id: selectedLojaId },
+        databaseContext,
+      );
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao verificar duplicidade: ${formatDatabaseError(error)}`,
+      });
+      focusCodeField();
+      return;
+    } finally {
+      setCheckingPackage(false);
+    }
+
+    if (duplicatedSavedPackage) {
+      setNotice({
+        type: "danger",
+        text: "Pacote duplicado: este cÃ³digo jÃ¡ foi bipado em outro lote.",
+      });
+      clearCodeField();
+      focusCodeField();
+      return;
+    }
+
+    setSavingSession(true);
+
+    try {
+      const sessaoId = await ensureOpenSession(selectedOperation);
+      const itens = await adicionarItemSessaoBipagem(
+        {
+          sessao_id: sessaoId,
+          codigo: normalizedCode,
+        },
+        databaseContext,
+      );
+      const addedItem = itens[0];
+
+      if (!addedItem) {
+        throw new Error("O pacote foi salvo, mas o lote nÃ£o retornou o item.");
+      }
+
+      let serverDetectedDuplicate = addedItem.duplicado;
+      if (addedItem.duplicado || duplicatedInSession) {
+        // A duplicidade e rara. Somente nesse caminho sincronizamos a sessao
+        // inteira para mostrar itens adicionados por outra aba/leitor.
+        const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+        if (!openSession || openSession.sessao.id !== sessaoId) {
+          throw new Error("O lote foi alterado em outro dispositivo. Recarregue a tela.");
+        }
+        serverDetectedDuplicate = openSession.itens.some((item) => item.duplicado);
+        setSessionPackages(
+          openSession.itens.map((item) =>
+            mapItemSessaoRowToDispatchPackage(item, openSession.sessao),
+          ),
+        );
+      } else {
+        const addedPackage = mapPendingItemToPackage(addedItem, {
+          sessaoId,
+          lojaId: selectedLojaId,
+          marketplace: selectedMarketplace,
+          melhorEnvio,
+          transportadora: melhorEnvio ? transportadora : null,
+          tipoOperacao: selectedOperation,
+        });
+        setSessionPackages((current) => [
+          addedPackage,
+          ...current.filter((item) => item.id !== addedPackage.id),
+        ]);
+      }
+      setNotice({
+        type: duplicatedInSession || serverDetectedDuplicate ? "warning" : "success",
+        text: duplicatedInSession || serverDetectedDuplicate
+          ? DUPLICATE_SESSION_WARNING
+          : sessionOpen
+            ? `Rastreio ${normalizedCode} adicionado ao lote.`
+            : `Lote iniciado. Rastreio ${normalizedCode} adicionado.`,
+      });
+      clearCodeField();
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao salvar pacote no lote: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingSession(false);
+      focusCodeField();
+    }
+  }
+
+  async function finishSession() {
+    if (savingSession) {
+      return;
+    }
+
+    if (!sessionPackages.length || !activeBatchId) {
+      setNotice({ type: "warning", text: "Nenhum pacote para finalizar." });
+      focusCodeField();
+      return;
+    }
+
+    if (hasSessionDuplicates) {
+      setNotice({ type: "danger", text: DUPLICATE_SESSION_WARNING });
+      setShowDuplicateFinalizeDialog(true);
+      focusCodeField();
+      return;
+    }
+
+    setSavingSession(true);
+
+    try {
+      // Confere a lista imediatamente antes da finalizacao. Isso impede que
+      // uma segunda aba esconda itens ou duplicidades desta tela.
+      const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+      if (!openSession || openSession.sessao.id !== activeBatchId) {
+        throw new Error("O lote em andamento mudou em outro dispositivo. Recarregue a tela.");
+      }
+      const synchronizedPackages = openSession.itens.map((item) =>
+        mapItemSessaoRowToDispatchPackage(item, openSession.sessao),
+      );
+      setSessionPackages(synchronizedPackages);
+
+      const synchronizedDuplicates = new Set<string>();
+      const synchronizedCounts = new Map<string, number>();
+      for (const item of openSession.itens) {
+        const code = item.codigo_normalizado;
+        const count = (synchronizedCounts.get(code) ?? 0) + 1;
+        synchronizedCounts.set(code, count);
+        if (item.duplicado || count > 1) {
+          synchronizedDuplicates.add(code);
+        }
+      }
+
+      if (synchronizedDuplicates.size) {
+        setShowDuplicateFinalizeDialog(true);
+        throw new Error(DUPLICATE_SESSION_WARNING);
+      }
+
+      const result = await finalizarSessaoBipagemAberta(
+        activeBatchId,
+        databaseContext,
+      );
+      await reload();
+
+      const batchCode = result?.codigo_lote || getBatchCode({ id: activeBatchId });
+      setNotice({
+        type: "success",
+        text: `${result?.total_pacotes ?? sessionPackages.length} pacotes finalizados no lote ${batchCode}.`,
+      });
+      openBatchHistory(activeBatchId);
+      resetSessionConfig();
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao finalizar o lote: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingSession(false);
+      focusCodeField();
+    }
+  }
+
+  function clearSession() {
+    if (!activeBatchId) {
+      setNotice({ type: "neutral", text: "O lote jÃ¡ estÃ¡ vazio." });
+      focusCodeField();
+      return;
+    }
+
+    setShowClearSessionConfirm(true);
+  }
+
+  async function confirmClearSession() {
+    if (!activeBatchId || savingSession) {
+      return;
+    }
+
+    setSavingSession(true);
+
+    try {
+      await cancelarSessaoBipagemAberta(activeBatchId, databaseContext);
+      await reload();
+      resetSessionConfig();
+      setShowClearSessionConfirm(false);
+      setNotice({ type: "neutral", text: "Lote atual descartado." });
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao descartar lote: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingSession(false);
+      focusCodeField();
+    }
+  }
+
+  function requestCancellationMode() {
+    if (loading || loadingOpenSession || savingSession || checkingPackage) {
+      setNotice({
+        type: "warning",
+        text: "Aguarde o lote atual terminar de carregar ou salvar.",
+      });
+      return;
+    }
+
+    if (sessionPackages.length || sessionOpen) {
+      setNotice({
+        type: "warning",
+        text: "Finalize ou descarte o lote atual antes de cancelar pacotes finalizados.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    activateCancellationMode();
+  }
+
+  function activateCancellationMode() {
+    setCancellationLojaId(selectedLojaId);
+    setCancellationMode(true);
+    clearCodeField();
+    setNotice({
+      type: "warning",
+      text: "Cancelamento em lote aberto. Selecione a loja, informe o motivo e bipe os rastreios.",
+    });
+    focusCodeField();
+  }
+
+  function requestExitCancellationMode() {
+    if (savingCancellation) {
+      return;
+    }
+
+    if (
+      getCodeFieldValue() ||
+      cancellationReason.trim() ||
+      pendingCancellations.length
+    ) {
+      setShowExitCancellationConfirm(true);
+      return;
+    }
+
+    exitCancellationMode();
+  }
+
+  function exitCancellationMode() {
+    setCancellationMode(false);
+    setShowExitCancellationConfirm(false);
+    setShowFinalizeCancellationConfirm(false);
+    clearCodeField();
+    setCancellationLojaId("");
+    setCancellationReason("");
+    setPendingCancellations([]);
+    setNotice({ type: "neutral", text: "Cancelamento em lote fechado." });
+    focusCodeField();
+  }
+
+  async function cancelPackageByCode(code: string) {
+    if (savingCancellation) {
+      return;
+    }
+
+    if (!selectedCancellationLojaId) {
+      setNotice({
+        type: "warning",
+        text: "Selecione a loja dos pacotes antes de bipar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    const cleanGeneralReason = cancellationReason.trim();
+    if (!cleanGeneralReason) {
+      setNotice({
+        type: "warning",
+        text: "Informe a justificativa geral do cancelamento antes de bipar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    if (!code) {
+      setNotice({
+        type: "warning",
+        text: "Bipe ou digite o cÃ³digo do pacote que deseja cancelar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    const normalizedCode = normalizeTrackingCode(code);
+    const lookupKey = getStoreTrackingKey(
+      selectedCancellationLojaId,
+      normalizedCode,
+    );
+    const activePackage = activePackageByStoreAndCode.get(lookupKey);
+    const anyPackage = allPackageByStoreAndCode.get(lookupKey);
+    const alreadyCanceled = activePackage
+      ? canceledPackageIds.has(activePackage.id)
+      : Boolean(anyPackage);
+    const alreadyQueued = pendingCancellations.some(
+      (item) =>
+        item.pacote.id === activePackage?.id ||
+        normalizeTrackingCode(item.pacote.codigo_rastreio) === normalizedCode,
+    );
+
+    if (!anyPackage) {
+      setNotice({
+        type: "danger",
+        text: "Pacote nÃ£o encontrado. Nada foi cancelado.",
+      });
+      clearCodeField();
+      focusCodeField();
+      return;
+    }
+
+    if (!activePackage || alreadyCanceled) {
+      setNotice({
+        type: "warning",
+        text: "Este pacote jÃ¡ foi cancelado anteriormente.",
+      });
+      clearCodeField();
+      focusCodeField();
+      return;
+    }
+
+    if (alreadyQueued) {
+      setNotice({
+        type: "warning",
+        text: "Este pacote ja esta na lista temporaria de cancelamento.",
+      });
+      clearCodeField();
+      focusCodeField();
+      return;
+    }
+
+    setPendingCancellations((current) => [
+      {
+        pacote: activePackage,
+        justificativa_individual: "",
+      },
+      ...current,
+    ]);
+    setNotice({
+      type: "success",
+      text: `Pacote ${activePackage.codigo_rastreio} adicionado para cancelamento.`,
+    });
+    clearCodeField();
+    focusCodeField();
+  }
+
+  function removePendingCancellation(packageId: string) {
+    if (savingCancellation) {
+      return;
+    }
+
+    setPendingCancellations((current) =>
+      current.filter((item) => item.pacote.id !== packageId),
+    );
+  }
+
+  function requestFinalizePendingCancellations() {
+    if (savingCancellation) {
+      return;
+    }
+
+    if (!cancellationReason.trim()) {
+      setNotice({
+        type: "warning",
+        text: "Informe a justificativa geral antes de finalizar cancelamentos.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    if (!pendingCancellations.length) {
+      setNotice({
+        type: "warning",
+        text: "Adicione ao menos um pacote para cancelar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    setShowFinalizeCancellationConfirm(true);
+  }
+
+  async function finalizePendingCancellations() {
+    if (savingCancellation) {
+      return;
+    }
+
+    const cleanGeneralReason = cancellationReason.trim();
+    if (!cleanGeneralReason) {
+      setNotice({
+        type: "warning",
+        text: "Informe a justificativa geral antes de finalizar cancelamentos.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    if (!pendingCancellations.length) {
+      setNotice({
+        type: "warning",
+        text: "Adicione ao menos um pacote para cancelar.",
+      });
+      focusCodeField();
+      return;
+    }
+
+    const cancellationSnapshot = [...pendingCancellations];
+    setShowFinalizeCancellationConfirm(false);
+    setSavingCancellation(true);
+
+    try {
+      const savedRows = await finalizarCancelamentosEmLote(
+        cancellationSnapshot.map((item) => ({
+          pacote_id: item.pacote.id,
+          justificativa_geral: cleanGeneralReason,
+          justificativa_individual: item.justificativa_individual,
+        })),
+        databaseContext,
+      );
+      const savedByPackageId = new Map(
+        savedRows.map((item) => [item.pacote_id ?? "", item]),
+      );
+      const records = cancellationSnapshot.map((item) => {
+        const saved = savedByPackageId.get(item.pacote.id);
+
+        return {
+          ...makeCancellationRecord({
+            item: item.pacote,
+            generalReason: cleanGeneralReason,
+            individualReason: item.justificativa_individual,
+            canceledAt: saved?.cancelado_em ?? nowIso(),
+          }),
+          id: saved?.id ?? makeId("can"),
+          pacote_id: saved?.pacote_id ?? item.pacote.id,
+        };
+      });
+
+      await reload();
+      setRecentCancellations((current) => [...records, ...current].slice(0, 8));
+      setPendingCancellations([]);
+      setCancellationMode(false);
+      setCancellationLojaId("");
+      setCancellationReason("");
+      clearCodeField();
+      setNotice({
+        type: "success",
+        text: `${records.length} cancelamento(s) finalizado(s).`,
+      });
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao finalizar cancelamentos: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingCancellation(false);
+      focusCodeField();
+    }
+  }
+
+
+  function cancelSessionPackage(item: DispatchPackage) {
+    setPendingSessionCancelPackage(item);
+    setSessionCancelReason("");
+    setSessionCancelError("");
+  }
+
+  async function removeSessionPackage(item: DispatchPackage) {
+    if (!activeBatchId || savingSession) {
+      return;
+    }
+
+    setSavingSession(true);
+
+    try {
+      await removerItemSessaoBipagem(
+        {
+          itemId: item.id,
+          status: "descartado",
+        },
+        databaseContext,
+      );
+      setSessionPackages((current) =>
+        current.filter((sessionItem) => sessionItem.id !== item.id),
+      );
+      setNotice({
+        type: "neutral",
+        text: `Pacote ${item.codigo_rastreio} removido do lote.`,
+      });
+    } catch (error) {
+      setNotice({
+        type: "danger",
+        text: `Erro ao remover pacote do lote: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSavingSession(false);
+      focusCodeField();
+    }
+  }
+
+  async function confirmSessionPackageCancellation() {
+    if (!pendingSessionCancelPackage || savingCancellation) {
+      return;
+    }
+
+    const cleanReason = sessionCancelReason.trim();
+    if (!cleanReason) {
+      setSessionCancelError("Informe a justificativa para cancelar o pacote.");
+      return;
+    }
+
+    const targetPackage = pendingSessionCancelPackage;
+    const canceledAt = nowIso();
+    let record = makeCancellationRecord({
+      item: targetPackage,
+      generalReason: cleanReason,
+      individualReason: "",
+      canceledAt,
+    });
+    setSavingCancellation(true);
+    setSessionCancelError("");
+
+    try {
+      const savedPackage = await getPacoteAtivoPorCodigo(
+        targetPackage.codigo_rastreio,
+        { loja_id: targetPackage.loja_id },
+        databaseContext,
+      );
+      const savedRows = await cancelarPacotes(
+        {
+          cancelamentos: [
+            {
+              pacote_id: savedPackage?.id ?? null,
+              codigo_pacote:
+                savedPackage?.codigo ?? targetPackage.codigo_rastreio,
+              loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+              marketplace_id:
+                savedPackage?.marketplace_id ??
+                getMarketplaceIdByName(targetPackage.marketplace),
+              transportadora_id:
+                savedPackage?.transportadora_id ??
+                getCarrierIdByName(targetPackage.transportadora),
+              sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
+              tipo_operacao:
+                savedPackage?.tipo_operacao ?? targetPackage.tipo_operacao,
+              melhor_envio:
+                savedPackage?.melhor_envio ?? targetPackage.melhor_envio,
+              justificativa_geral: cleanReason,
+              justificativa_individual: null,
+              bipado_em:
+                savedPackage?.bipado_em ?? targetPackage.data_hora_bipagem,
+              cancelado_em: canceledAt,
+            },
+          ],
+          movimentacoes: [
+            {
+              pacote_id: savedPackage?.id ?? null,
+              loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+              sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
+              tipo_movimentacao: "Cancelamento",
+              descricao: `Pacote ${savedPackage?.codigo ?? targetPackage.codigo_rastreio} cancelado durante a preparaÃ§Ã£o do lote.`,
+              criada_em: canceledAt,
+            },
+          ],
+        },
+        databaseContext,
+      );
+
+      record = {
+        ...record,
+        id: savedRows[0]?.id ?? record.id,
+        pacote_id: savedRows[0]?.pacote_id ?? targetPackage.id,
+      };
+      await removerItemSessaoBipagem(
+        {
+          itemId: targetPackage.id,
+          status: "cancelado",
+        },
+        databaseContext,
+      );
+      setSessionPackages((current) =>
+        current.filter((item) => item.id !== targetPackage.id),
+      );
+      await reload();
+      setRecentCancellations((current) => [record, ...current].slice(0, 8));
+    } catch (error) {
+      setSessionCancelError(
+        `Erro ao cancelar pacote: ${formatDatabaseError(error)}`,
+      );
+      setSavingCancellation(false);
+      return;
+    }
+    setSavingCancellation(false);
+    setNotice({
+      type: "success",
+      text: `Pacote ${targetPackage.codigo_rastreio} cancelado e enviado ao histÃ³rico.`,
+    });
+    setPendingSessionCancelPackage(null);
+    setSessionCancelReason("");
+    setSessionCancelError("");
+    focusCodeField();
+  }
+
+  const sessionHeader = (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-slate-950">
+        <span>{getCatalogStoreName(selectedLojaId)}</span>
+        <span className="text-slate-400">â€¢</span>
+        <span>{selectedMarketplace || "-"}</span>
+        <span className="text-slate-400">â€¢</span>
+        <span>
+          {tipoOperacao ? getOperationLabel(tipoOperacao) : "OperaÃ§Ã£o pendente"}
+        </span>
+      </div>
+      {melhorEnvio ? (
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge tone="green">Melhor Envio</Badge>
+          <Badge tone="purple">
+            Transportadora: {transportadora || "NÃ£o informada"}
+          </Badge>
+        </div>
+      ) : (
+        <div className="mt-3">
+          <Badge tone="neutral">Sem Melhor Envio</Badge>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <section
+      className={`grid items-start gap-5 p-0 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7 ${
+        cancellationMode
+          ? "border border-rose-200 bg-rose-50/70 p-4"
+          : ""
+      }`}
+    >
+      {loading || loadingOpenSession ? (
+        <div className="xl:col-span-2">
+          <FeedbackMessage tone="neutral">
+            Carregando seus dados e o lote em andamento...
+          </FeedbackMessage>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="xl:col-span-2">
+          <FeedbackMessage tone="danger">{error}</FeedbackMessage>
+        </div>
+      ) : null}
+
+      {cancellationMode ? (
+        <div className="xl:col-span-2 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-6 py-5 text-rose-950 shadow-sm">
+          <p className="text-lg font-bold tracking-normal">
+            Cancelar pacotes finalizados
+          </p>
+          <p className="mt-1 text-sm font-medium leading-6">
+            Bipe todos os rastreios, confira a lista e confirme o cancelamento
+            em uma Ãºnica etapa.
+          </p>
+        </div>
+      ) : null}
+
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className={`grid gap-5 self-start ${
+          cancellationMode
+            ? "xl:col-span-2 xl:grid-cols-[minmax(320px,0.75fr)_minmax(480px,1.25fr)] xl:items-start"
+            : "xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
+        }`}
+      >
+        {cancellationMode ? (
+          <div className="rounded-2xl border border-rose-200 bg-white p-6 shadow-sm xl:min-h-0 xl:overflow-y-auto">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">
+                  Cancelamento em lote
+                </p>
+                <h2 className="mt-2 text-xl font-bold text-slate-950">
+                  Cancelar pacotes finalizados
+                </h2>
+                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                  Selecione a loja, informe o motivo e bipe quantos pacotes
+                  precisar. Nada serÃ¡ cancelado atÃ© vocÃª confirmar a lista.
+                </p>
+              </div>
+              <Badge tone="red">{pendingCancellations.length} selecionados</Badge>
+            </div>
+
+            <label className="mt-6 grid gap-2 text-sm font-semibold text-slate-800">
+              Loja dos pacotes
+              <select
+                value={selectedCancellationLojaId}
+                onChange={(event) => setCancellationLojaId(event.target.value)}
+                disabled={cancellationStoreLocked || savingCancellation}
+                className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                required
+              >
+                <option value="" disabled>
+                  Selecione uma loja
+                </option>
+                {catalogs.stores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                    {store.status === "Inativa" ? " (inativa)" : ""}
+                  </option>
+                ))}
+              </select>
+              {cancellationStoreLocked ? (
+                <span className="text-xs font-medium text-slate-500">
+                  Remova os pacotes da lista para trocar de loja.
+                </span>
+              ) : null}
+            </label>
+
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {[
+                ["1", "Loja e motivo"],
+                ["2", "Bipe os rastreios"],
+                ["3", "Cancele todos"],
+              ].map(([step, label]) => (
+                <div
+                  key={step}
+                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-bold text-white">
+                    {step}
+                  </span>
+                  <span className="text-sm font-semibold text-slate-700">
+                    {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0 xl:overflow-y-auto">
+          <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">
+                ConfiguraÃ§Ã£o do lote
+              </h2>
+              <p className="mt-1 text-sm leading-6 text-slate-500">
+                Configure uma vez. Depois do primeiro pacote, os dados ficam
+                bloqueados atÃ© finalizar ou cancelar o lote.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Badge tone={sessionOpen ? "green" : "neutral"}>
+                {sessionOpen ? "Lote em andamento" : "Pronto para iniciar"}
+              </Badge>
+              {cancellationMode ? (
+                <Badge tone="red">Cancelamento</Badge>
+              ) : null}
+            </div>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Loja
+              <select
+                value={selectedLojaId}
+                onChange={(event) => setLojaId(event.target.value)}
+                disabled={configLocked}
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                required
+              >
+                <option value="" disabled>
+                  Selecione uma loja
+                </option>
+                {activeStores.map((store) => (
+                  <option key={store.id} value={store.id}>
+                    {store.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Marketplace
+              <select
+                value={selectedMarketplace}
+                onChange={(event) => setMarketplace(event.target.value)}
+                disabled={configLocked}
+                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+                required
+              >
+                <option value="" disabled>
+                  Selecione um marketplace
+                </option>
+                {activeMarketplaces.map((item) => (
+                  <option key={item.id} value={item.name}>
+                    {item.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <fieldset className="mt-5" disabled={configLocked}>
+            <legend className="mb-3 text-sm font-semibold text-slate-800">
+              Tipo de operaÃ§Ã£o
+            </legend>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {(["coleta", "postagem"] as OperationType[]).map((operation) => (
+                <button
+                  key={operation}
+                  type="button"
+                  disabled={configLocked}
+                  onClick={() => {
+                    setTipoOperacao(operation);
+                    focusCodeField();
+                  }}
+                  className={`min-h-14 rounded-lg border px-4 text-base font-semibold transition disabled:cursor-not-allowed ${
+                    tipoOperacao === operation
+                      ? "border-teal-500 bg-teal-50 text-teal-900"
+                      : "border-slate-200 bg-white text-slate-700 hover:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
+                  }`}
+                >
+                  {getOperationLabel(operation)}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] md:items-end">
+            <div>
+              <p className="mb-2 text-sm font-semibold text-slate-800">
+                Usa Melhor Envio?
+              </p>
+              <button
+                type="button"
+                aria-pressed={melhorEnvio}
+                disabled={configLocked}
+                onClick={() => handleMelhorEnvioChange(!melhorEnvio)}
+                className={`flex min-h-12 w-full items-center justify-between rounded-lg border px-4 text-sm font-semibold transition disabled:cursor-not-allowed ${
+                  melhorEnvio
+                    ? "border-teal-500 bg-teal-50 text-teal-900"
+                    : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300 disabled:text-slate-400"
+                }`}
+              >
+                <span>{melhorEnvio ? "Sim" : "NÃ£o"}</span>
+                <span
+                  className={`h-6 w-11 rounded-full p-1 transition ${
+                    melhorEnvio ? "bg-teal-700" : "bg-slate-300"
+                  }`}
+                >
+                  <span
+                    className={`block size-4 rounded-full bg-white transition ${
+                      melhorEnvio ? "translate-x-5" : "translate-x-0"
+                    }`}
+                  />
+                </span>
+              </button>
+            </div>
+
+            {melhorEnvio ? (
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Transportadora
+                <select
+                  value={transportadora}
+                  onChange={(event) => setTransportadora(event.target.value)}
+                  disabled={configLocked}
+                  required
+                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  <option value="">Selecione a transportadora</option>
+                  {activeCarriers.map((carrier) => (
+                    <option key={carrier.id} value={carrier.name}>
+                      {carrier.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : (
+              <div className="grid gap-2 text-sm font-medium text-slate-700">
+                Transportadora
+                <div className="flex min-h-11 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
+                  NÃ£o se aplica
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <Badge tone="neutral">Loja: {getCatalogStoreName(selectedLojaId)}</Badge>
+            <Badge tone="blue">Marketplace: {selectedMarketplace || "-"}</Badge>
+            {tipoOperacao ? (
+              <OperationBadge operation={tipoOperacao} />
+            ) : (
+              <Badge tone="amber">OperaÃ§Ã£o pendente</Badge>
+            )}
+            <MelhorEnvioBadge active={melhorEnvio} />
+            <Badge tone={transportadora ? "purple" : "neutral"}>
+              Transportadora: {transportadora || "-"}
+            </Badge>
+            <Badge tone={sessionOpen ? "green" : "neutral"}>
+              Lote: {activeBatchId || "novo"}
+            </Badge>
+          </div>
+
+          {sessionOpen ? (
+            <div className="mt-5 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900">
+              Lote em andamento. Para alterar loja, marketplace, operaÃ§Ã£o ou
+              Melhor Envio, finalize ou descarte o lote atual.
+            </div>
+          ) : null}
+        </div>
+        )}
+
+        <div
+          className={`rounded-2xl border bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] xl:sticky xl:bottom-5 xl:z-10 ${
+            cancellationMode ? "border-rose-300" : "border-slate-200"
+          }`}
+        >
+          {cancellationMode ? (
+            <div className="mb-5 grid gap-4">
+              <label className="grid gap-2 text-sm font-medium text-rose-900">
+                Justificativa geral do cancelamento
+                <textarea
+                  value={cancellationReason}
+                  onChange={(event) => setCancellationReason(event.target.value)}
+                  disabled={savingCancellation}
+                  className="min-h-24 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                  placeholder="Exemplo: pedido removido da expediÃ§Ã£o"
+                  required
+                />
+              </label>
+
+            </div>
+          ) : null}
+
+          <label className="grid gap-2 text-sm font-medium text-slate-700">
+            {cancellationMode ? "Rastreio finalizado" : "CÃ³digo do pacote"}
+            <input
+              ref={codeRef}
+              className={`min-h-20 rounded-xl border-2 bg-white px-5 font-mono text-2xl font-bold tracking-wide text-slate-950 outline-none transition placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 ${
+                cancellationMode
+                  ? "border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                  : "border-slate-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              }`}
+              placeholder={
+                cancellationMode
+                  ? "Bipe o pacote que deseja cancelar"
+                  : "Bipe ou digite o cÃ³digo do pacote"
+              }
+              autoComplete="off"
+              autoFocus
+              required
+            />
+          </label>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+            <button
+              type="submit"
+              disabled={submitDisabled}
+              className={`inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-sm font-bold text-white transition focus:outline-none focus:ring-4 ${
+                cancellationMode
+                  ? "bg-rose-700 hover:bg-rose-800 focus:ring-rose-100"
+                  : "bg-slate-950 hover:bg-slate-800 focus:ring-slate-200"
+              } ${submitDisabled ? "cursor-not-allowed opacity-70" : ""}`}
+            >
+              {cancellationMode ? "Adicionar pacote" : "Bipar pacote"}
+            </button>
+            {cancellationMode ? (
+              <>
+                <button
+                  type="button"
+                  onClick={requestFinalizePendingCancellations}
+                  disabled={savingCancellation || !pendingCancellations.length}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md bg-rose-700 px-5 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+                >
+                  {pendingCancellations.length
+                    ? `Cancelar ${pendingCancellations.length} ${pendingCancellations.length === 1 ? "pacote" : "pacotes"}`
+                    : "Cancelar pacotes"}
+                </button>
+                <button
+                  type="button"
+                  onClick={requestExitCancellationMode}
+                  disabled={savingCancellation}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-white px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  Voltar para bipar
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={finishSession}
+                  disabled={finalizeDisabled}
+                  className={`inline-flex min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 ${
+                    finalizeDisabled
+                      ? "cursor-not-allowed bg-slate-300 focus:ring-slate-100"
+                      : "bg-teal-700 hover:bg-teal-800 focus:ring-teal-100"
+                  }`}
+                >
+                  Finalizar lote
+                </button>
+                <button
+                  type="button"
+                  onClick={clearSession}
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-slate-300 bg-white px-5 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                >
+                  Descartar lote
+                </button>
+                <button
+                  type="button"
+                  onClick={requestCancellationMode}
+                  disabled={
+                    loading || loadingOpenSession || savingSession || checkingPackage
+                  }
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  Cancelar finalizados
+                </button>
+              </>
+            )}
+          </div>
+
+          {notice ? (
+            <div className="mt-4">
+              <FeedbackMessage tone={notice.type}>{notice.text}</FeedbackMessage>
+            </div>
+          ) : null}
+
+          {cancellationMode ? (
+            <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-semibold text-rose-950">
+                  Pacotes para cancelar
+                </h3>
+                <Badge tone="red">{pendingCancellations.length} na lista</Badge>
+              </div>
+
+              {pendingCancellations.length ? (
+                <div className="mt-3 space-y-3">
+                  {pendingCancellations.map((item) => (
+                    <div
+                      key={item.pacote.id}
+                      className="grid gap-3 rounded-md border border-rose-100 bg-white p-3 text-sm text-slate-700"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="break-all font-mono font-semibold text-slate-950">
+                            {item.pacote.codigo_rastreio}
+                          </p>
+                          <p className="mt-1 text-xs font-semibold uppercase tracking-[0.12em] text-slate-400">
+                            {getCatalogStoreName(item.pacote.loja_id)} Â·{" "}
+                            {item.pacote.marketplace} Â·{" "}
+                            {getOperationLabel(item.pacote.tipo_operacao)}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Melhor Envio: {item.pacote.melhor_envio ? "Sim" : "Nao"} Â·{" "}
+                            {item.pacote.transportadora || "Sem transportadora"}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => removePendingCancellation(item.pacote.id)}
+                          disabled={savingCancellation}
+                          className="inline-flex min-h-8 shrink-0 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+                        >
+                          Remover
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-3">
+                  <EmptyState>
+                    Nenhum pacote na lista. Bipe um pacote para preparar o
+                    cancelamento.
+                  </EmptyState>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          {!cancellationMode && recentCancellations.length ? (
+            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+              <h3 className="text-sm font-semibold text-slate-950">
+                Ãšltimos cancelamentos
+              </h3>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {recentCancellations.map((item) => (
+                  <Badge key={item.id} tone="red">
+                    {item.codigo_pacote}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </form>
+
+      {!cancellationMode ? (
+      <div className="grid min-h-0 gap-5 self-start xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[auto_minmax(0,1fr)]">
+        <div className="flex max-h-[680px] min-h-0 flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:max-h-[54vh]">
+          <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-950">
+                Pacotes deste lote
+              </h2>
+              <p className="mt-1 text-sm text-slate-500">
+                {sessionPackages.length} pacotes no lote atual.
+              </p>
+            </div>
+            <StatusBadge status="Pendente no lote" />
+          </div>
+
+          <div
+            className={`mb-4 shrink-0 rounded-lg border px-4 py-3 ${
+              latestSessionPackage
+                ? "border-emerald-200 bg-emerald-50"
+                : "border-slate-200 bg-slate-50"
+            }`}
+          >
+            <p
+              className={`text-xs font-semibold uppercase tracking-[0.14em] ${
+                latestSessionPackage ? "text-emerald-700" : "text-slate-500"
+              }`}
+            >
+              {"\u00daltimo pacote bipado"}
+            </p>
+            <p className="mt-1 truncate font-mono text-lg font-semibold text-slate-950">
+              {latestSessionPackage?.codigo_rastreio ?? "Aguardando pacote"}
+            </p>
+          </div>
+
+          {sessionPackages.length ? (
+            <div className="flex min-h-0 flex-1 flex-col gap-4">
+              {sessionHeader}
+              {hasSessionDuplicates ? (
+                <FeedbackMessage tone="danger">
+                  {DUPLICATE_SESSION_WARNING} CÃ³digos:{" "}
+                  {duplicateSessionCodeList.join(", ")}.
+                </FeedbackMessage>
+              ) : null}
+              <div className="min-h-0 overflow-y-auto pr-1">
+                <ol className="space-y-2">
+                  {visibleSessionPackages.map((item, index) => {
+                    const isDuplicate = duplicateSessionCodes.has(
+                      normalizeTrackingCode(item.codigo_rastreio),
+                    );
+                    const packageNumber = sessionPackages.length - index;
+
+                    return (
+                      <li
+                        key={item.id}
+                        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-3 ${
+                          isDuplicate
+                            ? "border-rose-300 bg-rose-50"
+                            : "border-slate-200"
+                        }`}
+                      >
+                        <div className="min-w-0">
+                          <span className="mr-3 text-sm font-semibold text-slate-400">
+                            {packageNumber}.
+                          </span>
+                          <span className="font-mono text-sm font-semibold text-slate-950">
+                            {item.codigo_rastreio}
+                          </span>
+                          {isDuplicate ? (
+                            <span className="ml-3 inline-flex min-h-7 items-center rounded-md border border-rose-200 bg-white px-2.5 py-1 text-xs font-semibold text-rose-700">
+                              Duplicado
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={() => removeSessionPackage(item)}
+                            className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                          >
+                            Remover
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cancelSessionPackage(item)}
+                            className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+                {visibleSessionPackages.length < sessionPackages.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleSessionPackageCount((current) =>
+                        Math.min(
+                          current + SESSION_PACKAGE_PAGE_SIZE,
+                          sessionPackages.length,
+                        ),
+                      )
+                    }
+                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    Mostrar mais pacotes ({visibleSessionPackages.length} de{" "}
+                    {sessionPackages.length})
+                  </button>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <EmptyState>Nenhum rastreio bipado neste lote.</EmptyState>
+          )}
+        </div>
+
+        <div className="flex min-h-[320px] flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0">
+          <div className="mb-4 shrink-0">
+            <h2 className="text-lg font-semibold text-slate-950">
+              HistÃ³rico de lotes
+            </h2>
+            <p className="mt-1 text-sm text-slate-500">
+              Abra um lote para ver somente os pacotes vinculados a ele.
+            </p>
+          </div>
+
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            {sortedBatches.length ? (
+              <div className="space-y-3">
+                {visibleBatches.map((batch) => (
+                  <div
+                    key={batch.id}
+                    className="rounded-lg border border-slate-200 p-3 text-sm transition hover:border-slate-300"
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className="min-w-0">
+                        <p className="font-mono text-base font-semibold text-slate-950">
+                          {getBatchCode(batch)}
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-700">
+                          {getCatalogStoreName(batch.loja_id)} Â· {batch.marketplace} Â·{" "}
+                          {getOperationLabel(batch.tipo_operacao)}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-500">
+                          {batch.finalizado_em
+                            ? formatPackageDate(batch.finalizado_em)
+                            : "em aberto"}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          {batch.total_pacotes} {batch.total_pacotes === 1 ? "pacote" : "pacotes"}
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openBatchHistory(batch.id)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                        >
+                          Abrir lote
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openBatchRomaneio(batch.id)}
+                          className="inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800"
+                        >
+                          Romaneio
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {visibleBatches.length < sortedBatches.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleBatchCount((current) =>
+                        Math.min(
+                          current + BATCH_HISTORY_PAGE_SIZE,
+                          sortedBatches.length,
+                        ),
+                      )
+                    }
+                    className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    Mostrar mais lotes ({visibleBatches.length} de{" "}
+                    {sortedBatches.length})
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <EmptyState>Nenhum lote finalizado.</EmptyState>
+            )}
+          </div>
+        </div>
+      </div>
+      ) : null}
+
+      {selectedBatch ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="batch-modal-title"
+        >
+          <div className="flex max-h-[88vh] w-full max-w-5xl flex-col rounded-lg border border-slate-200 bg-white shadow-xl">
+            <div className="flex flex-col gap-3 border-b border-slate-200 p-5 md:flex-row md:items-start md:justify-between">
+              <div>
+                <p className="font-mono text-sm font-semibold text-teal-700">
+                  {getBatchCode(selectedBatch)}
+                </p>
+                <h2
+                  id="batch-modal-title"
+                  className="mt-1 text-xl font-semibold text-slate-950"
+                >
+                  Detalhes do lote
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {selectedBatch.finalizado_em
+                    ? formatPackageDate(selectedBatch.finalizado_em)
+                    : "Lote sem finalizacao"}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => openBatchRomaneio(selectedBatch.id)}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Imprimir Romaneio
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedHistoryBatchId("")}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+
+            <div className="min-h-0 overflow-y-auto p-5">
+              <div className="grid gap-3 text-sm md:grid-cols-3">
+                <div>
+                  <span className="font-semibold text-slate-700">Loja:</span>{" "}
+                  {getCatalogStoreName(selectedBatch.loja_id)}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Marketplace:
+                  </span>{" "}
+                  {selectedBatch.marketplace}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Operacao:
+                  </span>{" "}
+                  {getOperationLabel(selectedBatch.tipo_operacao)}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Melhor Envio:
+                  </span>{" "}
+                  {selectedBatch.melhor_envio ? "Sim" : "Nao"}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">
+                    Transportadora:
+                  </span>{" "}
+                  {selectedBatch.transportadora || "Sem transportadora"}
+                </div>
+                <div>
+                  <span className="font-semibold text-slate-700">Total:</span>{" "}
+                  {selectedBatchPackages.length} pacotes
+                </div>
+              </div>
+
+              <div className="mt-5">
+                {selectedBatchPackages.length ? (
+                  <>
+                    <ol className="space-y-2">
+                      {visibleSelectedBatchPackages.map((item, index) => (
+                        <li
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <span className="mr-3 text-sm font-semibold text-slate-400">
+                              {index + 1}.
+                            </span>
+                            <span className="break-all font-mono text-sm font-semibold text-slate-950">
+                              {item.codigo_rastreio}
+                            </span>
+                          </div>
+                          <StatusBadge status={item.status} />
+                        </li>
+                      ))}
+                    </ol>
+                    {visibleSelectedBatchPackages.length <
+                    selectedBatchPackages.length ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleSelectedBatchPackageCount((current) =>
+                            Math.min(
+                              current + BATCH_PACKAGE_PAGE_SIZE,
+                              selectedBatchPackages.length,
+                            ),
+                          )
+                        }
+                        className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                      >
+                        Mostrar mais pacotes (
+                        {visibleSelectedBatchPackages.length} de{" "}
+                        {selectedBatchPackages.length})
+                      </button>
+                    ) : null}
+                  </>
+                ) : (
+                  <EmptyState>Nenhum pacote encontrado para este lote.</EmptyState>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      <ConfirmDialog
+        open={showClearSessionConfirm}
+        title="Descartar lote"
+        message="Deseja descartar o lote atual e remover os pacotes bipados nele?"
+        cancelLabel="Voltar"
+        confirmLabel="Descartar lote"
+        tone="danger"
+        onCancel={() => {
+          setShowClearSessionConfirm(false);
+          focusCodeField();
+        }}
+        onConfirm={confirmClearSession}
+      />
+
+      <ConfirmDialog
+        open={showDuplicateFinalizeDialog}
+        title="Duplicados no lote"
+        message={DUPLICATE_FINALIZE_MESSAGE}
+        cancelLabel="Voltar"
+        confirmLabel="Entendi"
+        tone="danger"
+        onCancel={() => {
+          setShowDuplicateFinalizeDialog(false);
+          focusCodeField();
+        }}
+        onConfirm={() => {
+          setShowDuplicateFinalizeDialog(false);
+          focusCodeField();
+        }}
+      />
+
+      <ConfirmDialog
+        open={showFinalizeCancellationConfirm}
+        title={`Cancelar ${pendingCancellations.length} ${
+          pendingCancellations.length === 1 ? "pacote" : "pacotes"
+        }?`}
+        message={
+          <div className="grid gap-2">
+            <p>
+              Esta aÃ§Ã£o cancelarÃ¡ todos os rastreios da lista da loja{" "}
+              <strong>{getCatalogStoreName(selectedCancellationLojaId)}</strong>.
+            </p>
+            <p className="rounded-lg bg-rose-50 px-3 py-2 text-rose-800">
+              Motivo: {cancellationReason.trim()}
+            </p>
+          </div>
+        }
+        cancelLabel="Revisar lista"
+        confirmLabel="Cancelar todos"
+        tone="danger"
+        onCancel={() => {
+          setShowFinalizeCancellationConfirm(false);
+          focusCodeField();
+        }}
+        onConfirm={finalizePendingCancellations}
+      />
+
+      <ConfirmDialog
+        open={showExitCancellationConfirm}
+        title="Sair do cancelamento em lote?"
+        message="HÃ¡ informaÃ§Ãµes preenchidas. Ao sair, o rastreio e as justificativas em aberto serÃ£o limpos."
+        cancelLabel="Continuar"
+        confirmLabel="Sair"
+        tone="danger"
+        onCancel={() => {
+          setShowExitCancellationConfirm(false);
+          focusCodeField();
+        }}
+        onConfirm={exitCancellationMode}
+      />
+
+      {pendingSessionCancelPackage ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-slate-950/45 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="cancel-package-title"
+        >
+          <div className="w-full max-w-md rounded-lg border border-slate-200 bg-white p-5 shadow-xl">
+            <h2
+              id="cancel-package-title"
+              className="text-lg font-semibold text-slate-950"
+            >
+              Cancelar pacote
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Informe a justificativa para cancelar{" "}
+              <span className="font-mono font-semibold text-slate-950">
+                {pendingSessionCancelPackage.codigo_rastreio}
+              </span>
+              .
+            </p>
+            <label className="mt-4 grid gap-2 text-sm font-medium text-slate-700">
+              Justificativa
+              <textarea
+                value={sessionCancelReason}
+                onChange={(event) => {
+                  setSessionCancelReason(event.target.value);
+                  setSessionCancelError("");
+                }}
+                className="min-h-28 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                placeholder="ObrigatÃ³ria"
+                required
+              />
+            </label>
+            {sessionCancelError ? (
+              <FeedbackMessage tone="warning">
+                {sessionCancelError}
+              </FeedbackMessage>
+            ) : null}
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setPendingSessionCancelPackage(null);
+                  setSessionCancelReason("");
+                  setSessionCancelError("");
+                  focusCodeField();
+                }}
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={confirmSessionPackageCancellation}
+                disabled={savingCancellation}
+                className="inline-flex min-h-11 items-center justify-center rounded-md bg-rose-700 px-4 text-sm font-semibold text-white transition hover:bg-rose-800 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                Cancelar pacote
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
