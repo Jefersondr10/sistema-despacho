@@ -316,7 +316,7 @@ function buildRomaneioEmail(
               <tr>
                 <td style="padding: 20px 22px; background-color: #172554;">
                   <p style="margin: 0 0 5px; color: #bfdbfe; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">Loja</p>
-                  <h2 style="margin: 0; color: #ffffff; font-size: 25px; font-weight: 800; line-height: 1.2;">${escapeHtml(group.loja_nome)}</h2>
+                  <h2 class="romaneio-store-name" style="margin: 0; color: #ffffff; font-size: 25px; font-weight: 800; line-height: 1.2; text-align: center;">${escapeHtml(group.loja_nome)}</h2>
                 </td>
               </tr>
               <tr>

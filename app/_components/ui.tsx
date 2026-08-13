@@ -6,12 +6,12 @@ import { getOperationLabel } from "@/app/_lib/mock-data";
 type BadgeTone = "neutral" | "green" | "amber" | "blue" | "red" | "purple";
 
 const badgeClasses: Record<BadgeTone, string> = {
-  neutral: "border-slate-200 bg-slate-50 text-slate-700",
-  green: "border-emerald-200 bg-emerald-50 text-emerald-700",
-  amber: "border-amber-200 bg-amber-50 text-amber-800",
-  blue: "border-sky-200 bg-sky-50 text-sky-700",
-  red: "border-rose-200 bg-rose-50 text-rose-700",
-  purple: "border-violet-200 bg-violet-50 text-violet-700",
+  neutral: "border-slate-200/90 bg-slate-50/90 text-slate-700 ring-slate-950/[0.025]",
+  green: "border-emerald-200/90 bg-emerald-50/90 text-emerald-700 ring-emerald-950/[0.035]",
+  amber: "border-amber-200/90 bg-amber-50/90 text-amber-800 ring-amber-950/[0.035]",
+  blue: "border-sky-200/90 bg-sky-50/90 text-sky-700 ring-sky-950/[0.035]",
+  red: "border-rose-200/90 bg-rose-50/90 text-rose-700 ring-rose-950/[0.035]",
+  purple: "border-violet-200/90 bg-violet-50/90 text-violet-700 ring-violet-950/[0.035]",
 };
 
 export function Badge({
@@ -23,7 +23,7 @@ export function Badge({
 }) {
   return (
     <span
-      className={`inline-flex min-h-7 max-w-full min-w-0 items-center justify-center whitespace-normal break-words rounded-full border px-2.5 py-1 text-center text-xs font-semibold leading-4 ${badgeClasses[tone]}`}
+      className={`inline-flex min-h-7 max-w-full min-w-0 items-center justify-center whitespace-normal break-words rounded-full border px-2.5 py-1 text-center text-[0.75rem] font-semibold leading-4 tracking-[-0.005em] shadow-sm ring-1 ${badgeClasses[tone]}`}
     >
       {children}
     </span>
@@ -74,23 +74,24 @@ export function PageHeader({
   action?: ReactNode;
 }) {
   return (
-    <div className="relative overflow-hidden rounded-3xl border border-white/90 bg-white/90 px-5 py-5 shadow-sm shadow-slate-900/5 ring-1 ring-slate-200/70 sm:px-7 sm:py-6 md:flex md:items-end md:justify-between md:gap-6">
-      <div className="absolute inset-y-0 left-0 w-1.5 bg-gradient-to-b from-teal-500 via-teal-700 to-sky-600" aria-hidden="true" />
+    <div className="relative overflow-hidden rounded-[1.75rem] border border-white/90 bg-gradient-to-br from-white via-white/95 to-teal-50/35 px-5 py-5 shadow-[0_18px_50px_-38px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/70 sm:px-7 sm:py-6 md:flex md:items-end md:justify-between md:gap-6">
+      <div className="absolute inset-y-0 left-0 w-1 bg-gradient-to-b from-teal-400 via-teal-700 to-cyan-600" aria-hidden="true" />
+      <div className="absolute -right-20 -top-24 size-56 rounded-full bg-teal-100/35 blur-3xl" aria-hidden="true" />
       <div className="min-w-0">
-        <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-teal-700 before:block before:size-2 before:rounded-full before:bg-teal-500">
+        <p className="relative inline-flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-teal-700 before:block before:size-1.5 before:rounded-full before:bg-teal-500 before:shadow-[0_0_0_4px_rgba(20,184,166,0.1)]">
           Central de despacho
         </p>
-        <h1 className="mt-2 break-words text-[clamp(1.8rem,4vw,2.5rem)] font-bold leading-tight tracking-[-0.035em] text-slate-950">
+        <h1 className="relative mt-2 break-words text-[clamp(1.75rem,4vw,2.45rem)] font-bold leading-[1.1] tracking-[-0.045em] text-slate-950">
           {title}
         </h1>
         {description ? (
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600 sm:text-base sm:leading-7">
+          <p className="relative mt-2.5 max-w-3xl text-sm font-normal leading-6 tracking-[-0.01em] text-slate-600 sm:text-[0.95rem] sm:leading-7">
             {description}
           </p>
         ) : null}
       </div>
       {action ? (
-        <div className="mt-5 flex w-full min-w-0 flex-wrap items-center gap-2 md:mt-0 md:w-auto md:shrink-0 md:justify-end">
+        <div className="relative mt-5 flex w-full min-w-0 flex-wrap items-center gap-2.5 md:mt-0 md:w-auto md:shrink-0 md:justify-end">
           {action}
         </div>
       ) : null}
@@ -118,22 +119,22 @@ export function StatCard({
   };
 
   return (
-    <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-lg hover:shadow-slate-900/5 sm:p-5">
-      <div className="absolute -right-8 -top-8 size-24 rounded-full bg-gradient-to-br from-teal-50 to-transparent opacity-80" />
+    <div className="group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200/80 bg-white/95 p-4 shadow-[0_10px_30px_-26px_rgba(15,23,42,0.45)] ring-1 ring-white transition-all duration-200 hover:-translate-y-0.5 hover:border-teal-200/80 hover:shadow-[0_18px_36px_-25px_rgba(15,118,110,0.28)] sm:p-5">
+      <div className="absolute -right-8 -top-8 size-24 rounded-full bg-gradient-to-br from-teal-100/70 to-transparent opacity-80 transition-transform duration-300 group-hover:scale-110" />
       <div
-        className={`relative mb-4 inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${toneClasses[tone]}`}
+        className={`relative mb-4 inline-flex rounded-full border px-2.5 py-1 text-[0.7rem] font-bold uppercase tracking-[0.08em] ${toneClasses[tone]}`}
       >
         {label}
       </div>
-      <p className="relative break-words text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-none tracking-tight text-slate-950">{value}</p>
-      <p className="relative mt-2 text-sm leading-6 text-slate-500">{detail}</p>
+      <p className="relative break-words text-[clamp(1.75rem,4vw,2.25rem)] font-bold leading-none tracking-[-0.04em] text-slate-950">{value}</p>
+      <p className="relative mt-2 text-sm leading-6 tracking-[-0.005em] text-slate-500">{detail}</p>
     </div>
   );
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 p-5 text-center text-sm leading-6 text-slate-600 sm:p-8">
+    <div className="rounded-2xl border border-dashed border-slate-300 bg-gradient-to-br from-slate-50/90 to-white p-5 text-center text-sm leading-6 text-slate-600 shadow-inner shadow-slate-900/[0.02] sm:p-8">
       {children}
     </div>
   );
@@ -157,7 +158,7 @@ export function FeedbackMessage({
 }) {
   return (
     <div
-      className={`min-w-0 break-words rounded-xl border px-4 py-3 text-sm font-semibold shadow-sm ${feedbackClasses[tone]}`}
+      className={`min-w-0 break-words rounded-2xl border px-4 py-3.5 text-sm font-semibold leading-6 tracking-[-0.005em] shadow-sm ring-1 ring-white/70 ${feedbackClasses[tone]}`}
       role="status"
       aria-live="polite"
     >
@@ -201,8 +202,9 @@ export function ConfirmDialog({
       aria-modal="true"
       aria-labelledby="dialog-title"
     >
-      <div className="app-scroll-region my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-2xl border border-white/80 bg-white p-5 shadow-2xl shadow-slate-950/20 sm:max-h-[calc(100dvh-3rem)] sm:p-6">
-        <h2 id="dialog-title" className="text-xl font-bold tracking-tight text-slate-950">
+      <div className="app-scroll-region my-auto max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-y-auto rounded-3xl border border-white/90 bg-white p-5 shadow-[0_30px_90px_-30px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/80 sm:max-h-[calc(100dvh-3rem)] sm:p-6">
+        <div className="mb-4 h-1 w-10 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500" aria-hidden="true" />
+        <h2 id="dialog-title" className="text-xl font-bold tracking-[-0.025em] text-slate-950">
           {title}
         </h2>
         <div className="mt-2 text-sm leading-6 text-slate-600">{message}</div>
@@ -210,7 +212,7 @@ export function ConfirmDialog({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
           >
             {cancelLabel}
           </button>

@@ -11,6 +11,7 @@ import {
   OperationBadge,
   StatusBadge,
 } from "@/app/_components/ui";
+import { SelectField } from "@/app/_components/select-field";
 import type {
   DispatchPackage,
   OperationType,
@@ -1285,45 +1286,31 @@ export function BipagemForm() {
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Loja
-              <select
-                value={selectedLojaId}
-                onChange={(event) => setLojaId(event.target.value)}
-                disabled={configLocked}
-                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                required
-              >
-                <option value="" disabled>
-                  Selecione uma loja
-                </option>
-                {activeStores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="Loja"
+              value={selectedLojaId}
+              onChange={setLojaId}
+              disabled={configLocked}
+              required
+              placeholder="Selecione uma loja"
+              options={activeStores.map((store) => ({
+                value: store.id,
+                label: store.name,
+              }))}
+            />
 
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Marketplace
-              <select
-                value={selectedMarketplace}
-                onChange={(event) => setMarketplace(event.target.value)}
-                disabled={configLocked}
-                className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                required
-              >
-                <option value="" disabled>
-                  Selecione um marketplace
-                </option>
-                {activeMarketplaces.map((item) => (
-                  <option key={item.id} value={item.name}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <SelectField
+              label="Marketplace"
+              value={selectedMarketplace}
+              onChange={setMarketplace}
+              disabled={configLocked}
+              required
+              placeholder="Selecione um marketplace"
+              options={activeMarketplaces.map((item) => ({
+                value: item.name,
+                label: item.name,
+              }))}
+            />
           </div>
 
           <fieldset className="mt-5" disabled={configLocked}>
@@ -1384,23 +1371,18 @@ export function BipagemForm() {
             </div>
 
             {melhorEnvio ? (
-              <label className="grid gap-2 text-sm font-medium text-slate-700">
-                Transportadora
-                <select
-                  value={transportadora}
-                  onChange={(event) => setTransportadora(event.target.value)}
-                  disabled={configLocked}
-                  required
-                  className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  <option value="">Selecione a transportadora</option>
-                  {activeCarriers.map((carrier) => (
-                    <option key={carrier.id} value={carrier.name}>
-                      {carrier.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
+              <SelectField
+                label="Transportadora"
+                value={transportadora}
+                onChange={setTransportadora}
+                disabled={configLocked}
+                required
+                placeholder="Selecione a transportadora"
+                options={activeCarriers.map((carrier) => ({
+                  value: carrier.name,
+                  label: carrier.name,
+                }))}
+              />
             ) : (
               <div className="grid gap-2 text-sm font-medium text-slate-700">
                 Transportadora

@@ -31,6 +31,10 @@ test("romaneio escolhe quatro ou cinco colunas e imprime em A4", () => {
 test("loja e marketplace ficam em destaque sem metadados removidos", () => {
   assert.match(componentSource, />\s*Loja\s*</);
   assert.match(componentSource, />\s*Marketplace\s*</);
+  assert.match(
+    componentSource,
+    /romaneio-store-name[^"\n]*place-items-center[^"\n]*text-center/,
+  );
   assert.doesNotMatch(componentSource, /group\.tipo_operacao/);
   assert.doesNotMatch(componentSource, /group\.transportadora/);
   assert.doesNotMatch(componentSource, /group\.melhor_envio/);
@@ -45,6 +49,10 @@ test("romaneio do email segue o mesmo resumo e preserva as assinaturas", () => {
   assert.match(romaneioEmailSource, /Romaneio de Pacotes/);
   assert.match(romaneioEmailSource, /LOJA:/);
   assert.match(romaneioEmailSource, /MARKETPLACE:/);
+  assert.match(
+    romaneioEmailSource,
+    /class="romaneio-store-name"[^>]*text-align: center;/,
+  );
   assert.doesNotMatch(romaneioEmailSource, /group\.tipo_operacao/);
   assert.doesNotMatch(romaneioEmailSource, /group\.transportadora/);
   assert.doesNotMatch(romaneioEmailSource, /group\.melhor_envio/);
