@@ -32,9 +32,11 @@ import {
   finalizarSessaoBipagemAberta,
   formatDatabaseError,
   getPacoteAtivoPorCodigo,
+  getPacotesFinalizadosPorCodigo,
   getSessaoBipagemAbertaComItens,
   type ItemSessaoBipagemRow,
   mapItemSessaoRowToDispatchPackage,
+  mapPacoteRowToDispatchPackage,
   removerItemSessaoBipagem,
 } from "@/lib/database";
 
@@ -91,28 +93,23 @@ function mapPendingItemToPackage(
   };
 }
 
-function getStoreTrackingKey(storeId: string, trackingCode: string) {
-  return `${storeId}\u0000${normalizeTrackingCode(trackingCode)}`;
-}
-
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function BipagemForm() {
   const codeRef = useRef<HTMLInputElement>(null);
+  const cancellationReasonRef = useRef<HTMLTextAreaElement>(null);
+  const firstCancellationCandidateRef = useRef<HTMLButtonElement>(null);
   const { user } = useAuth();
   const {
     catalogs,
-    packages,
     allPackages,
     batches,
-    cancellations,
     loading,
     error,
     reload,
   } = useSupabaseDispatchData("bipagem");
-  const activePackages = packages;
   const [lojaId, setLojaId] = useState("");
   const [marketplace, setMarketplace] = useState("");
   const [tipoOperacao, setTipoOperacao] = useState<OperationType | "">("");
@@ -123,8 +120,10 @@ export function BipagemForm() {
   const [sessionPackages, setSessionPackages] = useState<DispatchPackage[]>([]);
   const [selectedHistoryBatchId, setSelectedHistoryBatchId] = useState("");
   const [cancellationMode, setCancellationMode] = useState(false);
-  const [cancellationLojaId, setCancellationLojaId] = useState("");
   const [cancellationReason, setCancellationReason] = useState("");
+  const [cancellationCandidates, setCancellationCandidates] = useState<
+    DispatchPackage[]
+  >([]);
   const [recentCancellations, setRecentCancellations] = useState<
     PackageCancellation[]
   >([]);
@@ -178,11 +177,6 @@ export function BipagemForm() {
     lojaId && (sessionOpen || activeStores.some((item) => item.id === lojaId))
       ? lojaId
       : "";
-  const selectedCancellationLojaId = catalogs.stores.some(
-    (item) => item.id === cancellationLojaId,
-  )
-    ? cancellationLojaId
-    : "";
   const selectedMarketplace =
     marketplace &&
     (sessionOpen ||
@@ -196,7 +190,6 @@ export function BipagemForm() {
     (item) => item.name === transportadora,
   );
   const configLocked = sessionOpen || cancellationMode;
-  const cancellationStoreLocked = pendingCancellations.length > 0;
   const sortedBatches = useMemo(
     () =>
       batches
@@ -212,42 +205,17 @@ export function BipagemForm() {
   const selectedBatch = sortedBatches.find(
     (batch) => batch.id === selectedHistoryBatchId,
   );
-  const { allPackageByStoreAndCode, packagesByBatchId } = useMemo(() => {
-    const packageByStoreAndCode = new Map<string, DispatchPackage>();
+  const packagesByBatchId = useMemo(() => {
     const packageGroups = new Map<string, DispatchPackage[]>();
 
     for (const item of allPackages) {
-      const lookupKey = getStoreTrackingKey(item.loja_id, item.codigo_rastreio);
-      if (!packageByStoreAndCode.has(lookupKey)) {
-        packageByStoreAndCode.set(lookupKey, item);
-      }
-
       const batchPackages = packageGroups.get(item.lote_id) ?? [];
       batchPackages.push(item);
       packageGroups.set(item.lote_id, batchPackages);
     }
 
-    return {
-      allPackageByStoreAndCode: packageByStoreAndCode,
-      packagesByBatchId: packageGroups,
-    };
+    return packageGroups;
   }, [allPackages]);
-  const activePackageByStoreAndCode = useMemo(() => {
-    const index = new Map<string, DispatchPackage>();
-
-    for (const item of activePackages) {
-      const lookupKey = getStoreTrackingKey(item.loja_id, item.codigo_rastreio);
-      if (!index.has(lookupKey)) {
-        index.set(lookupKey, item);
-      }
-    }
-
-    return index;
-  }, [activePackages]);
-  const canceledPackageIds = useMemo(
-    () => new Set(cancellations.map((item) => item.pacote_id)),
-    [cancellations],
-  );
   const selectedBatchPackages = useMemo(
     () =>
       selectedBatch ? packagesByBatchId.get(selectedBatch.id) ?? [] : [],
@@ -299,7 +267,8 @@ export function BipagemForm() {
     loadingOpenSession ||
     savingCancellation ||
     savingSession ||
-    checkingPackage;
+    checkingPackage ||
+    cancellationCandidates.length > 0;
   const finalizeDisabled =
     hasSessionDuplicates ||
     loading ||
@@ -385,6 +354,17 @@ export function BipagemForm() {
     window.addEventListener("beforeunload", preventAccidentalExit);
     return () => window.removeEventListener("beforeunload", preventAccidentalExit);
   }, [cancellationMode, cancellationReason, pendingCancellations.length]);
+
+  useEffect(() => {
+    if (!cancellationCandidates.length) {
+      return;
+    }
+
+    window.setTimeout(
+      () => firstCancellationCandidateRef.current?.focus({ preventScroll: true }),
+      0,
+    );
+  }, [cancellationCandidates.length]);
 
   function getCatalogStoreName(id: string) {
     return catalogs.stores.find((store) => store.id === id)?.name ?? id;
@@ -546,6 +526,11 @@ export function BipagemForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (cancellationCandidates.length) {
+      firstCancellationCandidateRef.current?.focus({ preventScroll: true });
+      return;
+    }
 
     const code = getCodeFieldValue();
     if (cancellationMode) {
@@ -786,12 +771,11 @@ export function BipagemForm() {
   }
 
   function activateCancellationMode() {
-    setCancellationLojaId(selectedLojaId);
     setCancellationMode(true);
     clearCodeField();
     setNotice({
       type: "warning",
-      text: "Cancelamento em lote aberto. Selecione a loja, informe o motivo e bipe os rastreios.",
+      text: "Cancelamento em lote aberto. Bipe os rastreios e informe o motivo geral ao finalizar.",
     });
     focusCodeField();
   }
@@ -818,7 +802,7 @@ export function BipagemForm() {
     setShowExitCancellationConfirm(false);
     setShowFinalizeCancellationConfirm(false);
     clearCodeField();
-    setCancellationLojaId("");
+    setCancellationCandidates([]);
     setCancellationReason("");
     setPendingCancellations([]);
     setNotice({ type: "neutral", text: "Cancelamento em lote fechado." });
@@ -826,26 +810,7 @@ export function BipagemForm() {
   }
 
   async function cancelPackageByCode(code: string) {
-    if (savingCancellation) {
-      return;
-    }
-
-    if (!selectedCancellationLojaId) {
-      setNotice({
-        type: "warning",
-        text: "Selecione a loja dos pacotes antes de bipar.",
-      });
-      focusCodeField();
-      return;
-    }
-
-    const cleanGeneralReason = cancellationReason.trim();
-    if (!cleanGeneralReason) {
-      setNotice({
-        type: "warning",
-        text: "Informe a justificativa geral do cancelamento antes de bipar.",
-      });
-      focusCodeField();
+    if (savingCancellation || checkingPackage) {
       return;
     }
 
@@ -859,61 +824,75 @@ export function BipagemForm() {
     }
 
     const normalizedCode = normalizeTrackingCode(code);
-    const lookupKey = getStoreTrackingKey(
-      selectedCancellationLojaId,
-      normalizedCode,
-    );
-    const activePackage = activePackageByStoreAndCode.get(lookupKey);
-    const anyPackage = allPackageByStoreAndCode.get(lookupKey);
-    const alreadyCanceled = activePackage
-      ? canceledPackageIds.has(activePackage.id)
-      : Boolean(anyPackage);
-    const alreadyQueued = pendingCancellations.some(
-      (item) =>
-        item.pacote.id === activePackage?.id ||
-        normalizeTrackingCode(item.pacote.codigo_rastreio) === normalizedCode,
-    );
+    let awaitingChoice = false;
+    setCheckingPackage(true);
 
-    if (!anyPackage) {
+    try {
+      const rows = await getPacotesFinalizadosPorCodigo(
+        normalizedCode,
+        databaseContext,
+      );
+      const matches = rows.map(mapPacoteRowToDispatchPackage);
+      const queuedIds = new Set(
+        pendingCancellations.map((item) => item.pacote.id),
+      );
+      const availableMatches = matches.filter((item) => !queuedIds.has(item.id));
+
+      if (!matches.length) {
+        setNotice({
+          type: "danger",
+          text: "Pacote finalizado não encontrado. Verifique o código ou se ele já foi cancelado.",
+        });
+        clearCodeField();
+        return;
+      }
+
+      if (!availableMatches.length) {
+        setNotice({
+          type: "warning",
+          text: "Este pacote já está na lista temporária de cancelamento.",
+        });
+        clearCodeField();
+        return;
+      }
+
+      if (matches.length > 1) {
+        awaitingChoice = true;
+        setCancellationCandidates(availableMatches);
+        setNotice({
+          type: "warning",
+          text: "O mesmo rastreio existe em mais de uma loja. Escolha o pacote correto.",
+        });
+        clearCodeField();
+        return;
+      }
+
+      addPendingCancellation(availableMatches[0]);
+    } catch (error) {
       setNotice({
         type: "danger",
-        text: "Pacote não encontrado. Nada foi cancelado.",
+        text: `Erro ao localizar pacote: ${formatDatabaseError(error)}`,
       });
-      clearCodeField();
-      focusCodeField();
-      return;
+    } finally {
+      setCheckingPackage(false);
+      if (!awaitingChoice) {
+        focusCodeField();
+      }
     }
+  }
 
-    if (!activePackage || alreadyCanceled) {
-      setNotice({
-        type: "warning",
-        text: "Este pacote já foi cancelado anteriormente.",
-      });
-      clearCodeField();
-      focusCodeField();
-      return;
-    }
+  function addPendingCancellation(pacote: DispatchPackage) {
+    setPendingCancellations((current) => {
+      if (current.some((item) => item.pacote.id === pacote.id)) {
+        return current;
+      }
 
-    if (alreadyQueued) {
-      setNotice({
-        type: "warning",
-        text: "Este pacote ja esta na lista temporaria de cancelamento.",
-      });
-      clearCodeField();
-      focusCodeField();
-      return;
-    }
-
-    setPendingCancellations((current) => [
-      {
-        pacote: activePackage,
-        justificativa_individual: "",
-      },
-      ...current,
-    ]);
+      return [{ pacote, justificativa_individual: "" }, ...current];
+    });
+    setCancellationCandidates([]);
     setNotice({
       type: "success",
-      text: `Pacote ${activePackage.codigo_rastreio} adicionado para cancelamento.`,
+      text: `Pacote ${pacote.codigo_rastreio} de ${getCatalogStoreName(pacote.loja_id)} adicionado.`,
     });
     clearCodeField();
     focusCodeField();
@@ -939,7 +918,7 @@ export function BipagemForm() {
         type: "warning",
         text: "Informe a justificativa geral antes de finalizar cancelamentos.",
       });
-      focusCodeField();
+      cancellationReasonRef.current?.focus();
       return;
     }
 
@@ -966,7 +945,7 @@ export function BipagemForm() {
         type: "warning",
         text: "Informe a justificativa geral antes de finalizar cancelamentos.",
       });
-      focusCodeField();
+      cancellationReasonRef.current?.focus();
       return;
     }
 
@@ -1014,7 +993,7 @@ export function BipagemForm() {
       setRecentCancellations((current) => [...records, ...current].slice(0, 8));
       setPendingCancellations([]);
       setCancellationMode(false);
-      setCancellationLojaId("");
+      setCancellationCandidates([]);
       setCancellationReason("");
       clearCodeField();
       setNotice({
@@ -1255,44 +1234,19 @@ export function BipagemForm() {
                   Cancelar pacotes finalizados
                 </h2>
                 <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
-                  Selecione a loja, informe o motivo e bipe quantos pacotes
-                  precisar. Nada será cancelado até você confirmar a lista.
+                  Bipe quantos pacotes precisar, sem escolher a loja. Se um
+                  rastreio existir em mais de uma loja, você escolhe o correto.
+                  Nada será cancelado até a confirmação final.
                 </p>
               </div>
               <Badge tone="red">{pendingCancellations.length} selecionados</Badge>
             </div>
 
-            <label className="mt-6 grid gap-2 text-sm font-semibold text-slate-800">
-              Loja dos pacotes
-              <select
-                value={selectedCancellationLojaId}
-                onChange={(event) => setCancellationLojaId(event.target.value)}
-                disabled={cancellationStoreLocked || savingCancellation}
-                className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition focus:border-rose-500 focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
-                required
-              >
-                <option value="" disabled>
-                  Selecione uma loja
-                </option>
-                {catalogs.stores.map((store) => (
-                  <option key={store.id} value={store.id}>
-                    {store.name}
-                    {store.status === "Inativa" ? " (inativa)" : ""}
-                  </option>
-                ))}
-              </select>
-              {cancellationStoreLocked ? (
-                <span className="text-xs font-medium text-slate-500">
-                  Remova os pacotes da lista para trocar de loja.
-                </span>
-              ) : null}
-            </label>
-
             <div className="mt-6 grid gap-3 sm:grid-cols-3">
               {[
-                ["1", "Loja e motivo"],
-                ["2", "Bipe os rastreios"],
-                ["3", "Cancele todos"],
+                ["1", "Bipe os rastreios"],
+                ["2", "Revise os pacotes"],
+                ["3", "Informe o motivo e finalize"],
               ].map(([step, label]) => (
                 <div
                   key={step}
@@ -1491,14 +1445,14 @@ export function BipagemForm() {
           {cancellationMode ? (
             <div className="mb-5 grid gap-4">
               <label className="grid gap-2 text-sm font-medium text-rose-900">
-                Justificativa geral do cancelamento
+                Justificativa geral (obrigatória ao finalizar)
                 <textarea
+                  ref={cancellationReasonRef}
                   value={cancellationReason}
                   onChange={(event) => setCancellationReason(event.target.value)}
                   disabled={savingCancellation}
                   className="min-h-24 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                  placeholder="Exemplo: pedido removido da expedição"
-                  required
+                  placeholder="Você pode bipar primeiro e preencher o motivo antes de finalizar"
                 />
               </label>
 
@@ -1639,6 +1593,28 @@ export function BipagemForm() {
                           Remover
                         </button>
                       </div>
+                      <label className="grid gap-1.5 text-xs font-semibold text-slate-700">
+                        Justificativa somente deste pacote (opcional)
+                        <textarea
+                          value={item.justificativa_individual}
+                          onChange={(event) => {
+                            const value = event.target.value;
+                            setPendingCancellations((current) =>
+                              current.map((pendingItem) =>
+                                pendingItem.pacote.id === item.pacote.id
+                                  ? {
+                                      ...pendingItem,
+                                      justificativa_individual: value,
+                                    }
+                                  : pendingItem,
+                              ),
+                            );
+                          }}
+                          disabled={savingCancellation}
+                          className="min-h-16 resize-y rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-normal text-slate-950 outline-none transition focus:border-rose-500 focus:bg-white focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+                          placeholder="Se preenchida, esta justificativa prevalece sobre a geral"
+                        />
+                      </label>
                     </div>
                   ))}
                 </div>
@@ -1671,8 +1647,8 @@ export function BipagemForm() {
       </form>
 
       {!cancellationMode ? (
-      <div className="grid min-h-0 gap-5 self-start xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[auto_minmax(0,1fr)]">
-        <div className="flex max-h-[680px] min-h-0 flex-col rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:max-h-[54vh]">
+      <div className="grid min-h-0 gap-5 self-start xl:sticky xl:top-5 xl:max-h-[calc(100dvh-2.5rem)] xl:grid-rows-[minmax(22rem,1fr)_auto]">
+        <div className="flex min-h-[24rem] max-h-[min(72dvh,52rem)] flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 xl:min-h-0 xl:max-h-none">
           <div className="mb-4 flex shrink-0 items-start justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
@@ -1713,7 +1689,7 @@ export function BipagemForm() {
                   {duplicateSessionCodeList.join(", ")}.
                 </FeedbackMessage>
               ) : null}
-              <div className="min-h-0 overflow-y-auto pr-1">
+              <div className="app-scroll-region min-h-40 flex-1 overflow-y-scroll pr-2 [scrollbar-gutter:stable]">
                 <ol className="space-y-2">
                   {visibleSessionPackages.map((item, index) => {
                     const isDuplicate = duplicateSessionCodes.has(
@@ -1724,7 +1700,7 @@ export function BipagemForm() {
                     return (
                       <li
                         key={item.id}
-                        className={`flex items-center justify-between gap-3 rounded-lg border px-3 py-3 ${
+                        className={`flex flex-col items-stretch gap-3 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${
                           isDuplicate
                             ? "border-rose-300 bg-rose-50"
                             : "border-slate-200"
@@ -1734,7 +1710,7 @@ export function BipagemForm() {
                           <span className="mr-3 text-sm font-semibold text-slate-400">
                             {packageNumber}.
                           </span>
-                          <span className="font-mono text-sm font-semibold text-slate-950">
+                          <span className="break-all font-mono text-sm font-semibold text-slate-950">
                             {item.codigo_rastreio}
                           </span>
                           {isDuplicate ? (
@@ -1743,7 +1719,7 @@ export function BipagemForm() {
                             </span>
                           ) : null}
                         </div>
-                        <div className="flex shrink-0 flex-wrap justify-end gap-2">
+                        <div className="grid shrink-0 grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:justify-end">
                           <button
                             type="button"
                             onClick={() => removeSessionPackage(item)}
@@ -2028,6 +2004,62 @@ export function BipagemForm() {
         }}
       />
 
+      {cancellationCandidates.length ? (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-slate-950/50 px-4 py-6"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="choose-cancellation-package-title"
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl sm:p-6">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">
+              Rastreio encontrado em mais de uma loja
+            </p>
+            <h2
+              id="choose-cancellation-package-title"
+              className="mt-2 text-xl font-bold text-slate-950"
+            >
+              Qual pacote deseja cancelar?
+            </h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">
+              Confira a loja e o marketplace. Nenhuma opção será escolhida
+              automaticamente.
+            </p>
+            <div className="mt-5 grid max-h-[min(55dvh,28rem)] gap-3 overflow-y-auto pr-1">
+              {cancellationCandidates.map((candidate, candidateIndex) => (
+                <button
+                  key={candidate.id}
+                  ref={candidateIndex === 0 ? firstCancellationCandidateRef : undefined}
+                  type="button"
+                  onClick={() => addPendingCancellation(candidate)}
+                  className="grid gap-1 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-left transition hover:border-rose-400 hover:bg-rose-50 focus:outline-none focus:ring-4 focus:ring-rose-100"
+                >
+                  <span className="text-base font-bold text-slate-950">
+                    {getCatalogStoreName(candidate.loja_id)}
+                  </span>
+                  <span className="text-sm font-semibold text-rose-700">
+                    {candidate.marketplace}
+                  </span>
+                  <span className="break-all font-mono text-xs text-slate-500">
+                    {candidate.codigo_rastreio}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setCancellationCandidates([]);
+                focusCodeField();
+              }}
+              className="mt-5 inline-flex min-h-11 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
+            >
+              Voltar sem adicionar
+            </button>
+          </div>
+        </div>
+      ) : null}
+
       <ConfirmDialog
         open={showFinalizeCancellationConfirm}
         title={`Cancelar ${pendingCancellations.length} ${
@@ -2036,8 +2068,8 @@ export function BipagemForm() {
         message={
           <div className="grid gap-2">
             <p>
-              Esta ação cancelará todos os rastreios da lista da loja{" "}
-              <strong>{getCatalogStoreName(selectedCancellationLojaId)}</strong>.
+              Esta ação cancelará todos os rastreios da lista, mesmo quando
+              pertencerem a lojas diferentes.
             </p>
             <p className="rounded-lg bg-rose-50 px-3 py-2 text-rose-800">
               Motivo: {cancellationReason.trim()}

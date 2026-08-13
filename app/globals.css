@@ -21,6 +21,7 @@
 
 html {
   background: var(--background);
+  min-width: 0;
   scroll-behavior: smooth;
 }
 
@@ -31,7 +32,26 @@ body {
     var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+  min-height: 100vh;
+  min-height: 100dvh;
+  min-width: 0;
+  overflow-x: hidden;
   text-rendering: optimizeLegibility;
+}
+
+@supports (overflow: clip) {
+  body {
+    overflow-x: clip;
+  }
+}
+
+main,
+section,
+article,
+form,
+fieldset,
+div {
+  min-width: 0;
 }
 
 button,
@@ -39,6 +59,17 @@ input,
 select,
 textarea {
   font: inherit;
+  max-width: 100%;
+  min-width: 0;
+}
+
+button,
+a {
+  overflow-wrap: anywhere;
+}
+
+textarea {
+  resize: vertical;
 }
 
 button,
@@ -60,19 +91,94 @@ textarea {
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgb(226 232 240 / 58%);
+  border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
+  border: 2px solid transparent;
   border-radius: 999px;
-  background: rgb(100 116 139 / 48%);
+  background: rgb(71 85 105 / 58%);
   background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgb(51 65 85 / 72%);
+}
+
+.app-scroll-region {
+  overscroll-behavior: contain;
+  scrollbar-color: rgb(71 85 105 / 58%) rgb(226 232 240 / 58%);
+  scrollbar-gutter: stable;
+}
+
+.app-scroll-region-x {
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  padding-bottom: 0.25rem;
+  scrollbar-color: rgb(71 85 105 / 58%) rgb(226 232 240 / 58%);
+  scrollbar-gutter: stable;
+}
+
+.app-auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 9rem), 1fr));
+}
+
+.app-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+}
+
+.app-panel {
+  border: 1px solid rgb(226 232 240 / 90%);
+  border-radius: 1rem;
+  background: rgb(255 255 255 / 94%);
+  box-shadow: 0 1px 2px rgb(15 23 42 / 5%), 0 12px 32px rgb(15 23 42 / 3%);
 }
 
 ::selection {
   background: #0f766e;
   color: white;
+}
+
+.romaneio-sheet {
+  container-type: inline-size;
+}
+
+.romaneio-tracking-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@container (min-width: 30rem) {
+  .romaneio-tracking-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 44rem) {
+  .romaneio-tracking-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@container (min-width: 64rem) {
+  .romaneio-tracking-grid[data-columns="5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 639px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -92,6 +198,11 @@ textarea {
   }
 }
 
+@page romaneio {
+  size: A4 portrait;
+  margin: 10mm;
+}
+
 @media print {
   aside,
   header,
@@ -101,6 +212,8 @@ textarea {
 
   body {
     background: white;
+    min-height: auto;
+    overflow: visible !important;
   }
 
   aside + div {
@@ -110,7 +223,15 @@ textarea {
   main {
     max-width: none !important;
     min-height: auto !important;
+    overflow: visible !important;
     padding: 0 !important;
+  }
+
+  .app-scroll-region,
+  .app-scroll-region-x {
+    max-height: none !important;
+    overflow: visible !important;
+    padding-bottom: 0 !important;
   }
 
   .romaneio-sheet > :first-child,
@@ -118,6 +239,22 @@ textarea {
   .romaneio-sheet footer {
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .romaneio-sheet {
+    container-type: normal;
+  }
+
+  .romaneio-document {
+    page: romaneio;
+  }
+
+  .romaneio-tracking-grid[data-columns="4"] {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .romaneio-tracking-grid[data-columns="5"] {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 
   .romaneio-page-break {

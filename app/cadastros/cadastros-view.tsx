@@ -291,7 +291,7 @@ function CatalogSection({
           </button>
         </form>
 
-        <div className="mt-3">
+        <div className="app-scroll-region mt-4 max-h-[min(30rem,52dvh)] overflow-y-auto pr-1">
           {items.length ? (
             <div className="grid gap-2">
               {items.map((item) => {
@@ -399,7 +399,7 @@ function ReportEmailSection({
           </button>
         </form>
 
-        <div className="mt-3">
+        <div className="app-scroll-region mt-4 max-h-[min(30rem,52dvh)] overflow-y-auto pr-1">
           {items.length ? (
             <div className="grid gap-2">
               {items.map((item) => {
@@ -664,7 +664,7 @@ export function CadastrosView() {
         </section>
       ) : null}
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid items-start gap-5 xl:grid-cols-2">
         <CatalogSection
           title="Lojas"
           description="Use para separar unidades, filiais ou operacoes."

@@ -8,8 +8,8 @@ import { AuthProvider, useAuth } from "@/app/_lib/auth-context";
 
 function FullScreenState({ children }: { children: ReactNode }) {
   return (
-    <div className="grid min-h-screen place-items-center px-4 text-slate-950">
-      <div className="w-full max-w-md rounded-2xl border border-white/80 bg-white/90 p-7 text-center shadow-xl shadow-slate-900/10 backdrop-blur">
+    <div className="grid min-h-dvh place-items-center px-4 py-6 text-slate-950">
+      <div className="w-full max-w-md rounded-2xl border border-white/80 bg-white/90 p-6 text-center shadow-xl shadow-slate-900/10 backdrop-blur sm:p-7">
         <div className="mx-auto grid size-14 place-items-center rounded-2xl bg-gradient-to-br from-teal-600 to-teal-800 text-sm font-bold tracking-wide text-white shadow-lg shadow-teal-900/20">
           SD
         </div>
@@ -68,8 +68,8 @@ function UserSessionBox() {
 
 function ProtectedAppShell({ children }: { children: ReactNode }) {
   return (
-    <div className="min-h-screen text-slate-950 lg:grid lg:grid-cols-[272px_minmax(0,1fr)]">
-      <aside className="sticky top-0 hidden h-screen flex-col border-r border-slate-200/80 bg-white/80 p-5 shadow-[8px_0_32px_rgba(15,23,42,0.035)] backdrop-blur-xl lg:flex">
+    <div className="min-h-dvh min-w-0 text-slate-950 xl:grid xl:grid-cols-[clamp(232px,18vw,272px)_minmax(0,1fr)]">
+      <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-white/80 p-4 shadow-[8px_0_32px_rgba(15,23,42,0.035)] backdrop-blur-xl xl:flex xl:p-5">
         <div className="flex items-center gap-3 px-2 py-2">
           <div className="grid size-11 place-items-center rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 text-sm font-bold tracking-wide text-white shadow-lg shadow-teal-900/20">
             SD
@@ -79,17 +79,19 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
             <p className="text-xs font-medium text-slate-500">Operação de pacotes</p>
           </div>
         </div>
-        <div className="mt-7 flex-1">
+        <div className="app-scroll-region mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
           <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-400">
             Menu principal
           </p>
           <Navigation />
         </div>
-        <UserSessionBox />
+        <div className="shrink-0 border-t border-slate-200/70 pt-4">
+          <UserSessionBox />
+        </div>
       </aside>
 
-      <div className="min-w-0">
-        <header className="sticky top-0 z-30 border-b border-slate-200/80 bg-white/90 px-4 py-3 shadow-sm backdrop-blur-xl lg:hidden">
+      <div className="min-w-0 overflow-x-clip">
+        <header className="app-scroll-region sticky top-0 z-30 max-h-[55dvh] overflow-y-auto border-b border-slate-200/80 bg-white/90 px-3 py-3 shadow-sm backdrop-blur-xl sm:px-4 xl:hidden">
           <div className="flex items-center justify-between gap-3">
             <div className="flex shrink-0 items-center gap-3">
               <div className="grid size-10 place-items-center rounded-xl bg-gradient-to-br from-teal-600 to-teal-800 text-xs font-bold text-white shadow-md shadow-teal-900/15">
@@ -106,7 +108,7 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
           <div className="mt-1 sm:hidden"><UserSessionBox /></div>
         </header>
 
-        <main className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 xl:px-10 xl:py-10">
+        <main className="mx-auto flex min-h-dvh min-w-0 w-full max-w-[1600px] flex-col gap-5 px-3 py-4 sm:gap-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8 2xl:px-10 2xl:py-10">
           {children}
         </main>
       </div>

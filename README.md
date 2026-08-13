@@ -90,6 +90,33 @@ As RPCs antigas permanecem disponíveis durante a transição. O frontend possui
 fallback temporário caso uma publicação automática anteceda a migration, mas o
 ganho completo de banco só passa a valer depois que ela for aplicada.
 
+## Migration do cancelamento sem seleção prévia de loja
+
+Depois da migration de desempenho, aplique
+`supabase/migrations/202608130001_cancelamento_sem_loja.sql`. Ela adiciona uma
+busca direcionada por rastreio em todas as lojas da conta e a RPC atômica de
+cancelamento com uma justificativa geral única. A busca continua isolada por
+`auth.uid()` e, se o mesmo código estiver finalizado em lojas diferentes, o
+frontend exige uma escolha explícita mostrando loja e marketplace.
+
+O frontend possui fallback temporário para evitar uma tela quebrada durante a
+publicação, mas dados legados formatados de outra maneira só ficam cobertos pela
+busca normalizada nova. Por isso, use esta ordem:
+
+1. fazer backup e aplicar `202608130001_cancelamento_sem_loja.sql`;
+2. publicar a aplicação;
+3. testar um código único, um código repetido entre lojas e um lote com motivo
+   geral mais uma justificativa individual;
+4. confirmar no histórico que todos receberam o motivo geral e que o motivo
+   individual, quando preenchido, é o texto específico exibido para o pacote.
+
+A migration não altera nem cancela dados existentes. A transação inteira é
+revertida se qualquer pacote não pertencer à conta, não estiver finalizado ou
+for alterado concorrentemente.
+
+O índice é criado dentro da transação e pode bloquear gravações brevemente em
+uma tabela grande. Aplique a migration em horário de menor movimento.
+
 ## Testes
 
 Os testes unitários e estruturais não acessam o Supabase:

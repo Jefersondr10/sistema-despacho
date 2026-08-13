@@ -77,12 +77,12 @@ function MultiSelectDropdown({
   const summary = summarizeSelection({ selected, options, allLabel });
 
   return (
-    <div className="relative grid gap-2 text-sm font-medium text-slate-700">
+    <div className="relative grid min-w-0 gap-2 text-sm font-medium text-slate-700">
       {label}
       <button
         type="button"
         onClick={() => onOpenChange(!open)}
-        className="flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-4 text-left text-sm font-semibold text-slate-950 shadow-sm transition hover:border-slate-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-100"
+        className="flex min-h-12 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-950 shadow-sm transition hover:border-slate-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-100 sm:px-4"
         aria-expanded={open}
       >
         <span className="min-w-0 truncate">{summary}</span>
@@ -92,7 +92,7 @@ function MultiSelectDropdown({
       </button>
 
       {open ? (
-        <div className="absolute left-0 right-0 top-full z-30 mt-2 max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
+        <div className="app-scroll-region absolute left-0 right-0 top-full z-30 mt-2 max-h-[min(18rem,48dvh)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
           <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
             <input
               type="checkbox"
@@ -114,7 +114,7 @@ function MultiSelectDropdown({
                 onChange={() => onToggleValue(option.value)}
                 className="size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
               />
-              <span className="min-w-0 truncate">{option.label}</span>
+              <span className="min-w-0 break-words">{option.label}</span>
             </label>
           ))}
         </div>
@@ -220,8 +220,8 @@ export function PackageFilters({
     }`;
 
   return (
-    <section className="no-print rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm shadow-slate-900/5 sm:p-6">
-      <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <section className="no-print min-w-0 rounded-2xl border border-slate-200/90 bg-white p-4 shadow-sm shadow-slate-900/5 sm:p-6">
+      <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-semibold text-slate-950">Filtros</h2>
           <p className="mt-1 text-sm text-slate-500">
@@ -231,16 +231,16 @@ export function PackageFilters({
         <button
           type="button"
           onClick={resetFilters}
-          className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950"
+          className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 sm:w-auto"
         >
           Limpar filtros
         </button>
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.1fr_1.4fr]">
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+      <div className="grid min-w-0 gap-4 2xl:grid-cols-[1.05fr_1.45fr]">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
           <h3 className="text-sm font-semibold text-slate-950">Data</h3>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+          <div className="app-auto-grid mt-3 gap-2">
             {[
               { label: "Dia atual", value: "today" },
               { label: "Dia específico", value: "single" },
@@ -304,11 +304,11 @@ export function PackageFilters({
           ) : null}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3 sm:p-4">
           <h3 className="text-sm font-semibold text-slate-950">
             Identificação
           </h3>
-          <div className="mt-3 grid gap-4 xl:grid-cols-3">
+          <div className="app-auto-grid mt-3 gap-4">
             <MultiSelectDropdown
               label="Loja"
               allLabel="Todas"
@@ -358,11 +358,11 @@ export function PackageFilters({
             : "xl:grid-cols-2"
         }`}
       >
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-center">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-center sm:p-4">
           {chipControls ? (
             <div className="grid justify-items-center gap-3 text-sm font-medium text-slate-700">
               Melhor Envio
-              <div className="mx-auto grid w-full max-w-sm gap-2 sm:grid-cols-3">
+              <div className="mx-auto grid w-full max-w-sm grid-cols-3 gap-2">
                 {[
                   { label: "Tudo", value: "todos" },
                   { label: "Sim", value: "sim" },
@@ -387,11 +387,11 @@ export function PackageFilters({
           ) : null}
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4 text-center">
+        <div className="min-w-0 rounded-xl border border-slate-200 bg-slate-50/80 p-3 text-center sm:p-4">
           {chipControls ? (
             <div className="grid justify-items-center gap-3 text-sm font-medium text-slate-700">
               Coleta/Postagem
-              <div className="mx-auto grid w-full max-w-sm gap-2 sm:grid-cols-3">
+              <div className="mx-auto grid w-full max-w-sm grid-cols-3 gap-2">
                 {[
                   { label: "Tudo", value: "todos" },
                   { label: "Coleta", value: "coleta" },

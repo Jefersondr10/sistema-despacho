@@ -280,7 +280,7 @@ export function RelatoriosView() {
           emailsManuais: manualEmails,
           assunto:
             mode === "romaneio"
-              ? "Romaneio de Entrega / Coleta"
+              ? "Romaneio de Pacotes"
               : "Relatório de Despacho",
           filtros: filters,
           filtrosResumo: filterSummary,
@@ -346,8 +346,8 @@ export function RelatoriosView() {
         onChange={setFilters}
       />
 
-      <section className="no-print overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
-        <div className="border-b border-slate-200 bg-gradient-to-r from-teal-50/80 to-white p-5 sm:p-6">
+      <section className="no-print min-w-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
+        <div className="border-b border-slate-200 bg-gradient-to-r from-teal-50/80 to-white p-4 sm:p-6">
           <h2 className="text-lg font-bold text-slate-950">
             Envio por e-mail
           </h2>
@@ -356,7 +356,7 @@ export function RelatoriosView() {
           </p>
         </div>
 
-        <div className="grid gap-5 p-5 sm:p-6">
+        <div className="grid min-w-0 gap-5 p-4 sm:p-6">
           {sendNotice ? (
             <FeedbackMessage tone={sendNotice.tone}>{sendNotice.text}</FeedbackMessage>
           ) : null}
@@ -378,7 +378,7 @@ export function RelatoriosView() {
                   !visibleRecipients.length || recipientsLoadingView || sendingEmail
                 }
                 onClick={toggleAllRecipients}
-                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 sm:w-auto"
               >
                 {allRecipientsSelected ? "Limpar seleção" : "Selecionar todos"}
               </button>
@@ -389,7 +389,7 @@ export function RelatoriosView() {
                 Carregando destinatários...
               </div>
             ) : visibleRecipients.length ? (
-              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+              <div className="app-card-grid gap-2">
                 {visibleRecipients.map((item) => {
                   const checked = selectedRecipientIds.includes(item.id);
 
@@ -410,10 +410,10 @@ export function RelatoriosView() {
                         className="mt-1 size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
                       />
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-semibold text-slate-950">
+                        <span className="block break-words text-sm font-semibold text-slate-950">
                           {item.nome?.trim() || "Sem apelido"}
                         </span>
-                        <span className="mt-1 block truncate text-sm text-slate-500">
+                        <span className="mt-1 block break-all text-sm text-slate-500">
                           {item.email}
                         </span>
                       </span>
@@ -458,9 +458,9 @@ export function RelatoriosView() {
         </div>
       </section>
 
-      <section className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
-        <div className="flex flex-col gap-4 border-b border-slate-200 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
-          <div>
+      <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5 print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
+        <div className="no-print flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-6 lg:flex-row lg:items-center lg:justify-between">
+          <div className="min-w-0">
             <h2 className="text-lg font-semibold text-slate-950">
               Tipo de relatório
             </h2>
@@ -469,8 +469,8 @@ export function RelatoriosView() {
             </p>
           </div>
 
-          <div className="no-print flex flex-col gap-3 sm:flex-row">
-            <div className="inline-grid grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-1 sm:grid-cols-4">
+          <div className="no-print flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap">
+            <div className="grid min-w-0 grid-cols-2 rounded-xl border border-slate-200 bg-slate-50 p-1 sm:grid-cols-4">
               {[
                 { label: "Resumido", value: "resumido" },
                 { label: "Detalhado", value: "detalhado" },
@@ -501,61 +501,64 @@ export function RelatoriosView() {
           </div>
         </div>
 
-        <div className="print-report-header border-b border-slate-100 p-5">
-          <h2 className="text-xl font-semibold text-slate-950">
-            {mode === "romaneio"
-              ? "Romaneio de Entrega / Coleta"
-              : "Relatório de Despacho"}
-          </h2>
-          <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
-            <p>
-              <span className="font-semibold text-slate-700">Loja:</span>{" "}
-              {filterSummary.loja}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-700">Data:</span>{" "}
-              {filterSummary.data}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-700">Marketplace:</span>{" "}
-              {filterSummary.marketplace}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-700">Melhor Envio:</span>{" "}
-              {filterSummary.melhorEnvio}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-700">
-                Transportadora:
-              </span>{" "}
-              {filterSummary.transportadora}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-700">
-                Coleta/Postagem:
-              </span>{" "}
-              {filterSummary.tipoOperacao}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-700">
-                Código do lote:
-              </span>{" "}
-              {filterSummary.codigoLote}
-            </p>
-          </div>
-        </div>
+        {mode !== "romaneio" ? (
+          <>
+            <div className="print-report-header border-b border-slate-100 p-4 sm:p-5">
+              <h2 className="text-xl font-semibold text-slate-950">
+                Relatório de Despacho
+              </h2>
+              <div className="mt-4 grid gap-3 text-sm md:grid-cols-3">
+                <p>
+                  <span className="font-semibold text-slate-700">Loja:</span>{" "}
+                  {filterSummary.loja}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">Data:</span>{" "}
+                  {filterSummary.data}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">
+                    Marketplace:
+                  </span>{" "}
+                  {filterSummary.marketplace}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">
+                    Melhor Envio:
+                  </span>{" "}
+                  {filterSummary.melhorEnvio}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">
+                    Transportadora:
+                  </span>{" "}
+                  {filterSummary.transportadora}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">
+                    Coleta/Postagem:
+                  </span>{" "}
+                  {filterSummary.tipoOperacao}
+                </p>
+                <p>
+                  <span className="font-semibold text-slate-700">
+                    Código do lote:
+                  </span>{" "}
+                  {filterSummary.codigoLote}
+                </p>
+              </div>
+            </div>
 
-        <div className="border-b border-slate-100 px-5 py-3 text-sm text-slate-500">
-          Total geral: {filteredPackages.length} pacotes.
-        </div>
+            <div className="border-b border-slate-100 px-5 py-3 text-sm text-slate-500">
+              Total geral: {filteredPackages.length} pacotes.
+            </div>
+          </>
+        ) : null}
 
         {mode === "romaneio" ? (
-          <div className="p-5">
+          <div className="p-5 print:p-0">
             {romaneioGroups.length ? (
-              <RomaneioDocument
-                groups={romaneioGroups}
-                totalLabel="Total geral"
-              />
+              <RomaneioDocument groups={romaneioGroups} />
             ) : (
               <EmptyState>Nenhum pacote para gerar romaneio.</EmptyState>
             )}
@@ -565,7 +568,7 @@ export function RelatoriosView() {
             <h3 className="mb-4 text-base font-semibold text-slate-950">
               Resumo agrupado
             </h3>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="app-card-grid gap-4">
               {summary.map((item) => (
                 <article
                   key={item.id}
@@ -629,7 +632,7 @@ export function RelatoriosView() {
         )}
 
         {mode !== "resumido" && mode !== "romaneio" && filteredPackages.length ? (
-          <div className="overflow-x-auto border-t border-slate-100">
+          <div className="app-scroll-region-x border-t border-slate-100">
             <table className="w-full min-w-[1220px] text-left text-sm">
               <thead className="bg-slate-50 text-xs uppercase tracking-[0.12em] text-slate-500">
                 <tr>
