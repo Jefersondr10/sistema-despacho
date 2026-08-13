@@ -35,13 +35,13 @@ export function RomaneioLoteView({ loteId }: { loteId: string }) {
     : null;
 
   return (
-    <section className="grid gap-5">
-      <div className="no-print flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+    <section className="mx-auto grid w-full max-w-[1120px] gap-3">
+      <div className="no-print flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-3 shadow-sm sm:p-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-950">
+          <h1 className="text-xl font-semibold text-slate-950">
             Romaneio por lote
           </h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-0.5 text-xs text-slate-500 sm:text-sm">
             {batch
               ? `${getBatchCode(batch)} - ${formatPackageDate(
                   batch.finalizado_em ?? batch.criado_em,
@@ -53,7 +53,7 @@ export function RomaneioLoteView({ loteId }: { loteId: string }) {
           type="button"
           onClick={() => window.print()}
           disabled={!group || loading}
-          className="inline-flex min-h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-300"
         >
           Imprimir
         </button>

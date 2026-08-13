@@ -102,6 +102,7 @@ export function BipagemForm() {
   const codeRef = useRef<HTMLInputElement>(null);
   const cancellationReasonRef = useRef<HTMLTextAreaElement>(null);
   const firstCancellationCandidateRef = useRef<HTMLButtonElement>(null);
+  const cancellationPanelRef = useRef<HTMLFormElement>(null);
   const { user } = useAuth();
   const {
     catalogs,
@@ -808,6 +809,14 @@ export function BipagemForm() {
       text: "Cancelamento em lote aberto. Bipe os rastreios e informe o motivo geral ao finalizar.",
     });
     focusCodeField();
+    window.setTimeout(
+      () =>
+        cancellationPanelRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        }),
+      0,
+    );
   }
 
   function requestExitCancellationMode() {
@@ -1211,13 +1220,7 @@ export function BipagemForm() {
   );
 
   return (
-    <section
-      className={`grid min-w-0 items-start gap-5 p-0 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7 ${
-        cancellationMode
-          ? "border border-rose-200 bg-rose-50/70 p-4"
-          : ""
-      }`}
-    >
+    <section className="grid min-w-0 items-start gap-5 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7">
       {loading || loadingOpenSession ? (
         <div className="xl:col-span-2">
           <FeedbackMessage tone="neutral">
@@ -1232,38 +1235,27 @@ export function BipagemForm() {
         </div>
       ) : null}
 
-      {cancellationMode ? (
-        <div className="xl:col-span-2 rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-6 py-5 text-rose-950 shadow-sm">
-          <p className="text-lg font-bold tracking-normal">
-            Cancelar pacotes finalizados
-          </p>
-          <p className="mt-1 text-sm font-medium leading-6">
-            Bipe todos os rastreios, confira a lista e confirme o cancelamento
-            em uma única etapa.
-          </p>
-        </div>
-      ) : null}
-
       <form
+        ref={cancellationPanelRef}
         onSubmit={handleSubmit}
         noValidate
-        className={`grid min-w-0 gap-5 self-start ${
+        className={`grid min-w-0 gap-4 self-start ${
           cancellationMode
-            ? "xl:col-span-2 xl:grid-cols-[minmax(320px,0.75fr)_minmax(480px,1.25fr)] xl:items-start"
+            ? "mx-auto w-full max-w-6xl scroll-mt-24 xl:col-span-2 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)] xl:items-start"
             : "xl:sticky xl:top-5 xl:h-[calc(100vh-2.5rem)] xl:grid-rows-[minmax(0,1fr)_auto]"
         }`}
       >
         {cancellationMode ? (
-          <div className="rounded-2xl border border-rose-200 bg-white p-6 shadow-sm xl:min-h-0 xl:overflow-y-auto">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div className="rounded-2xl border border-rose-200 bg-white p-4 shadow-sm sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs font-bold uppercase tracking-[0.16em] text-rose-600">
                   Cancelamento em lote
                 </p>
-                <h2 className="mt-2 text-xl font-bold text-slate-950">
+                <h2 className="mt-1.5 text-lg font-bold text-slate-950">
                   Cancelar pacotes finalizados
                 </h2>
-                <p className="mt-2 max-w-xl text-sm leading-6 text-slate-600">
+                <p className="mt-1.5 max-w-xl text-sm leading-5 text-slate-600">
                   Bipe quantos pacotes precisar, sem escolher a loja. Se um
                   rastreio existir em mais de uma loja, você escolhe o correto.
                   Nada será cancelado até a confirmação final.
@@ -1272,25 +1264,25 @@ export function BipagemForm() {
               <Badge tone="red">{pendingCancellations.length} selecionados</Badge>
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <ol className="mt-4 flex flex-wrap gap-2">
               {[
                 ["1", "Bipe os rastreios"],
                 ["2", "Revise os pacotes"],
                 ["3", "Informe o motivo e finalize"],
               ].map(([step, label]) => (
-                <div
+                <li
                   key={step}
-                  className="flex items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
                 >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-full bg-slate-950 text-xs font-bold text-white">
+                  <span className="grid size-6 shrink-0 place-items-center rounded-full bg-slate-950 text-[0.65rem] font-bold text-white">
                     {step}
                   </span>
-                  <span className="text-sm font-semibold text-slate-700">
+                  <span className="text-xs font-semibold text-slate-700">
                     {label}
                   </span>
-                </div>
+                </li>
               ))}
-            </div>
+            </ol>
           </div>
         ) : (
         <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] xl:min-h-0 xl:overflow-y-auto">
@@ -1449,12 +1441,14 @@ export function BipagemForm() {
         )}
 
         <div
-          className={`rounded-2xl border bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] xl:sticky xl:bottom-5 xl:z-10 ${
-            cancellationMode ? "border-rose-300" : "border-slate-200"
+          className={`rounded-2xl border bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] sm:p-5 ${
+            cancellationMode
+              ? "border-rose-300"
+              : "border-slate-200 xl:sticky xl:bottom-5 xl:z-10"
           }`}
         >
           {cancellationMode ? (
-            <div className="mb-5 grid gap-4">
+            <div className="mb-4 grid gap-3">
               <label className="grid gap-2 text-sm font-medium text-rose-900">
                 Justificativa geral (obrigatória ao finalizar)
                 <textarea
@@ -1462,7 +1456,7 @@ export function BipagemForm() {
                   value={cancellationReason}
                   onChange={(event) => setCancellationReason(event.target.value)}
                   disabled={savingCancellation}
-                  className="min-h-24 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                  className="min-h-20 rounded-md border border-rose-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none transition focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
                   placeholder="Você pode bipar primeiro e preencher o motivo antes de finalizar"
                 />
               </label>
@@ -1474,10 +1468,10 @@ export function BipagemForm() {
             {cancellationMode ? "Rastreio finalizado" : "Código do pacote"}
             <input
               ref={codeRef}
-              className={`min-h-20 rounded-xl border-2 bg-white px-5 font-mono text-2xl font-bold tracking-wide text-slate-950 outline-none transition placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 ${
+              className={`rounded-xl border-2 bg-white px-5 font-mono text-2xl font-bold tracking-wide text-slate-950 outline-none transition placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 ${
                 cancellationMode
-                  ? "border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                  : "border-slate-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+                  ? "min-h-16 border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                  : "min-h-20 border-slate-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
               }`}
               placeholder={
                 cancellationMode
@@ -1490,7 +1484,13 @@ export function BipagemForm() {
             />
           </label>
 
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+          <div
+            className={`mt-4 grid gap-3 ${
+              cancellationMode
+                ? "sm:grid-cols-3"
+                : "sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"
+            }`}
+          >
             <button
               type="submit"
               disabled={submitDisabled}
@@ -1565,7 +1565,7 @@ export function BipagemForm() {
           ) : null}
 
           {cancellationMode ? (
-            <div className="mt-5 rounded-lg border border-rose-200 bg-rose-50 p-4">
+            <div className="mt-4 rounded-lg border border-rose-200 bg-rose-50 p-3">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-sm font-semibold text-rose-950">
                   Pacotes para cancelar
@@ -1574,7 +1574,7 @@ export function BipagemForm() {
               </div>
 
               {pendingCancellations.length ? (
-                <div className="mt-3 space-y-3">
+                <div className="app-scroll-region mt-3 max-h-[min(40dvh,26rem)] space-y-3 overflow-y-auto pr-1">
                   {pendingCancellations.map((item) => (
                     <div
                       key={item.pacote.id}
@@ -1630,11 +1630,9 @@ export function BipagemForm() {
                   ))}
                 </div>
               ) : (
-                <div className="mt-3">
-                  <EmptyState>
-                    Nenhum pacote na lista. Bipe um pacote para preparar o
-                    cancelamento.
-                  </EmptyState>
+                <div className="mt-3 rounded-lg border border-dashed border-rose-200 bg-white px-4 py-3 text-center text-sm leading-5 text-slate-600">
+                  Nenhum pacote na lista. Bipe um pacote para preparar o
+                  cancelamento.
                 </div>
               )}
             </div>
