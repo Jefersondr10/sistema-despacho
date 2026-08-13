@@ -92,10 +92,10 @@ function parseManualEmails(value: string) {
 }
 
 export function RelatoriosView() {
-  const { session } = useAuth();
+  const { session, user } = useAuth();
   const loadRecipientsRequestIdRef = useRef(0);
   const { catalogs, packages, batches, loading, error } =
-    useSupabaseDispatchData();
+    useSupabaseDispatchData("relatorios");
   const [mode, setMode] = useState<ReportMode>("resumido");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const [recipients, setRecipients] = useState<RelatorioDestinatarioRow[]>([]);
@@ -109,8 +109,18 @@ export function RelatoriosView() {
     () => filterPackages(packages, filters),
     [packages, filters],
   );
-  const summary = getReportSummary(filteredPackages, catalogs.stores);
-  const filterSummary = getFilterSummary(filters, catalogs.stores);
+  const databaseContext = useMemo(
+    () => ({ userId: user?.id }),
+    [user?.id],
+  );
+  const summary = useMemo(
+    () => getReportSummary(filteredPackages, catalogs.stores),
+    [catalogs.stores, filteredPackages],
+  );
+  const filterSummary = useMemo(
+    () => getFilterSummary(filters, catalogs.stores),
+    [catalogs.stores, filters],
+  );
   const batchesById = useMemo(
     () => new Map(batches.map((batch) => [batch.id, batch])),
     [batches],
@@ -179,7 +189,10 @@ export function RelatoriosView() {
     setRecipientsError("");
 
     try {
-      const rows = await getRelatorioDestinatarios();
+      const rows = await getRelatorioDestinatarios(
+        undefined,
+        databaseContext,
+      );
       if (!isCurrentRequest()) {
         return;
       }
@@ -199,7 +212,7 @@ export function RelatoriosView() {
         setRecipientsLoading(false);
       }
     }
-  }, []);
+  }, [databaseContext]);
 
   useEffect(() => {
     let cancelled = false;

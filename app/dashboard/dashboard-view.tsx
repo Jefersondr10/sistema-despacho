@@ -24,7 +24,7 @@ import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
 export function DashboardView() {
   const { catalogs, packages, movements: storedMovements, loading, error } =
-    useSupabaseDispatchData();
+    useSupabaseDispatchData("dashboard");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),

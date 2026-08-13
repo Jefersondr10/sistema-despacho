@@ -11,7 +11,7 @@ function getBatchCode(batch: { id: string; codigo_lote?: string | null }) {
 
 export function RomaneioLoteView({ loteId }: { loteId: string }) {
   const { catalogs, allPackages, batches, loading, error } =
-    useSupabaseDispatchData();
+    useSupabaseDispatchData("romaneio", loteId);
   const batch = batches.find((item) => item.id === loteId);
   const packages = allPackages.filter((item) => item.lote_id === loteId);
 

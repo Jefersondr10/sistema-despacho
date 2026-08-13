@@ -17,12 +17,22 @@ import {
 } from "@/app/_lib/mock-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
+const CANCELLATION_PAGE_SIZE = 100;
+
 export function PacotesCanceladosView() {
-  const { catalogs, cancellations, loading, error } = useSupabaseDispatchData();
+  const { catalogs, cancellations, loading, error } =
+    useSupabaseDispatchData("cancelados");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
+  const [visibleCancellationCount, setVisibleCancellationCount] = useState(
+    CANCELLATION_PAGE_SIZE,
+  );
   const filteredCancellations = useMemo(
     () => filterCancellations(cancellations, filters),
     [cancellations, filters],
+  );
+  const visibleCancellations = useMemo(
+    () => filteredCancellations.slice(0, visibleCancellationCount),
+    [filteredCancellations, visibleCancellationCount],
   );
 
   return (
@@ -42,7 +52,10 @@ export function PacotesCanceladosView() {
         carriers={catalogs.carriers}
         showSearch
         searchLabel="Buscar pacote cancelado"
-        onChange={setFilters}
+        onChange={(nextFilters) => {
+          setVisibleCancellationCount(CANCELLATION_PAGE_SIZE);
+          setFilters(nextFilters);
+        }}
       />
 
       <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -60,7 +73,7 @@ export function PacotesCanceladosView() {
 
         {filteredCancellations.length ? (
           <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3">
-            {filteredCancellations.map((item) => (
+            {visibleCancellations.map((item) => (
               <article
                 key={item.id}
                 className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -117,6 +130,23 @@ export function PacotesCanceladosView() {
                 </div>
               </article>
             ))}
+            {visibleCancellations.length < filteredCancellations.length ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setVisibleCancellationCount((current) =>
+                    Math.min(
+                      current + CANCELLATION_PAGE_SIZE,
+                      filteredCancellations.length,
+                    ),
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 md:col-span-2 xl:col-span-3"
+              >
+                Mostrar mais cancelamentos ({visibleCancellations.length} de{" "}
+                {filteredCancellations.length})
+              </button>
+            ) : null}
           </div>
         ) : (
           <div className="p-5">

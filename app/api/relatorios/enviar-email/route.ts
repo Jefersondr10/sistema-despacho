@@ -379,7 +379,7 @@ export async function POST(request: Request) {
 
   const databaseContext: DatabaseContext = {
     supabase: authenticatedClient,
-    accessToken: token,
+    userId: userData.user.id,
   };
 
   let payload: unknown;

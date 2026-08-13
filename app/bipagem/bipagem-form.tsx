@@ -21,6 +21,7 @@ import {
   getOperationLabel,
   normalizeTrackingCode,
 } from "@/app/_lib/mock-data";
+import { useAuth } from "@/app/_lib/auth-context";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 import {
   adicionarItemSessaoBipagem,
@@ -53,12 +54,54 @@ const DUPLICATE_SESSION_WARNING =
 const DUPLICATE_FINALIZE_MESSAGE =
   "Não é possível finalizar a bipagem com pacotes duplicados. Exclua os pacotes repetidos antes de finalizar.";
 
+const BATCH_HISTORY_PAGE_SIZE = 40;
+const BATCH_PACKAGE_PAGE_SIZE = 100;
+const SESSION_PACKAGE_PAGE_SIZE = 200;
+
+function mapPendingItemToPackage(
+  item: ItemSessaoBipagemRow,
+  {
+    sessaoId,
+    lojaId,
+    marketplace,
+    melhorEnvio,
+    transportadora,
+    tipoOperacao,
+  }: {
+    sessaoId: string;
+    lojaId: string;
+    marketplace: string;
+    melhorEnvio: boolean;
+    transportadora: string | null;
+    tipoOperacao: OperationType;
+  },
+): DispatchPackage {
+  return {
+    id: item.id,
+    lote_id: sessaoId,
+    loja_id: lojaId,
+    codigo_rastreio: item.codigo_normalizado,
+    marketplace,
+    melhor_envio: melhorEnvio,
+    transportadora,
+    tipo_operacao: tipoOperacao,
+    status: "Pendente na sessão",
+    data_hora_bipagem: item.criado_em,
+    criado_em: item.criado_em,
+  };
+}
+
+function getStoreTrackingKey(storeId: string, trackingCode: string) {
+  return `${storeId}\u0000${normalizeTrackingCode(trackingCode)}`;
+}
+
 function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
 export function BipagemForm() {
   const codeRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
   const {
     catalogs,
     packages,
@@ -68,14 +111,13 @@ export function BipagemForm() {
     loading,
     error,
     reload,
-  } = useSupabaseDispatchData();
+  } = useSupabaseDispatchData("bipagem");
   const activePackages = packages;
   const [lojaId, setLojaId] = useState("");
   const [marketplace, setMarketplace] = useState("");
   const [tipoOperacao, setTipoOperacao] = useState<OperationType | "">("");
   const [melhorEnvio, setMelhorEnvio] = useState(false);
   const [transportadora, setTransportadora] = useState("");
-  const [codigoRastreio, setCodigoRastreio] = useState("");
   const [activeBatchId, setActiveBatchId] = useState("");
   const [notice, setNotice] = useState<Notice | null>(null);
   const [sessionPackages, setSessionPackages] = useState<DispatchPackage[]>([]);
@@ -103,15 +145,32 @@ export function BipagemForm() {
   const [checkingPackage, setCheckingPackage] = useState(false);
   const [savingSession, setSavingSession] = useState(false);
   const [savingCancellation, setSavingCancellation] = useState(false);
+  const [visibleBatchCount, setVisibleBatchCount] = useState(
+    BATCH_HISTORY_PAGE_SIZE,
+  );
+  const [visibleSelectedBatchPackageCount, setVisibleSelectedBatchPackageCount] =
+    useState(BATCH_PACKAGE_PAGE_SIZE);
+  const [visibleSessionPackageCount, setVisibleSessionPackageCount] = useState(
+    SESSION_PACKAGE_PAGE_SIZE,
+  );
 
-  const activeStores = catalogs.stores.filter(
-    (item) => item.status !== "Inativa",
+  const databaseContext = useMemo(
+    () => ({ userId: user?.id }),
+    [user?.id],
   );
-  const activeMarketplaces = catalogs.marketplaces.filter(
-    (item) => item.status !== "Inativo",
+
+  const activeStores = useMemo(
+    () => catalogs.stores.filter((item) => item.status !== "Inativa"),
+    [catalogs.stores],
   );
-  const activeCarriers = catalogs.carriers.filter(
-    (item) => item.status !== "Inativa",
+  const activeMarketplaces = useMemo(
+    () =>
+      catalogs.marketplaces.filter((item) => item.status !== "Inativo"),
+    [catalogs.marketplaces],
+  );
+  const activeCarriers = useMemo(
+    () => catalogs.carriers.filter((item) => item.status !== "Inativa"),
+    [catalogs.carriers],
   );
   const sessionOpen = Boolean(activeBatchId);
   const selectedLojaId =
@@ -146,10 +205,61 @@ export function BipagemForm() {
   const selectedBatch = sortedBatches.find(
     (batch) => batch.id === selectedHistoryBatchId,
   );
-  const selectedBatchPackages = selectedBatch
-    ? allPackages.filter((item) => item.lote_id === selectedBatch.id)
-    : [];
-  const duplicateSessionCodes = useMemo(() => {
+  const { allPackageByStoreAndCode, packagesByBatchId } = useMemo(() => {
+    const packageByStoreAndCode = new Map<string, DispatchPackage>();
+    const packageGroups = new Map<string, DispatchPackage[]>();
+
+    for (const item of allPackages) {
+      const lookupKey = getStoreTrackingKey(item.loja_id, item.codigo_rastreio);
+      if (!packageByStoreAndCode.has(lookupKey)) {
+        packageByStoreAndCode.set(lookupKey, item);
+      }
+
+      const batchPackages = packageGroups.get(item.lote_id) ?? [];
+      batchPackages.push(item);
+      packageGroups.set(item.lote_id, batchPackages);
+    }
+
+    return {
+      allPackageByStoreAndCode: packageByStoreAndCode,
+      packagesByBatchId: packageGroups,
+    };
+  }, [allPackages]);
+  const activePackageByStoreAndCode = useMemo(() => {
+    const index = new Map<string, DispatchPackage>();
+
+    for (const item of activePackages) {
+      const lookupKey = getStoreTrackingKey(item.loja_id, item.codigo_rastreio);
+      if (!index.has(lookupKey)) {
+        index.set(lookupKey, item);
+      }
+    }
+
+    return index;
+  }, [activePackages]);
+  const canceledPackageCodes = useMemo(
+    () =>
+      new Set(
+        cancellations.map((item) =>
+          getStoreTrackingKey(item.loja_id, item.codigo_pacote),
+        ),
+      ),
+    [cancellations],
+  );
+  const selectedBatchPackages = useMemo(
+    () =>
+      selectedBatch ? packagesByBatchId.get(selectedBatch.id) ?? [] : [],
+    [packagesByBatchId, selectedBatch],
+  );
+  const visibleBatches = useMemo(
+    () => sortedBatches.slice(0, visibleBatchCount),
+    [sortedBatches, visibleBatchCount],
+  );
+  const visibleSelectedBatchPackages = useMemo(
+    () => selectedBatchPackages.slice(0, visibleSelectedBatchPackageCount),
+    [selectedBatchPackages, visibleSelectedBatchPackageCount],
+  );
+  const sessionCodeCounts = useMemo(() => {
     const counts = new Map<string, number>();
 
     for (const item of sessionPackages) {
@@ -157,29 +267,31 @@ export function BipagemForm() {
       counts.set(normalizedCode, (counts.get(normalizedCode) ?? 0) + 1);
     }
 
-    return new Set(
-      Array.from(counts)
-        .filter(([, count]) => count > 1)
-        .map(([code]) => code),
-    );
+    return counts;
   }, [sessionPackages]);
+  const sessionNormalizedCodes = useMemo(
+    () => new Set(sessionCodeCounts.keys()),
+    [sessionCodeCounts],
+  );
+  const duplicateSessionCodes = useMemo(
+    () =>
+      new Set(
+        Array.from(sessionCodeCounts)
+          .filter(([, count]) => count > 1)
+          .map(([code]) => code),
+      ),
+    [sessionCodeCounts],
+  );
   const duplicateSessionCodeList = useMemo(
     () => Array.from(duplicateSessionCodes).sort(),
     [duplicateSessionCodes],
   );
-  const sessionPackageOrder = useMemo(() => {
-    return new Map(
-      [...sessionPackages]
-        .sort(
-          (first, second) =>
-            first.data_hora_bipagem.localeCompare(second.data_hora_bipagem) ||
-            first.id.localeCompare(second.id),
-        )
-        .map((item, index) => [item.id, index + 1]),
-    );
-  }, [sessionPackages]);
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
   const latestSessionPackage = sessionPackages[0] ?? null;
+  const visibleSessionPackages = useMemo(
+    () => sessionPackages.slice(0, visibleSessionPackageCount),
+    [sessionPackages, visibleSessionPackageCount],
+  );
   const submitDisabled =
     loading ||
     loadingOpenSession ||
@@ -207,7 +319,7 @@ export function BipagemForm() {
 
       setLoadingOpenSession(true);
 
-      void getSessaoBipagemAbertaComItens()
+      void getSessaoBipagemAbertaComItens(databaseContext)
         .then((openSession) => {
         if (cancelled) {
           return;
@@ -252,7 +364,7 @@ export function BipagemForm() {
     return () => {
       cancelled = true;
     };
-  }, [loading]);
+  }, [databaseContext, loading]);
 
   function getCatalogStoreName(id: string) {
     return catalogs.stores.find((store) => store.id === id)?.name ?? id;
@@ -264,6 +376,11 @@ export function BipagemForm() {
 
   function openBatchRomaneio(batchId: string) {
     window.open(`/romaneio/${batchId}`, "_blank", "noopener,noreferrer");
+  }
+
+  function openBatchHistory(batchId: string) {
+    setVisibleSelectedBatchPackageCount(BATCH_PACKAGE_PAGE_SIZE);
+    setSelectedHistoryBatchId(batchId);
   }
 
   function getMarketplaceIdByName(name: string) {
@@ -285,23 +402,14 @@ export function BipagemForm() {
     );
   }
 
-  function mapSessionItemsToPackages(
-    itens: ItemSessaoBipagemRow[],
-    sessaoId = activeBatchId,
-  ): DispatchPackage[] {
-    return itens.map((item) => ({
-      id: item.id,
-      lote_id: sessaoId,
-      loja_id: selectedLojaId,
-      codigo_rastreio: item.codigo_normalizado,
-      marketplace: selectedMarketplace,
-      melhor_envio: melhorEnvio,
-      transportadora: melhorEnvio ? transportadora : null,
-      tipo_operacao: tipoOperacao || "postagem",
-      status: "Pendente na sessão",
-      data_hora_bipagem: item.criado_em,
-      criado_em: item.criado_em,
-    }));
+  function getCodeFieldValue() {
+    return codeRef.current?.value.trim() ?? "";
+  }
+
+  function clearCodeField() {
+    if (codeRef.current) {
+      codeRef.current.value = "";
+    }
   }
 
   function focusCodeField() {
@@ -316,7 +424,8 @@ export function BipagemForm() {
     setTipoOperacao("");
     setMelhorEnvio(false);
     setTransportadora("");
-    setCodigoRastreio("");
+    setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+    clearCodeField();
   }
 
   function handleMelhorEnvioChange(active: boolean) {
@@ -397,15 +506,18 @@ export function BipagemForm() {
     }
 
     const timestamp = nowIso();
-    const sessao = await createSessaoBipagem({
-      loja_id: selectedLojaId,
-      marketplace_id: selectedMarketplaceItem.id,
-      tipo_operacao: selectedOperation,
-      melhor_envio: melhorEnvio,
-      transportadora_id: melhorEnvio ? selectedCarrierItem?.id ?? null : null,
-      status: "aberta",
-      iniciada_em: timestamp,
-    });
+    const sessao = await createSessaoBipagem(
+      {
+        loja_id: selectedLojaId,
+        marketplace_id: selectedMarketplaceItem.id,
+        tipo_operacao: selectedOperation,
+        melhor_envio: melhorEnvio,
+        transportadora_id: melhorEnvio ? selectedCarrierItem?.id ?? null : null,
+        status: "aberta",
+        iniciada_em: timestamp,
+      },
+      databaseContext,
+    );
 
     setActiveBatchId(sessao.id);
 
@@ -415,7 +527,7 @@ export function BipagemForm() {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const code = codigoRastreio.trim();
+    const code = getCodeFieldValue();
     if (cancellationMode) {
       void cancelPackageByCode(code);
       return;
@@ -430,16 +542,16 @@ export function BipagemForm() {
 
     const selectedOperation = tipoOperacao as OperationType;
     const normalizedCode = normalizeTrackingCode(code);
-    const duplicatedInSession = sessionPackages.some(
-      (item) => normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
-    );
+    const duplicatedInSession = sessionNormalizedCodes.has(normalizedCode);
 
     let duplicatedSavedPackage = null;
     setCheckingPackage(true);
     try {
-      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(normalizedCode, {
-        loja_id: selectedLojaId,
-      });
+      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(
+        normalizedCode,
+        { loja_id: selectedLojaId },
+        databaseContext,
+      );
     } catch (error) {
       setNotice({
         type: "danger",
@@ -456,7 +568,7 @@ export function BipagemForm() {
         type: "danger",
         text: "Pacote duplicado: este código já foi bipado em outro lote.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -465,21 +577,56 @@ export function BipagemForm() {
 
     try {
       const sessaoId = await ensureOpenSession(selectedOperation);
-      const itens = await adicionarItemSessaoBipagem({
-        sessao_id: sessaoId,
-        codigo: normalizedCode,
-      });
+      const itens = await adicionarItemSessaoBipagem(
+        {
+          sessao_id: sessaoId,
+          codigo: normalizedCode,
+        },
+        databaseContext,
+      );
+      const addedItem = itens[0];
 
-      setSessionPackages(mapSessionItemsToPackages(itens, sessaoId));
+      if (!addedItem) {
+        throw new Error("O pacote foi salvo, mas a sessao nao retornou o item.");
+      }
+
+      let serverDetectedDuplicate = addedItem.duplicado;
+      if (addedItem.duplicado || duplicatedInSession) {
+        // A duplicidade e rara. Somente nesse caminho sincronizamos a sessao
+        // inteira para mostrar itens adicionados por outra aba/leitor.
+        const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+        if (!openSession || openSession.sessao.id !== sessaoId) {
+          throw new Error("A sessao foi alterada em outro dispositivo. Recarregue a tela.");
+        }
+        serverDetectedDuplicate = openSession.itens.some((item) => item.duplicado);
+        setSessionPackages(
+          openSession.itens.map((item) =>
+            mapItemSessaoRowToDispatchPackage(item, openSession.sessao),
+          ),
+        );
+      } else {
+        const addedPackage = mapPendingItemToPackage(addedItem, {
+          sessaoId,
+          lojaId: selectedLojaId,
+          marketplace: selectedMarketplace,
+          melhorEnvio,
+          transportadora: melhorEnvio ? transportadora : null,
+          tipoOperacao: selectedOperation,
+        });
+        setSessionPackages((current) => [
+          addedPackage,
+          ...current.filter((item) => item.id !== addedPackage.id),
+        ]);
+      }
       setNotice({
-        type: duplicatedInSession ? "warning" : "success",
-        text: duplicatedInSession
+        type: duplicatedInSession || serverDetectedDuplicate ? "warning" : "success",
+        text: duplicatedInSession || serverDetectedDuplicate
           ? DUPLICATE_SESSION_WARNING
           : sessionOpen
             ? `Rastreio ${normalizedCode} adicionado ao lote.`
             : `Sessão iniciada no Supabase. Rastreio ${normalizedCode} adicionado ao lote.`,
       });
-      setCodigoRastreio("");
+      clearCodeField();
     } catch (error) {
       setNotice({
         type: "danger",
@@ -512,7 +659,37 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
-      const result = await finalizarSessaoBipagemAberta(activeBatchId);
+      // Confere a lista imediatamente antes da finalizacao. Isso impede que
+      // uma segunda aba esconda itens ou duplicidades desta tela.
+      const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+      if (!openSession || openSession.sessao.id !== activeBatchId) {
+        throw new Error("A sessao aberta mudou em outro dispositivo. Recarregue a tela.");
+      }
+      const synchronizedPackages = openSession.itens.map((item) =>
+        mapItemSessaoRowToDispatchPackage(item, openSession.sessao),
+      );
+      setSessionPackages(synchronizedPackages);
+
+      const synchronizedDuplicates = new Set<string>();
+      const synchronizedCounts = new Map<string, number>();
+      for (const item of openSession.itens) {
+        const code = item.codigo_normalizado;
+        const count = (synchronizedCounts.get(code) ?? 0) + 1;
+        synchronizedCounts.set(code, count);
+        if (item.duplicado || count > 1) {
+          synchronizedDuplicates.add(code);
+        }
+      }
+
+      if (synchronizedDuplicates.size) {
+        setShowDuplicateFinalizeDialog(true);
+        throw new Error(DUPLICATE_SESSION_WARNING);
+      }
+
+      const result = await finalizarSessaoBipagemAberta(
+        activeBatchId,
+        databaseContext,
+      );
       await reload();
 
       const batchCode = result?.codigo_lote || getBatchCode({ id: activeBatchId });
@@ -520,7 +697,7 @@ export function BipagemForm() {
         type: "success",
         text: `${result?.total_pacotes ?? sessionPackages.length} pacotes finalizados no lote ${batchCode}.`,
       });
-      setSelectedHistoryBatchId(activeBatchId);
+      openBatchHistory(activeBatchId);
       resetSessionConfig();
     } catch (error) {
       setNotice({
@@ -551,7 +728,7 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
-      await cancelarSessaoBipagemAberta(activeBatchId);
+      await cancelarSessaoBipagemAberta(activeBatchId, databaseContext);
       await reload();
       resetSessionConfig();
       setShowClearSessionConfirm(false);
@@ -592,7 +769,7 @@ export function BipagemForm() {
   function activateCancellationMode() {
     setShowCancellationConfirm(false);
     setCancellationMode(true);
-    setCodigoRastreio("");
+    clearCodeField();
     setNotice({
       type: "warning",
       text: "Modo cancelamento ativo. Informe a justificativa geral antes de bipar cancelamentos.",
@@ -602,7 +779,7 @@ export function BipagemForm() {
 
   function requestExitCancellationMode() {
     if (
-      codigoRastreio.trim() ||
+      getCodeFieldValue() ||
       nextIndividualReason.trim() ||
       cancellationReason.trim() ||
       pendingCancellations.length
@@ -618,7 +795,7 @@ export function BipagemForm() {
     setCancellationMode(false);
     setShowCancellationConfirm(false);
     setShowExitCancellationConfirm(false);
-    setCodigoRastreio("");
+    clearCodeField();
     setCancellationReason("");
     setNextIndividualReason("");
     setPendingCancellations([]);
@@ -651,21 +828,10 @@ export function BipagemForm() {
     }
 
     const normalizedCode = normalizeTrackingCode(code);
-    const activePackage = activePackages.find(
-      (item) =>
-        item.loja_id === selectedLojaId &&
-        normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
-    );
-    const anyPackage = allPackages.find(
-      (item) =>
-        item.loja_id === selectedLojaId &&
-        normalizeTrackingCode(item.codigo_rastreio) === normalizedCode,
-    );
-    const alreadyCanceled = cancellations.some(
-      (item) =>
-        item.loja_id === selectedLojaId &&
-        normalizeTrackingCode(item.codigo_pacote) === normalizedCode,
-    );
+    const lookupKey = getStoreTrackingKey(selectedLojaId, normalizedCode);
+    const activePackage = activePackageByStoreAndCode.get(lookupKey);
+    const anyPackage = allPackageByStoreAndCode.get(lookupKey);
+    const alreadyCanceled = canceledPackageCodes.has(lookupKey);
     const alreadyQueued = pendingCancellations.some(
       (item) =>
         item.pacote.id === activePackage?.id ||
@@ -677,7 +843,7 @@ export function BipagemForm() {
         type: "danger",
         text: "Pacote não encontrado. Nada foi cancelado.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -687,7 +853,7 @@ export function BipagemForm() {
         type: "warning",
         text: "Este pacote já foi cancelado anteriormente.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -697,7 +863,7 @@ export function BipagemForm() {
         type: "warning",
         text: "Este pacote ja esta na lista temporaria de cancelamento.",
       });
-      setCodigoRastreio("");
+      clearCodeField();
       focusCodeField();
       return;
     }
@@ -713,7 +879,7 @@ export function BipagemForm() {
       type: "success",
       text: `Pacote ${activePackage.codigo_rastreio} adicionado para cancelamento.`,
     });
-    setCodigoRastreio("");
+    clearCodeField();
     setNextIndividualReason("");
     focusCodeField();
   }
@@ -770,6 +936,7 @@ export function BipagemForm() {
           justificativa_geral: cleanGeneralReason,
           justificativa_individual: item.justificativa_individual,
         })),
+        databaseContext,
       );
       const savedByPackageId = new Map(
         savedRows.map((item) => [item.pacote_id ?? "", item]),
@@ -795,7 +962,7 @@ export function BipagemForm() {
       setCancellationMode(false);
       setCancellationReason("");
       setNextIndividualReason("");
-      setCodigoRastreio("");
+      clearCodeField();
       setNotice({
         type: "success",
         text: `${records.length} cancelamento(s) finalizado(s).`,
@@ -826,11 +993,16 @@ export function BipagemForm() {
     setSavingSession(true);
 
     try {
-      const itens = await removerItemSessaoBipagem({
-        itemId: item.id,
-        status: "descartado",
-      });
-      setSessionPackages(mapSessionItemsToPackages(itens, activeBatchId));
+      await removerItemSessaoBipagem(
+        {
+          itemId: item.id,
+          status: "descartado",
+        },
+        databaseContext,
+      );
+      setSessionPackages((current) =>
+        current.filter((sessionItem) => sessionItem.id !== item.id),
+      );
       setNotice({
         type: "neutral",
         text: `Pacote ${item.codigo_rastreio} removido da sessão.`,
@@ -872,50 +1044,63 @@ export function BipagemForm() {
       const savedPackage = await getPacoteAtivoPorCodigo(
         targetPackage.codigo_rastreio,
         { loja_id: targetPackage.loja_id },
+        databaseContext,
       );
-      const savedRows = await cancelarPacotes({
-        cancelamentos: [
-          {
-            pacote_id: savedPackage?.id ?? null,
-            codigo_pacote: savedPackage?.codigo ?? targetPackage.codigo_rastreio,
-            loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
-            marketplace_id:
-              savedPackage?.marketplace_id ??
-              getMarketplaceIdByName(targetPackage.marketplace),
-            transportadora_id:
-              savedPackage?.transportadora_id ??
-              getCarrierIdByName(targetPackage.transportadora),
-            sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
-            tipo_operacao: savedPackage?.tipo_operacao ?? targetPackage.tipo_operacao,
-            melhor_envio: savedPackage?.melhor_envio ?? targetPackage.melhor_envio,
-            justificativa_geral: cleanReason,
-            justificativa_individual: null,
-            bipado_em: savedPackage?.bipado_em ?? targetPackage.data_hora_bipagem,
-            cancelado_em: canceledAt,
-          },
-        ],
-        movimentacoes: [
-          {
-            pacote_id: savedPackage?.id ?? null,
-            loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
-            sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
-            tipo_movimentacao: "Cancelamento",
-            descricao: `Pacote ${savedPackage?.codigo ?? targetPackage.codigo_rastreio} cancelado na sessao de bipagem.`,
-            criada_em: canceledAt,
-          },
-        ],
-      });
+      const savedRows = await cancelarPacotes(
+        {
+          cancelamentos: [
+            {
+              pacote_id: savedPackage?.id ?? null,
+              codigo_pacote:
+                savedPackage?.codigo ?? targetPackage.codigo_rastreio,
+              loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+              marketplace_id:
+                savedPackage?.marketplace_id ??
+                getMarketplaceIdByName(targetPackage.marketplace),
+              transportadora_id:
+                savedPackage?.transportadora_id ??
+                getCarrierIdByName(targetPackage.transportadora),
+              sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
+              tipo_operacao:
+                savedPackage?.tipo_operacao ?? targetPackage.tipo_operacao,
+              melhor_envio:
+                savedPackage?.melhor_envio ?? targetPackage.melhor_envio,
+              justificativa_geral: cleanReason,
+              justificativa_individual: null,
+              bipado_em:
+                savedPackage?.bipado_em ?? targetPackage.data_hora_bipagem,
+              cancelado_em: canceledAt,
+            },
+          ],
+          movimentacoes: [
+            {
+              pacote_id: savedPackage?.id ?? null,
+              loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
+              sessao_id: savedPackage?.sessao_id ?? (activeBatchId || null),
+              tipo_movimentacao: "Cancelamento",
+              descricao: `Pacote ${savedPackage?.codigo ?? targetPackage.codigo_rastreio} cancelado na sessao de bipagem.`,
+              criada_em: canceledAt,
+            },
+          ],
+        },
+        databaseContext,
+      );
 
       record = {
         ...record,
         id: savedRows[0]?.id ?? record.id,
         pacote_id: savedRows[0]?.pacote_id ?? targetPackage.id,
       };
-      const itens = await removerItemSessaoBipagem({
-        itemId: targetPackage.id,
-        status: "cancelado",
-      });
-      setSessionPackages(mapSessionItemsToPackages(itens, activeBatchId));
+      await removerItemSessaoBipagem(
+        {
+          itemId: targetPackage.id,
+          status: "cancelado",
+        },
+        databaseContext,
+      );
+      setSessionPackages((current) =>
+        current.filter((item) => item.id !== targetPackage.id),
+      );
       await reload();
       setRecentCancellations((current) => [record, ...current].slice(0, 8));
     } catch (error) {
@@ -1209,8 +1394,6 @@ export function BipagemForm() {
             {cancellationMode ? "Código para cancelamento" : "Código do pacote"}
             <input
               ref={codeRef}
-              value={codigoRastreio}
-              onChange={(event) => setCodigoRastreio(event.target.value)}
               className={`min-h-16 rounded-md border bg-white px-4 font-mono text-xl font-semibold tracking-normal text-slate-950 outline-none transition placeholder:text-slate-400 ${
                 cancellationMode
                   ? "border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
@@ -1423,11 +1606,11 @@ export function BipagemForm() {
               ) : null}
               <div className="min-h-0 overflow-y-auto pr-1">
                 <ol className="space-y-2">
-                  {sessionPackages.map((item) => {
+                  {visibleSessionPackages.map((item, index) => {
                     const isDuplicate = duplicateSessionCodes.has(
                       normalizeTrackingCode(item.codigo_rastreio),
                     );
-                    const packageNumber = sessionPackageOrder.get(item.id) ?? 1;
+                    const packageNumber = sessionPackages.length - index;
 
                     return (
                       <li
@@ -1471,6 +1654,23 @@ export function BipagemForm() {
                     );
                   })}
                 </ol>
+                {visibleSessionPackages.length < sessionPackages.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleSessionPackageCount((current) =>
+                        Math.min(
+                          current + SESSION_PACKAGE_PAGE_SIZE,
+                          sessionPackages.length,
+                        ),
+                      )
+                    }
+                    className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    Mostrar mais pacotes ({visibleSessionPackages.length} de{" "}
+                    {sessionPackages.length})
+                  </button>
+                ) : null}
               </div>
             </div>
           ) : (
@@ -1491,7 +1691,7 @@ export function BipagemForm() {
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             {sortedBatches.length ? (
               <div className="space-y-3">
-                {sortedBatches.map((batch) => (
+                {visibleBatches.map((batch) => (
                   <div
                     key={batch.id}
                     className="rounded-lg border border-slate-200 p-3 text-sm transition hover:border-slate-300"
@@ -1517,7 +1717,7 @@ export function BipagemForm() {
                       <div className="flex flex-wrap gap-2">
                         <button
                           type="button"
-                          onClick={() => setSelectedHistoryBatchId(batch.id)}
+                          onClick={() => openBatchHistory(batch.id)}
                           className="inline-flex min-h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                         >
                           Abrir lote
@@ -1533,6 +1733,23 @@ export function BipagemForm() {
                     </div>
                   </div>
                 ))}
+                {visibleBatches.length < sortedBatches.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleBatchCount((current) =>
+                        Math.min(
+                          current + BATCH_HISTORY_PAGE_SIZE,
+                          sortedBatches.length,
+                        ),
+                      )
+                    }
+                    className="inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
+                  >
+                    Mostrar mais lotes ({visibleBatches.length} de{" "}
+                    {sortedBatches.length})
+                  </button>
+                ) : null}
               </div>
             ) : (
               <EmptyState>Nenhum lote finalizado.</EmptyState>
@@ -1622,24 +1839,45 @@ export function BipagemForm() {
 
               <div className="mt-5">
                 {selectedBatchPackages.length ? (
-                  <ol className="space-y-2">
-                    {selectedBatchPackages.map((item, index) => (
-                      <li
-                        key={item.id}
-                        className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
+                  <>
+                    <ol className="space-y-2">
+                      {visibleSelectedBatchPackages.map((item, index) => (
+                        <li
+                          key={item.id}
+                          className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 px-3 py-3"
+                        >
+                          <div className="min-w-0">
+                            <span className="mr-3 text-sm font-semibold text-slate-400">
+                              {index + 1}.
+                            </span>
+                            <span className="break-all font-mono text-sm font-semibold text-slate-950">
+                              {item.codigo_rastreio}
+                            </span>
+                          </div>
+                          <StatusBadge status={item.status} />
+                        </li>
+                      ))}
+                    </ol>
+                    {visibleSelectedBatchPackages.length <
+                    selectedBatchPackages.length ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setVisibleSelectedBatchPackageCount((current) =>
+                            Math.min(
+                              current + BATCH_PACKAGE_PAGE_SIZE,
+                              selectedBatchPackages.length,
+                            ),
+                          )
+                        }
+                        className="mt-3 inline-flex min-h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950"
                       >
-                        <div className="min-w-0">
-                          <span className="mr-3 text-sm font-semibold text-slate-400">
-                            {index + 1}.
-                          </span>
-                          <span className="break-all font-mono text-sm font-semibold text-slate-950">
-                            {item.codigo_rastreio}
-                          </span>
-                        </div>
-                        <StatusBadge status={item.status} />
-                      </li>
-                    ))}
-                  </ol>
+                        Mostrar mais pacotes (
+                        {visibleSelectedBatchPackages.length} de{" "}
+                        {selectedBatchPackages.length})
+                      </button>
+                    ) : null}
+                  </>
                 ) : (
                   <EmptyState>Nenhum pacote encontrado para este lote.</EmptyState>
                 )}

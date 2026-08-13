@@ -8,6 +8,7 @@ import {
   FeedbackMessage,
   StatusBadge,
 } from "@/app/_components/ui";
+import { useAuth } from "@/app/_lib/auth-context";
 import type { Carrier, Marketplace, Store } from "@/app/_lib/mock-data";
 import {
   ativarRelatorioDestinatario,
@@ -429,6 +430,8 @@ function ReportEmailSection({
 }
 
 export function CadastrosView() {
+  const { user } = useAuth();
+  const userId = user?.id ?? null;
   const loadCatalogsRequestIdRef = useRef(0);
   const [catalogs, setCatalogs] = useState<CatalogState>(emptyCatalogState);
   const [loading, setLoading] = useState(true);
@@ -441,16 +444,19 @@ export function CadastrosView() {
     const requestId = ++loadCatalogsRequestIdRef.current;
     const isCurrentRequest = () => requestId === loadCatalogsRequestIdRef.current;
 
-    if (!supabaseConfigured) {
+    if (!supabaseConfigured || !userId) {
       setLoading(false);
-      setNotice({
-        tone: "warning",
-        text: SUPABASE_NOT_CONFIGURED_MESSAGE,
-      });
+      if (!supabaseConfigured) {
+        setNotice({
+          tone: "warning",
+          text: SUPABASE_NOT_CONFIGURED_MESSAGE,
+        });
+      }
       return;
     }
 
     setLoading(true);
+    const databaseContext = { userId };
 
     try {
       const [
@@ -459,10 +465,10 @@ export function CadastrosView() {
         transportadorasRows,
         relatorioDestinatariosRows,
       ] = await Promise.all([
-        getLojas({ incluirInativos: true }),
-        getMarketplaces({ incluirInativos: true }),
-        getTransportadoras({ incluirInativos: true }),
-        getRelatorioDestinatarios({ incluirInativos: true }),
+        getLojas({ incluirInativos: true }, databaseContext),
+        getMarketplaces({ incluirInativos: true }, databaseContext),
+        getTransportadoras({ incluirInativos: true }, databaseContext),
+        getRelatorioDestinatarios({ incluirInativos: true }, databaseContext),
       ]);
 
       if (!isCurrentRequest()) {
@@ -489,7 +495,7 @@ export function CadastrosView() {
         setLoading(false);
       }
     }
-  }, [supabaseConfigured]);
+  }, [supabaseConfigured, userId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -515,14 +521,20 @@ export function CadastrosView() {
       return false;
     }
 
+    if (!userId) {
+      setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
+      return false;
+    }
+
+    const databaseContext = { userId };
     setSaving(true);
     try {
       if (kind === "stores") {
-        await createLoja(cleanName);
+        await createLoja(cleanName, databaseContext);
       } else if (kind === "marketplaces") {
-        await createMarketplace(cleanName);
+        await createMarketplace(cleanName, databaseContext);
       } else {
-        await createTransportadora(cleanName);
+        await createTransportadora(cleanName, databaseContext);
       }
 
       setNotice({ tone: "success", text: "Cadastro salvo com sucesso." });
@@ -540,9 +552,14 @@ export function CadastrosView() {
   }
 
   async function handleCreateReportEmail(nome: string, email: string) {
+    if (!userId) {
+      setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
+      return false;
+    }
+
     setSaving(true);
     try {
-      await createRelatorioDestinatario(nome, email);
+      await createRelatorioDestinatario(nome, email, { userId });
       setNotice({ tone: "success", text: "E-mail de relatorio salvo com sucesso." });
       await loadCatalogs();
       return true;
@@ -558,34 +575,41 @@ export function CadastrosView() {
   }
 
   async function runAction(action: PendingAction) {
+    if (!userId) {
+      setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
+      setPendingAction(null);
+      return;
+    }
+
+    const databaseContext = { userId };
     setSaving(true);
     try {
       if (action.action === "activate") {
-        if (action.kind === "stores") await ativarLoja(action.item.id);
-        if (action.kind === "marketplaces") await ativarMarketplace(action.item.id);
-        if (action.kind === "carriers") await ativarTransportadora(action.item.id);
+        if (action.kind === "stores") await ativarLoja(action.item.id, databaseContext);
+        if (action.kind === "marketplaces") await ativarMarketplace(action.item.id, databaseContext);
+        if (action.kind === "carriers") await ativarTransportadora(action.item.id, databaseContext);
         if (action.kind === "reportEmails") {
-          await ativarRelatorioDestinatario(action.item.id);
+          await ativarRelatorioDestinatario(action.item.id, databaseContext);
         }
         setNotice({ tone: "success", text: "Cadastro ativado." });
       }
 
       if (action.action === "deactivate") {
-        if (action.kind === "stores") await inativarLoja(action.item.id);
-        if (action.kind === "marketplaces") await inativarMarketplace(action.item.id);
-        if (action.kind === "carriers") await inativarTransportadora(action.item.id);
+        if (action.kind === "stores") await inativarLoja(action.item.id, databaseContext);
+        if (action.kind === "marketplaces") await inativarMarketplace(action.item.id, databaseContext);
+        if (action.kind === "carriers") await inativarTransportadora(action.item.id, databaseContext);
         if (action.kind === "reportEmails") {
-          await inativarRelatorioDestinatario(action.item.id);
+          await inativarRelatorioDestinatario(action.item.id, databaseContext);
         }
         setNotice({ tone: "neutral", text: "Cadastro inativado." });
       }
 
       if (action.action === "delete-final") {
-        if (action.kind === "stores") await excluirLojaDefinitivamente(action.item.id);
-        if (action.kind === "marketplaces") await excluirMarketplaceDefinitivamente(action.item.id);
-        if (action.kind === "carriers") await excluirTransportadoraDefinitivamente(action.item.id);
+        if (action.kind === "stores") await excluirLojaDefinitivamente(action.item.id, databaseContext);
+        if (action.kind === "marketplaces") await excluirMarketplaceDefinitivamente(action.item.id, databaseContext);
+        if (action.kind === "carriers") await excluirTransportadoraDefinitivamente(action.item.id, databaseContext);
         if (action.kind === "reportEmails") {
-          await excluirRelatorioDestinatarioDefinitivamente(action.item.id);
+          await excluirRelatorioDestinatarioDefinitivamente(action.item.id, databaseContext);
         }
         setNotice({ tone: "success", text: "Cadastro excluido definitivamente." });
       }

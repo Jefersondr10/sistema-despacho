@@ -43,7 +43,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const context: DatabaseContext = { supabase, accessToken: token };
+    const context: DatabaseContext = { supabase, userId: data.user.id };
     await getLojas({ incluirInativos: true, limit: 1 }, context);
 
     return NextResponse.json({ ok: true, configured: true });

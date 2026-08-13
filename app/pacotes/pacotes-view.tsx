@@ -21,14 +21,27 @@ import {
 } from "@/app/_lib/mock-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
+const PACKAGE_PAGE_SIZE = 100;
+
 export function PacotesView() {
-  const { catalogs, packages, loading, error } = useSupabaseDispatchData();
+  const { catalogs, packages, loading, error } =
+    useSupabaseDispatchData("pacotes");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
+  const [visiblePackageCount, setVisiblePackageCount] = useState(
+    PACKAGE_PAGE_SIZE,
+  );
   const filteredPackages = useMemo(
     () => filterPackages(packages, filters),
     [packages, filters],
   );
-  const metrics = getDashboardMetrics(filteredPackages);
+  const visiblePackages = useMemo(
+    () => filteredPackages.slice(0, visiblePackageCount),
+    [filteredPackages, visiblePackageCount],
+  );
+  const metrics = useMemo(
+    () => getDashboardMetrics(filteredPackages),
+    [filteredPackages],
+  );
 
   return (
     <>
@@ -44,7 +57,10 @@ export function PacotesView() {
         marketplaces={catalogs.marketplaces}
         carriers={catalogs.carriers}
         showSearch
-        onChange={setFilters}
+        onChange={(nextFilters) => {
+          setVisiblePackageCount(PACKAGE_PAGE_SIZE);
+          setFilters(nextFilters);
+        }}
       />
 
       <section className="grid gap-4 md:grid-cols-3">
@@ -83,7 +99,7 @@ export function PacotesView() {
 
         {filteredPackages.length ? (
           <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-            {filteredPackages.map((item) => (
+            {visiblePackages.map((item) => (
               <article
                 key={item.id}
                 className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
@@ -118,6 +134,23 @@ export function PacotesView() {
                 </div>
               </article>
             ))}
+            {visiblePackages.length < filteredPackages.length ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setVisiblePackageCount((current) =>
+                    Math.min(
+                      current + PACKAGE_PAGE_SIZE,
+                      filteredPackages.length,
+                    ),
+                  )
+                }
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 md:col-span-2 xl:col-span-3 2xl:col-span-4"
+              >
+                Mostrar mais pacotes ({visiblePackages.length} de{" "}
+                {filteredPackages.length})
+              </button>
+            ) : null}
           </div>
         ) : (
           <div className="p-5">
