@@ -7,7 +7,7 @@ export default function RelatoriosPage() {
     <>
       <PageHeader
         title="Relatórios"
-        description="Consulta visual em formato resumido ou detalhado."
+        description="Veja Coleta e Postagem separadas, filtre por marketplace e envie um resumo fácil de conferir."
       />
       <RelatoriosView />
     </>

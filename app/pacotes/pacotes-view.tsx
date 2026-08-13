@@ -84,8 +84,8 @@ export function PacotesView() {
         />
       </section>
 
-      <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-col gap-2 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
+      <section className="overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm">
+        <div className="flex flex-col gap-2 border-b border-slate-200/80 bg-slate-50/50 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-950">
               Todos os pacotes
@@ -98,14 +98,14 @@ export function PacotesView() {
         </div>
 
         {filteredPackages.length ? (
-          <div className="grid gap-3 p-5 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+          <div className="grid gap-4 p-5 sm:p-6 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
             {visiblePackages.map((item) => (
               <article
                 key={item.id}
-                className="grid gap-4 rounded-lg border border-slate-200 bg-white p-4 shadow-sm"
+                className="group grid gap-4 rounded-xl border border-slate-200/80 bg-white p-4 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-teal-200 hover:shadow-md hover:shadow-slate-900/5"
               >
                 <div className="min-w-0">
-                  <p className="break-all font-mono text-sm font-semibold text-slate-950">
+                  <p className="break-all font-mono text-sm font-bold tracking-tight text-slate-950 transition group-hover:text-teal-800">
                     {item.codigo_rastreio}
                   </p>
                   <p className="mt-2 text-sm font-medium text-slate-700">
@@ -145,7 +145,7 @@ export function PacotesView() {
                     ),
                   )
                 }
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 md:col-span-2 xl:col-span-3 2xl:col-span-4"
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-800 md:col-span-2 xl:col-span-3 2xl:col-span-4"
               >
                 Mostrar mais pacotes ({visiblePackages.length} de{" "}
                 {filteredPackages.length})
@@ -153,7 +153,7 @@ export function PacotesView() {
             ) : null}
           </div>
         ) : (
-          <div className="p-5">
+          <div className="p-5 sm:p-6">
             <EmptyState>
               Nenhum pacote encontrado para os filtros e rastreio informados.
             </EmptyState>

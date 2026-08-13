@@ -7,7 +7,7 @@ export default function PacotesCanceladosPage() {
     <>
       <PageHeader
         title="Pacotes Cancelados"
-        description="Histórico de cancelamentos com dados da bipagem original e justificativas."
+        description="Histórico de cancelamentos com os dados originais do pacote e suas justificativas."
       />
       <PacotesCanceladosView />
     </>

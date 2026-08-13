@@ -6,8 +6,8 @@ export default function BipagemPage() {
   return (
     <>
       <PageHeader
-        title="Bipagem"
-        description="Sessão em massa para bipar vários rastreios com os mesmos dados de loja, marketplace e etiqueta."
+        title="Bipar Pacotes"
+        description="Crie um lote, leia os rastreios e finalize todos os pacotes com segurança."
       />
       <BipagemForm />
     </>

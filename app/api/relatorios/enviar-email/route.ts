@@ -55,15 +55,189 @@ function getOperationLabel(value: unknown) {
   if (value === "coleta") return "Coleta";
   if (value === "postagem") return "Postagem";
 
-  return String(value ?? "");
+  return getOptionalString(value) || "OperaÃ§Ã£o nÃ£o informada";
+}
+
+type ReportOperation = "coleta" | "postagem" | "outros";
+
+type ReportSummaryEntry = {
+  marketplace: string;
+  operation: ReportOperation;
+  melhorEnvio: boolean;
+  transportadora: string;
+  packages: number;
+  lojas: ReturnType<typeof getSummaryStores>;
+};
+
+const MAX_STORES_PER_SUMMARY = 12;
+const MAX_SHIPPING_DETAILS_PER_MARKETPLACE = 12;
+const emailDateFormatter = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+});
+
+const operationThemes: Array<{
+  key: ReportOperation;
+  label: string;
+  background: string;
+  color: string;
+  border: string;
+}> = [
+  {
+    key: "coleta",
+    label: "Coleta",
+    background: "#ccfbf1",
+    color: "#115e59",
+    border: "#5eead4",
+  },
+  {
+    key: "postagem",
+    label: "Postagem",
+    background: "#dbeafe",
+    color: "#1e40af",
+    border: "#93c5fd",
+  },
+  {
+    key: "outros",
+    label: "Outras operaÃ§Ãµes",
+    background: "#f1f5f9",
+    color: "#334155",
+    border: "#cbd5e1",
+  },
+];
+
+function getPackageCount(value: unknown) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return 0;
+  }
+
+  return Math.max(0, Math.trunc(value));
+}
+
+function formatPackageCount(value: number) {
+  return `${value} ${value === 1 ? "pacote" : "pacotes"}`;
+}
+
+function formatEmailDate(value: unknown) {
+  const rawValue = getOptionalString(value);
+  const date = new Date(rawValue);
+
+  return rawValue && !Number.isNaN(date.getTime())
+    ? emailDateFormatter.format(date)
+    : rawValue || "NÃ£o informada";
+}
+
+function compactStores(lojas: ReportSummaryEntry["lojas"]) {
+  const orderedStores = [...lojas].sort(
+    (first, second) =>
+      second.packages - first.packages ||
+      first.nome.localeCompare(second.nome, "pt-BR"),
+  );
+  const visible = orderedStores.slice(0, MAX_STORES_PER_SUMMARY);
+  const omitted = orderedStores.slice(MAX_STORES_PER_SUMMARY);
+
+  return {
+    visible,
+    omittedCount: omitted.length,
+    omittedPackages: omitted.reduce(
+      (total, loja) => total + loja.packages,
+      0,
+    ),
+  };
+}
+
+function compactShippingDetails(items: ReportSummaryEntry[]) {
+  const orderedItems = [...items].sort(
+    (first, second) =>
+      second.packages - first.packages ||
+      first.transportadora.localeCompare(second.transportadora, "pt-BR"),
+  );
+  const visible = orderedItems.slice(0, MAX_SHIPPING_DETAILS_PER_MARKETPLACE);
+  const omitted = orderedItems.slice(MAX_SHIPPING_DETAILS_PER_MARKETPLACE);
+
+  return {
+    visible,
+    omittedCount: omitted.length,
+    omittedPackages: omitted.reduce(
+      (total, item) => total + item.packages,
+      0,
+    ),
+  };
+}
+
+function chunkTrackingItems<T>(items: T[], size: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+
+  return chunks;
+}
+
+function getReportOperation(value: unknown) {
+  if (value === "coleta") {
+    return "coleta" as const;
+  }
+
+  if (value === "postagem") {
+    return "postagem" as const;
+  }
+
+  return "outros" as const;
+}
+
+function getReportSummaryEntries(relatorio: Record<string, unknown>) {
+  const resumo = Array.isArray(relatorio.resumo)
+    ? relatorio.resumo.filter(isRecord)
+    : [];
+
+  return resumo.map<ReportSummaryEntry>((item) => {
+    const melhorEnvio = Boolean(item.melhor_envio);
+
+    return {
+      marketplace:
+        getOptionalString(item.marketplace) || "Marketplace nÃ£o informado",
+      operation: getReportOperation(item.tipo_operacao),
+      melhorEnvio,
+      transportadora: melhorEnvio
+        ? getOptionalString(item.transportadora) || "NÃ£o informada"
+        : "Sem Melhor Envio",
+      packages: getPackageCount(item.packages),
+      lojas: getSummaryStores(item),
+    };
+  });
+}
+
+function groupEntriesByMarketplace(entries: ReportSummaryEntry[]) {
+  const groups = new Map<string, ReportSummaryEntry[]>();
+
+  for (const entry of entries) {
+    const current = groups.get(entry.marketplace);
+
+    if (current) {
+      current.push(entry);
+    } else {
+      groups.set(entry.marketplace, [entry]);
+    }
+  }
+
+  return Array.from(groups, ([marketplace, items]) => ({
+    marketplace,
+    items,
+    total: items.reduce((sum, item) => sum + item.packages, 0),
+  })).sort((first, second) =>
+    first.marketplace.localeCompare(second.marketplace, "pt-BR"),
+  );
 }
 
 function getSummaryStores(item: Record<string, unknown>) {
   const lojas = Array.isArray(item.lojas) ? item.lojas.filter(isRecord) : [];
 
   return lojas.map((loja) => ({
-    nome: getOptionalString(loja.loja_nome) || "Loja nao informada",
-    packages: typeof loja.packages === "number" ? loja.packages : 0,
+    nome: getOptionalString(loja.loja_nome) || "Loja nÃ£o informada",
+    packages: getPackageCount(loja.packages),
   }));
 }
 
@@ -73,18 +247,19 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
     : [];
 
   return groups.map((group) => ({
-    codigo_lote: getOptionalString(group.codigo_lote) || "Lote sem codigo",
-    loja_nome: getOptionalString(group.loja_nome) || "Loja nao informada",
+    codigo_lote: getOptionalString(group.codigo_lote) || "Lote sem cÃ³digo",
+    loja_nome: getOptionalString(group.loja_nome) || "Loja nÃ£o informada",
     marketplace:
-      getOptionalString(group.marketplace) || "Marketplace nao informado",
+      getOptionalString(group.marketplace) || "Marketplace nÃ£o informado",
     tipo_operacao: getOperationLabel(group.tipo_operacao),
     melhor_envio: Boolean(group.melhor_envio),
     transportadora:
       getOptionalString(group.transportadora) || "Sem transportadora",
+    data: formatEmailDate(group.data),
     pacotes: Array.isArray(group.pacotes)
       ? group.pacotes.filter(isRecord).map((item) => ({
           codigo_rastreio:
-            getOptionalString(item.codigo_rastreio) || "Sem codigo",
+            getOptionalString(item.codigo_rastreio) || "Sem cÃ³digo",
         }))
       : [],
   }));
@@ -104,56 +279,113 @@ function buildRomaneioEmail(
   const groupsHtml = groups.length
     ? groups
         .map((group) => {
-          const rows = group.pacotes.length
-            ? group.pacotes
+          const numberedPackages = group.pacotes.map((item, index) => ({
+            ...item,
+            number: index + 1,
+          }));
+          const rows = numberedPackages.length
+            ? chunkTrackingItems(numberedPackages, 3)
                 .map(
-                  (item, index) => `
+                  (row) => `
                     <tr>
-                      <td>${index + 1}</td>
-                      <td>${escapeHtml(item.codigo_rastreio)}</td>
-                      <td></td>
+                      ${Array.from({ length: 3 }, (_, columnIndex) => {
+                        const item = row[columnIndex];
+
+                        return item
+                          ? `
+                              <td width="33.33%" style="padding: 10px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < 2 ? "1px solid #e2e8f0" : "0"}; color: #0f172a; font-size: 12px; vertical-align: top; word-break: break-all;">
+                                <strong style="color: #2563eb;">${item.number}.</strong>
+                                ${escapeHtml(item.codigo_rastreio)}
+                              </td>
+                            `
+                          : `<td width="33.33%" style="padding: 10px; border-top: 1px solid #e2e8f0; border-right: ${columnIndex < 2 ? "1px solid #e2e8f0" : "0"};">&nbsp;</td>`;
+                      }).join("")}
                     </tr>
                   `,
                 )
                 .join("")
-            : '<tr><td colspan="3">Nenhum pacote neste lote.</td></tr>';
+            : '<tr><td colspan="3" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste lote.</td></tr>';
+          const carrier = group.melhor_envio
+            ? `${group.transportadora} Â· Melhor Envio`
+            : group.transportadora;
 
           return `
-            <section style="margin: 0 0 28px">
-              <h2 style="font-size: 18px; margin: 0 0 10px">${escapeHtml(group.codigo_lote)}</h2>
-              <p style="margin: 0 0 10px">
-                <strong>Loja:</strong> ${escapeHtml(group.loja_nome)} |
-                <strong>Marketplace:</strong> ${escapeHtml(group.marketplace)} |
-                <strong>Operacao:</strong> ${escapeHtml(group.tipo_operacao)} |
-                <strong>Melhor Envio:</strong> ${group.melhor_envio ? "Sim" : "Nao"} |
-                <strong>Transportadora:</strong> ${escapeHtml(group.transportadora)}
-              </p>
-              <p style="margin: 0 0 12px"><strong>Data:</strong> ____/____/______</p>
-              <table cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px">
-                <thead>
-                  <tr style="background: #f8fafc">
-                    <th align="left">No</th>
-                    <th align="left">Codigo/rastreio</th>
-                    <th align="left">Observacao</th>
-                  </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-              </table>
-            </section>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: separate; border-spacing: 0;">
+              <tr>
+                <td style="padding: 18px 20px; background-color: #172554;">
+                  <p style="margin: 0 0 4px; color: #bfdbfe; font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;">Romaneio de pacotes</p>
+                  <h2 style="margin: 0; color: #ffffff; font-size: 21px; line-height: 1.25;">${escapeHtml(group.loja_nome)}</h2>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 14px 20px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td width="50%" style="padding: 5px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        DATA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.data)}</strong>
+                      </td>
+                      <td width="50%" style="padding: 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        TOTAL DE PACOTES<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.pacotes.length)}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="50%" style="padding: 7px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        LOTE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.codigo_lote)}</strong>
+                      </td>
+                      <td width="50%" style="padding: 7px 0 5px; color: #64748b; font-size: 11px; vertical-align: top;">
+                        MARKETPLACE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.marketplace)}</strong>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td width="50%" style="padding: 7px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        OPERAÃ‡ÃƒO<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.tipo_operacao)}</strong>
+                      </td>
+                      <td width="50%" style="padding: 7px 0 5px; color: #64748b; font-size: 11px; vertical-align: top;">
+                        TRANSPORTADORA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(carrier)}</strong>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 0 20px 18px;">
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border: 1px solid #e2e8f0; border-collapse: separate; border-spacing: 0;">
+                    <tr>
+                      <td colspan="3" style="padding: 8px 10px; background-color: #f8fafc; color: #475569; font-size: 10px; font-weight: 700; letter-spacing: .6px; text-transform: uppercase;">Rastreios</td>
+                    </tr>
+                    ${rows}
+                  </table>
+                  <p style="margin: 18px 0 22px; color: #475569; font-size: 11px; line-height: 1.5;">Confirmamos a entrega e o recebimento dos pacotes relacionados neste romaneio.</p>
+                  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                    <tr>
+                      <td width="48%" style="padding: 24px 8px 0 0; border-top: 1px solid #64748b; color: #0f172a; font-size: 11px; font-weight: 700; text-align: center;">Transportadora</td>
+                      <td width="4%"></td>
+                      <td width="48%" style="padding: 24px 0 0 8px; border-top: 1px solid #64748b; color: #0f172a; font-size: 11px; font-weight: 700; text-align: center;">ResponsÃ¡vel pela expediÃ§Ã£o</td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
           `;
         })
         .join("")
-    : "<p>Nenhum pacote encontrado para os filtros aplicados.</p>";
+    : '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td style="padding: 20px; background-color: #ffffff; border: 1px solid #e2e8f0; color: #64748b; font-size: 13px; text-align: center;">Nenhum pacote encontrado para os filtros aplicados.</td></tr></table>';
 
   const html = `
-    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5">
-      <h1 style="font-size: 22px; margin: 0 0 12px">ROMANEIO DE ENTREGA / COLETA</h1>
-      <p style="margin: 0 0 16px">Total geral: <strong>${totalPacotes}</strong> pacotes.</p>
-      ${groupsHtml}
-      <p style="margin-top: 24px">Declaro que os pacotes listados neste romaneio foram entregues/recebidos conforme relacao acima.</p>
-      <p style="margin-top: 24px"><strong>Quem entrega</strong><br />Nome: ____________________<br />Documento: _______________<br />Assinatura: ______________</p>
-      <p style="margin-top: 24px"><strong>Quem coleta/recebe</strong><br />Nome: ____________________<br />Documento: _______________<br />Assinatura: ______________</p>
-    </div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="width: 100%; margin: 0; background-color: #f1f5f9; font-family: Arial, Helvetica, sans-serif;">
+      <tr>
+        <td align="center" style="padding: 24px 12px;">
+          <table role="presentation" width="720" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 720px; border-collapse: separate; border-spacing: 0;">
+            <tr>
+              <td style="padding: 0 0 16px; color: #334155; font-size: 12px;">
+                <strong style="color: #0f172a; font-size: 16px;">Romaneios de pacotes</strong><br />${escapeHtml(formatPackageCount(totalPacotes))} em ${escapeHtml(groups.length)} ${groups.length === 1 ? "lote" : "lotes"}
+              </td>
+            </tr>
+            <tr><td>${groupsHtml}</td></tr>
+          </table>
+        </td>
+      </tr>
+    </table>
   `;
 
   const text = [
@@ -161,332 +393,14 @@ function buildRomaneioEmail(
     `Total geral: ${totalPacotes} pacotes`,
     "",
     ...groups.flatMap((group) => [
-      group.codigo_lote,
-      `${group.loja_nome} | ${group.marketplace} | ${group.tipo_operacao}`,
-      ...group.pacotes.map(
-        (item, index) => `${index + 1}. ${item.codigo_rastreio}`,
-      ),
-      "",
-    ]),
-  ].join("\n");
-
-  return { subject, html, text };
-}
-
-function buildReportEmail(payload: Record<string, unknown>): EmailContent {
-  const subject =
-    getOptionalString(payload.assunto) || "RelatÃ³rio de Despacho";
-  const filtrosResumo = isRecord(payload.filtrosResumo)
-    ? payload.filtrosResumo
-    : {};
-  const relatorio = isRecord(payload.relatorio) ? payload.relatorio : {};
-  const totalPacotes =
-    typeof relatorio.totalPacotes === "number" ? relatorio.totalPacotes : 0;
-  const modo = getOptionalString(relatorio.modo) || "resumido";
-  if (modo === "romaneio") {
-    return buildRomaneioEmail(payload, relatorio);
-  }
-
-  const resumo = Array.isArray(relatorio.resumo) ? relatorio.resumo : [];
-  const resumoRows = resumo.filter(isRecord).slice(0, 40);
-  const filterItems = Object.entries(filtrosResumo);
-
-  const filterHtml = filterItems.length
-    ? filterItems
-        .map(
-          ([key, value]) =>
-            `<li><strong>${escapeHtml(key)}:</strong> ${escapeHtml(value)}</li>`,
-        )
-        .join("")
-    : "<li>Nenhum filtro informado.</li>";
-
-  const summaryRowsHtml = resumoRows.length
-    ? resumoRows
-        .map((item) => {
-          const lojasHtml =
-            getSummaryStores(item)
-              .map(
-                (loja) =>
-                  `${escapeHtml(loja.nome)}: <strong>${escapeHtml(loja.packages)}</strong>`,
-              )
-              .join("<br />") || "Sem detalhamento";
-
-          return `
-            <tr>
-              <td>${escapeHtml(item.marketplace)}</td>
-              <td>${escapeHtml(getOperationLabel(item.tipo_operacao))}</td>
-              <td>${escapeHtml(item.melhor_envio ? "Sim" : "NÃ£o")}</td>
-              <td>${escapeHtml(item.melhor_envio ? item.transportadora || "NÃ£o informada" : "Sem Melhor Envio")}</td>
-              <td style="text-align:right">${escapeHtml(item.packages)}</td>
-              <td>${lojasHtml}</td>
-            </tr>
-          `;
-        })
-        .join("")
-    : `
-        <tr>
-          <td colspan="6">Nenhum dado encontrado para os filtros aplicados.</td>
-        </tr>
-      `;
-
-  const html = `
-    <div style="font-family: Arial, sans-serif; color: #0f172a; line-height: 1.5">
-      <h1 style="font-size: 22px; margin: 0 0 12px">RelatÃ³rio de Despacho</h1>
-      <p style="margin: 0 0 16px">Modo: <strong>${escapeHtml(modo)}</strong></p>
-      <p style="margin: 0 0 16px">Total geral: <strong>${escapeHtml(totalPacotes)}</strong> pacotes.</p>
-
-      <h2 style="font-size: 16px; margin: 24px 0 8px">Filtros</h2>
-      <ul>${filterHtml}</ul>
-
-      <h2 style="font-size: 16px; margin: 24px 0 8px">Resumo agrupado</h2>
-      <table cellpadding="8" cellspacing="0" style="border-collapse: collapse; width: 100%; font-size: 14px">
-        <thead>
-          <tr style="background: #f8fafc">
-            <th align="left">Marketplace</th>
-            <th align="left">OperaÃ§Ã£o</th>
-            <th align="left">Melhor Envio</th>
-            <th align="left">Transportadora</th>
-            <th align="right">Pacotes</th>
-            <th align="left">Por loja</th>
-          </tr>
-        </thead>
-        <tbody>${summaryRowsHtml}</tbody>
-      </table>
-    </div>
-  `;
-
-  const text = [
-    "RelatÃ³rio de Despacho",
-    `Modo: ${modo}`,
-    `Total geral: ${totalPacotes} pacotes`,
-    "",
-    "Filtros:",
-    ...filterItems.map(([key, value]) => `${key}: ${String(value ?? "")}`),
-    "",
-    "Resumo agrupado:",
-    ...resumoRows.map((item) => {
-      const lojasText =
-        getSummaryStores(item)
-          .map((loja) => `${loja.nome}: ${loja.packages}`)
-          .join(", ") || "Sem detalhamento";
-
-      return `${String(item.marketplace ?? "")} | ${getOperationLabel(item.tipo_operacao)} | Melhor Envio: ${item.melhor_envio ? "Sim" : "NÃ£o"} | Transportadora: ${String(item.melhor_envio ? item.transportadora || "NÃ£o informada" : "Sem Melhor Envio")} | ${String(item.packages ?? 0)} pacotes | Por loja: ${lojasText}`;
-    }),
-  ].join("\n");
-
-  return { subject, html, text };
-}
-
-async function sendEmailWithResend({
-  to,
-  subject,
-  html,
-  text,
-}: EmailContent & { to: string[] }) {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
-  const from = process.env.RELATORIOS_EMAIL_FROM?.trim();
-  const replyTo = process.env.RELATORIOS_EMAIL_REPLY_TO?.trim();
-
-  if (!apiKey || !from) {
-    throw new EmailConfigError(
-      "Envio de e-mail nao configurado. Defina RESEND_API_KEY e RELATORIOS_EMAIL_FROM no ambiente do backend.",
-    );
-  }
-
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": crypto.randomUUID(),
-    },
-    body: JSON.stringify({
-      from,
-      to,
-      subject,
-      html,
-      text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-    }),
-  });
-
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error(
-      `Falha no provedor de e-mail (${response.status}): ${body || response.statusText}`,
-    );
-  }
-
-  return response.json();
-}
-
-async function saveHistory({
-  destinatarios,
-  assunto,
-  filtros,
-  status,
-  erro,
-}: {
-  destinatarios: string[];
-  assunto: string;
-  filtros: Record<string, unknown>;
-  status: "sucesso" | "erro";
-  erro?: string | null;
-}, context: DatabaseContext) {
-  try {
-    await createRelatorioEnvioHistorico({
-      destinatarios,
-      assunto,
-      filtros,
-      status,
-      erro,
-    }, context);
-  } catch (historyError) {
-    console.error("Falha ao salvar historico de envio:", historyError);
-  }
-}
-
-export async function POST(request: Request) {
-  if (!isSupabaseConfigured()) {
-    return NextResponse.json(
-      { ok: false, message: "Supabase nao configurado." },
-      { status: 503 },
-    );
-  }
-
-  const authorization = request.headers.get("authorization") ?? "";
-  const token = authorization.startsWith("Bearer ")
-    ? authorization.slice("Bearer ".length).trim()
-    : "";
-
-  if (!token) {
-    return NextResponse.json(
-      { ok: false, message: "Sessao obrigatoria para enviar o relatorio." },
-      { status: 401 },
-    );
-  }
-
-  const authenticatedClient = createSupabaseClientForAccessToken(token);
-  const { data: userData, error: userError } =
-    await authenticatedClient.auth.getUser(token);
-
-  if (userError || !userData.user) {
-    return NextResponse.json(
-      { ok: false, message: "Sessao invalida ou expirada. Entre novamente." },
-      { status: 401 },
-    );
-  }
-
-  const databaseContext: DatabaseContext = {
-    supabase: authenticatedClient,
-    userId: userData.user.id,
-  };
-
-  let payload: unknown;
-  try {
-    payload = await request.json();
-  } catch {
-    return NextResponse.json(
-      { ok: false, message: "Payload invalido." },
-      { status: 400 },
-    );
-  }
-
-  if (!isRecord(payload)) {
-    return NextResponse.json(
-      { ok: false, message: "Payload invalido." },
-      { status: 400 },
-    );
-  }
-
-  const destinatarioIds = unique(getStringArray(payload.destinatarioIds));
-  let emailsManuais: string[];
-  try {
-    emailsManuais = unique(
-      getStringArray(payload.emailsManuais).map((email) =>
-        validateEmailAddress(email),
-      ),
-    );
-  } catch (validationError) {
-    return NextResponse.json(
-      { ok: false, message: formatDatabaseError(validationError) },
-      { status: 400 },
-    );
-  }
-
-  let ativos: Awaited<ReturnType<typeof getRelatorioDestinatarios>>;
-  try {
-    ativos = await getRelatorioDestinatarios(undefined, databaseContext);
-  } catch (databaseError) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: `Erro ao carregar destinatarios: ${formatDatabaseError(databaseError)}`,
-      },
-      { status: 500 },
-    );
-  }
-
-  const ativosPorId = new Map(ativos.map((item) => [item.id, item]));
-  const destinatariosCadastrados = destinatarioIds.flatMap((id) => {
-    const item = ativosPorId.get(id);
-
-    return item ? [item.email] : [];
-  });
-  const destinatarios = unique([...destinatariosCadastrados, ...emailsManuais]);
-  const emailContent = buildReportEmail(payload);
-  const filtros = {
-    filtros: isRecord(payload.filtros) ? payload.filtros : {},
-    filtrosResumo: isRecord(payload.filtrosResumo) ? payload.filtrosResumo : {},
-    relatorio: isRecord(payload.relatorio) ? payload.relatorio : {},
-  };
-
-  if (!destinatarios.length) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "Selecione ao menos um destinatario ativo para enviar.",
-      },
-      { status: 400 },
-    );
-  }
-
-  if (destinatarios.length > 50) {
-    return NextResponse.json(
-      {
-        ok: false,
-        message: "O envio aceita no maximo 50 destinatarios por vez.",
-      },
-      { status: 400 },
-    );
-  }
-
-  try {
-    await sendEmailWithResend({ ...emailContent, to: destinatarios });
-    await saveHistory({
-      destinatarios,
-      assunto: emailContent.subject,
-      filtros,
-      status: "sucesso",
-    }, databaseContext);
-
-    return NextResponse.json({
-      ok: true,
-      totalDestinatarios: destinatarios.length,
-    });
-  } catch (error) {
-    const message = formatDatabaseError(error);
-    await saveHistory({
-      destinatarios,
-      assunto: emailContent.subject,
-      filtros,
-      status: "erro",
-      erro: message,
-    }, databaseContext);
-
-    return NextResponse.json(
-      { ok: false, message },
-      { status: error instanceof EmailConfigError ? 501 : 500 },
-    );
-  }
-}
+      `LOJA: ${group.loja_nome}`,
+      `Data: ${group.data}`,
+      `Total: ${formatPackageCount(group.pacotes.length)}`,
+      `Lote: ${group.codigo_lote}`,
+      `Marketplace: ${group.marketplace}`,
+      `OperaÃ§Ã£o: ${group.tipo_operacao}`,
+      `Transportadora: ${group.transportadora}${group.melhor_envio ? " (Melhor Envio)" : ""}`,
+      "Rastreios:",
+      ...chunkTrackingItems(group.pacotes, 3).map((row, rowIndex) =>
+        row
+         ×®µ¶‰Ëkºwµçe¡Ğè€ÜÀÀìÙ•ÉÑ¥…°µ…±¥¸èÑ½Àìİ¡¥Ñ”µÍÁ…”è¹½İÉ…Àìˆø‘í•Í…Á•!Ñµ°¡¥Ñ•´¹Á…­…•Ì¥ôğ½Ñø(€€€€€€€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜ÀìÙ•ÉÑ¥…°µ…±¥¸èÑ½Àìˆø‘íÍÑ½É•Í!Ñµ±ôğ½Ñø(€€€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€€€ì(€€€€€€€€€€€€€€€ô¤(€€€€€€€€€€€€€€€€¹©½¥¸ ˆˆ¤ì(€€€€€€€€€€€€€½¹ÍĞ½µ¥ÑÑ•‘•Ñ…¥±ÍI½Ü€ô½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ğ(€€€€€€€€€€€€€€€€ü€(€€€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€€€ñÑ½±ÍÁ…¸ôˆÌˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÁÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì‰…­É½Õ¹µ½±½Èè€™™™‰•ˆì½±½Èè€ŒäÈĞÀÁ”ì™½¹ĞµÍ¥é”è€ÄÅÁàì±¥¹”µ¡•¥¡Ğè€Ä¸Ğìˆø(€€€€€€€€€€€€€€€€€€€€€€€5…¥Ì€‘í•Í…Á•!Ñµ°¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ğ¥ô™½Éµ…Ì‘”•¹Ù¥¼™½É…´É•ÍÕµ¥‘…Ì€ ‘í•Í…Á•!Ñµ°¡™½Éµ…ÑA…­…•½Õ¹Ğ¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘A…­…•Ì¤¥ô¤¸=ÌÑ½Ñ…¥Ì‘¼µ…É­•ÑÁ±…”Á•Éµ…¹••´½µÁ±•Ñ½Ì¸(€€€€€€€€€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€€€(€€€€€€€€€€€€€€€€è€ˆˆì((€€€€€€€€€€€€€É•ÑÕÉ¸€(€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰µ…É¥¸è€À€À€ÄÙÁàì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àì‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€Àì‰½É‘•ÈµÉ…‘¥ÕÌè€áÁàì½Ù•É™±½Üè¡¥‘‘•¸ìˆø(€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€ñÑ½±ÍÁ…¸ôˆÌˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆø(€€€€€€€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰½±½Èè€ŒÁ˜ÄÜÉ„ì™½¹ĞµÍ¥é”è€ÄÕÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀìˆø‘í•Í…Á•!Ñµ°¡µ…É­•ÑÁ±…”¹µ…É­•ÑÁ±…”¥ôğ½Ñø(€€€€€€€€€€€€€€€€€€€€€€€€€€ñÑ…±¥¸ô‰É¥¡ĞˆÍÑå±”ô‰½±½Èè€ŒĞÜÔÔØäì™½¹ĞµÍ¥é”è€ÄÉÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀìİ¡¥Ñ”µÍÁ…”è¹½İÉ…Àìˆø‘í•Í…Á•!Ñµ°¡™½Éµ…ÑA…­…•½Õ¹Ğ¡µ…É­•ÑÁ±…”¹Ñ½Ñ…°¤¥ôğ½Ñø(€€€€€€€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€€€ñÑÈÍÑå±”ô‰‰…­É½Õ¹µ½±½Èè€™™™™™˜ìˆø(€€€€€€€€€€€€€€€€€€€€ñÑ …±¥¸ô‰±•™Ğˆİ¥‘Ñ ôˆÌÔ”ˆÍÑå±”ô‰Á…‘‘¥¹œè€áÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØĞÜĞáˆì™½¹ĞµÍ¥é”è€ÄÁÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áĞµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆù¹Ù¥¼€¼ÑÉ…¹ÍÁ½ÉÑ…‘½É„ğ½Ñ ø(€€€€€€€€€€€€€€€€€€€€ñÑ …±¥¸ô‰•¹Ñ•Èˆİ¥‘Ñ ôˆÄÔ”ˆÍÑå±”ô‰Á…‘‘¥¹œè€áÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØĞÜĞáˆì™½¹ĞµÍ¥é”è€ÄÁÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áĞµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆùA…½Ñ•Ìğ½Ñ ø(€€€€€€€€€€€€€€€€€€€€ñÑ …±¥¸ô‰±•™Ğˆİ¥‘Ñ ôˆÔÀ”ˆÍÑå±”ô‰Á…‘‘¥¹œè€áÁà€ÄÉÁàì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØĞÜĞáˆì™½¹ĞµÍ¥é”è€ÄÁÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áĞµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆùA½È±½©„ğ½Ñ ø(€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€€€‘í‘•Ñ…¥±I½İÍô(€€€€€€€€€€€€€€€€€€‘í½µ¥ÑÑ•‘•Ñ…¥±ÍI½İô(€€€€€€€€€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€€€€€€€€€ì(€€€€€€€€€€€ô¤(€€€€€€€€€€€€¹©½¥¸ ˆˆ¤ì((€€€€€€€€€É•ÑÕÉ¸€(€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰µ…É¥¸è€ÈÑÁà€À€ÄÉÁàì‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€Àìˆø(€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàì‰…­É½Õ¹µ½±½Èè€‘íÍ•Ñ¥½¸¹‰…­É½Õ¹‘ôì‰½É‘•Èè€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì½±½Èè€‘íÍ•Ñ¥½¸¹½±½Éôì™½¹ĞµÍ¥é”è€ÄÙÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀìˆø‘í•Í…Á•!Ñµ°¡Í•Ñ¥½¸¹±…‰•°¥ôğ½Ñø(€€€€€€€€€€€€€€€€ñÑ…±¥¸ô‰É¥¡ĞˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàì‰…­É½Õ¹µ½±½Èè€‘íÍ•Ñ¥½¸¹‰…­É½Õ¹‘ôì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì‰½É‘•ÈµÉ¥¡Ğè€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì‰½É‘•Èµ‰½ÑÑ½´è€ÅÁàÍ½±¥€‘íÍ•Ñ¥½¸¹‰½É‘•Éôì½±½Èè€‘íÍ•Ñ¥½¸¹½±½Éôì™½¹ĞµÍ¥é”è€ÄÍÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀìİ¡¥Ñ”µÍÁ…”è¹½İÉ…Àìˆø‘í•Í…Á•!Ñµ°¡™½Éµ…ÑA…­…•½Õ¹Ğ¡Í•Ñ¥½¸¹Ñ½Ñ…°¤¥ôğ½Ñø(€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€€€€€€€‘íµ…É­•ÑÁ±…•Í!Ñµ±ô(€€€€€€€€€€ì(€€€€€€€ô¤(€€€€€€€€¹©½¥¸ ˆˆ¤(€€€€è€(€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆø(€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÈÁÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØĞÜĞáˆì™½¹ĞµÍ¥é”è€ÄÍÁàìÑ•áĞµ…±¥¸è•¹Ñ•Èìˆù9•¹¡Õ´‘…‘¼•¹½¹ÑÉ…‘¼Á…É„½Ì™¥±ÑÉ½Ì…Á±¥…‘½Ì¸ğ½Ñø(€€€€€€€€€€ğ½ÑÈø(€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€ì((€½¹ÍĞ¡Ñµ°€ô€(€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰İ¥‘Ñ è€ÄÀÀ”ìµ…É¥¸è€Àì‰…­É½Õ¹µ½±½Èè€˜Å˜Õ˜äì™½¹Ğµ™…µ¥±äèÉ¥…°°!•±Ù•Ñ¥„°Í…¹ÌµÍ•É¥˜ìˆø(€€€€€€ñÑÈø(€€€€€€€€ñÑ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÈÑÁà€ÄÉÁàìˆø(€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÜÈÀˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰İ¥‘Ñ è€ÄÀÀ”ìµ…àµİ¥‘Ñ è€ÜÈÁÁàì‰…­É½Õ¹µ½±½Èè€™™™™™˜ì‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€Àì‰½É‘•ÈµÉ…‘¥ÕÌè€ÄÉÁàì½Ù•É™±½Üè¡¥‘‘•¸ìˆø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÈÑÁàì‰…­É½Õ¹µ½±½Èè€ŒÄÜÈÔÔĞìˆø(€€€€€€€€€€€€€€€€ñÀÍÑå±”ô‰µ…É¥¸è€À€À€ÙÁàì½±½Èè€‰™‘‰™”ì™½¹ĞµÍ¥é”è€ÄÅÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€ÅÁàìÑ•áĞµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆùM¥ÍÑ•µ„‘”‘•ÍÁ…¡¼ğ½Àø(€€€€€€€€€€€€€€€€ñ ÄÍÑå±”ô‰µ…É¥¸è€Àì½±½Èè€™™™™™˜ì™½¹ĞµÍ¥é”è€ÈÑÁàì±¥¹”µ¡•¥¡Ğè€Ä¸ÈÔìˆùI•±…ÓÍÉ¥¼‘”Á…½Ñ•Ìğ½ Äø(€€€€€€€€€€€€€€€€ñÀÍÑå±”ô‰µ…É¥¸è€áÁà€À€Àì½±½Èè€‘‰•…™”ì™½¹ĞµÍ¥é”è€ÄÍÁàì±¥¹”µ¡•¥¡Ğè€Ä¸Ôìˆù½±•Ñ…Ì”Á½ÍÑ…•¹Ì½É…¹¥é…‘…ÌÁ½Èµ…É­•ÑÁ±…”ğ½Àø(€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÈÁÁà€ÈÑÁà€Àìˆø(€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰‰½É‘•Èµ½±±…ÁÍ”èÍ•Á…É…Ñ”ì‰½É‘•ÈµÍÁ…¥¹œè€ÙÁàìˆø(€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€ñÑİ¥‘Ñ ôˆÌĞ”ˆ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÑÁà€áÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÍÑÉ½¹œÍÑå±”ô‰‘¥ÍÁ±…äè‰±½¬ì½±½Èè€ŒÁ˜ÄÜÉ„ì™½¹ĞµÍ¥é”è€ÈÉÁàì±¥¹”µ¡•¥¡Ğè€Ä¸Äìˆø‘í•Í…Á•!Ñµ°¡Ñ½Ñ…±A…½Ñ•Ì¥ôğ½ÍÑÉ½¹œø(€€€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ÍÑå±”ô‰½±½Èè€ŒØĞÜĞáˆì™½¹ĞµÍ¥é”è€ÄÅÁàìˆùQ½Ñ…°•É…°ğ½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€€€€€€€€€ñÑİ¥‘Ñ ôˆÌÌ”ˆ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÑÁà€áÁàì‰…­É½Õ¹µ½±½Èè€™‰˜Äì‰½É‘•Èè€ÅÁàÍ½±¥€Œäå˜Ù”Ğìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÍÑÉ½¹œÍÑå±”ô‰‘¥ÍÁ±…äè‰±½¬ì½±½Èè€ŒÄÄÕ”Ôäì™½¹ĞµÍ¥é”è€ÈÉÁàì±¥¹”µ¡•¥¡Ğè€Ä¸Äìˆø‘í•Í…Á•!Ñµ°¡½±•Ñ…Q½Ñ…°¥ôğ½ÍÑÉ½¹œø(€€€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ÍÑå±”ô‰½±½Èè€ŒÁ˜ÜØÙ”ì™½¹ĞµÍ¥é”è€ÄÅÁàìˆù½±•Ñ„ğ½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€€€€€€€€€ñÑİ¥‘Ñ ôˆÌÌ”ˆ…±¥¸ô‰•¹Ñ•ÈˆÍÑå±”ô‰Á…‘‘¥¹œè€ÄÑÁà€áÁàì‰…­É½Õ¹µ½±½Èè€‘‰•…™”ì‰½É‘•Èè€ÅÁàÍ½±¥€‰™‘‰™”ìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÍÑÉ½¹œÍÑå±”ô‰‘¥ÍÁ±…äè‰±½¬ì½±½Èè€ŒÅ”ĞÁ…˜ì™½¹ĞµÍ¥é”è€ÈÉÁàì±¥¹”µ¡•¥¡Ğè€Ä¸Äìˆø‘í•Í…Á•!Ñµ°¡Á½ÍÑ…•µQ½Ñ…°¥ôğ½ÍÑÉ½¹œø(€€€€€€€€€€€€€€€€€€€€€€ñÍÁ…¸ÍÑå±”ô‰½±½Èè€ŒÅÑ•àì™½¹ĞµÍ¥é”è€ÄÅÁàìˆùA½ÍÑ…•´ğ½ÍÁ…¸ø(€€€€€€€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÙÁà€ÈÑÁà€Àìˆø(€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆİ¥‘Ñ ôˆÄÀÀ”ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆÍÑå±”ô‰‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•Èè€ÅÁàÍ½±¥€”É”á˜Àìˆø(€€€€€€€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÉÁà€ÄÑÁàìˆø(€€€€€€€€€€€€€€€€€€€€€€ñÀÍÑå±”ô‰µ…É¥¸è€À€À€ÕÁàì½±½Èè€ŒÌÌĞÄÔÔì™½¹ĞµÍ¥é”è€ÄÅÁàì™½¹Ğµİ•¥¡Ğè€ÜÀÀì±•ÑÑ•ÈµÍÁ…¥¹œè€¸ÕÁàìÑ•áĞµÑÉ…¹Í™½É´èÕÁÁ•É…Í”ìˆù¥±ÑÉ½Ì…Á±¥…‘½Ìğ½Àø(€€€€€€€€€€€€€€€€€€€€€€ñÑ…‰±”É½±”ô‰ÁÉ•Í•¹Ñ…Ñ¥½¸ˆ•±±Á…‘‘¥¹œôˆÀˆ•±±ÍÁ…¥¹œôˆÀˆ‰½É‘•ÈôˆÀˆø‘í™¥±Ñ•É!Ñµ±ôğ½Ñ…‰±”ø(€€€€€€€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€€€€€€€€€ğ½Ñø(€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€À€ÈÑÁà€áÁàìˆø‘í½Á•É…Ñ¥½¹M•Ñ¥½¹Í!Ñµ±ôğ½Ñø(€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€€€ñÑÈø(€€€€€€€€€€€€€€ñÑÍÑå±”ô‰Á…‘‘¥¹œè€ÄÙÁà€ÈÑÁàì‰…­É½Õ¹µ½±½Èè€˜á™…™Œì‰½É‘•ÈµÑ½Àè€ÅÁàÍ½±¥€”É”á˜Àì½±½Èè€ŒØĞÜĞáˆì™½¹ĞµÍ¥é”è€ÄÅÁàìÑ•áĞµ…±¥¸è•¹Ñ•ÈìˆùI•±…ÓÍÉ¥¼•É…‘¼…ÕÑ½µ…Ñ¥…µ•¹Ñ”Á•±¼Í¥ÍÑ•µ„‘”‘•ÍÁ…¡¼¸ğ½Ñø(€€€€€€€€€€€€ğ½ÑÈø(€€€€€€€€€€ğ½Ñ…‰±”ø(€€€€€€€€ğ½Ñø(€€€€€€ğ½ÑÈø(€€€€ğ½Ñ…‰±”ø(€€ì((€½¹ÍĞÑ•áĞ€ôl(€€€€‰I1SMI%<A=QLˆ°(€€€Q½Ñ…°•É…°è€‘íÑ½Ñ…±A…½Ñ•ÍôÁ…½Ñ•Í€°(€€€½±•Ñ„è€‘í½±•Ñ…Q½Ñ…±ôÁ…½Ñ•Í€°(€€€A½ÍÑ…•´è€‘íÁ½ÍÑ…•µQ½Ñ…±ôÁ…½Ñ•Í€°(€€€€ˆˆ°(€€€€‰%1QI=LA1%=Lˆ°(€€€€¸¸¹™¥±Ñ•É%Ñ•µÌ¹µ…À ¡m­•ä°Ù…±Õ•t¤€ôø€‘í­•åôè€‘íMÑÉ¥¹œ¡Ù…±Õ”€üü€ˆˆ¥õ€¤°(€€€€ˆˆ°(€€€€¸¸¹½Á•É…Ñ¥½¹M•Ñ¥½¹Ì¹™±…Ñ5…À ¡Í•Ñ¥½¸¤€ôøl(€€€€€€‘íÍ•Ñ¥½¸¹±…‰•°¹Ñ½UÁÁ•É…Í” ¥ôƒŠP€‘í™½Éµ…ÑA…­…•½Õ¹Ğ¡Í•Ñ¥½¸¹Ñ½Ñ…°¥õ€°(€€€€€€¸¸¹Í•Ñ¥½¸¹µ…É­•ÑÁ±…•Ì¹™±…Ñ5…À ¡µ…É­•ÑÁ±…”¤€ôøì(€€€€€€€½¹ÍĞ½µÁ…Ñ•‘%Ñ•µÌ€ô½µÁ…ÑM¡¥ÁÁ¥¹•Ñ…¥±Ì¡µ…É­•ÑÁ±…”¹¥Ñ•µÌ¤ì((€€€€€€€É•ÑÕÉ¸l(€€€€€€€€€€€€‘íµ…É­•ÑÁ±…”¹µ…É­•ÑÁ±…•ôƒŠP€‘í™½Éµ…ÑA…­…•½Õ¹Ğ¡µ…É­•ÑÁ±…”¹Ñ½Ñ…°¥õ€°(€€€€€€€€€€¸¸¹½µÁ…Ñ•‘%Ñ•µÌ¹Ù¥Í¥‰±”¹µ…À ¡¥Ñ•´¤€ôøì(€€€€€€€€€€€½¹ÍĞ½µÁ…Ñ•‘MÑ½É•Ì€ô½µÁ…ÑMÑ½É•Ì¡¥Ñ•´¹±½©…Ì¤ì(€€€€€€€€€€€½¹ÍĞ±½©…ÍQ•áĞ€ô½µÁ…Ñ•‘MÑ½É•Ì¹Ù¥Í¥‰±”¹±•¹Ñ (€€€€€€€€€€€€€€ü½µÁ…Ñ•‘MÑ½É•Ì¹Ù¥Í¥‰±”(€€€€€€€€€€€€€€€€€€¹µ…À ¡±½©„¤€ôø€‘í±½©„¹¹½µ•ôè€‘í±½©„¹Á…­…•Íõ€¤(€€€€€€€€€€€€€€€€€€¹©½¥¸ ˆ°€ˆ¤(€€€€€€€€€€€€€€è€‰M•´‘•Ñ…±¡…µ•¹Ñ¼Á½È±½©„ˆì(€€€€€€€€€€€½¹ÍĞ½µ¥ÑÑ•‘MÑ½É•ÍQ•áĞ€ô½µÁ…Ñ•‘MÑ½É•Ì¹½µ¥ÑÑ•‘½Õ¹Ğ(€€€€€€€€€€€€€€ü€ì€¬€‘í½µÁ…Ñ•‘MÑ½É•Ì¹½µ¥ÑÑ•‘½Õ¹Ñô±½©…ÌÉ•ÍÕµ¥‘…Ì€ ‘í™½Éµ…ÑA…­…•½Õ¹Ğ¡½µÁ…Ñ•‘MÑ½É•Ì¹½µ¥ÑÑ•‘A…­…•Ì¥ô¥€(€€€€€€€€€€€€€€è€ˆˆì(€€€€€€€€€€€½¹ÍĞÍ¡¥ÁÁ¥¹1…‰•°€ô¥Ñ•´¹µ•±¡½É¹Ù¥¼(€€€€€€€€€€€€€€ü€‰5•±¡½È¹Ù¥¼ˆ(€€€€€€€€€€€€€€è€‰¹Ù¥¼‘¥É•Ñ¼ˆì((€€€€€€€€€€€É•ÑÕÉ¸€€€€€‘íÍ¡¥ÁÁ¥¹1…‰•±ôğ€‘í¥Ñ•´¹ÑÉ…¹ÍÁ½ÉÑ…‘½É…ôğ€‘í™½Éµ…ÑA…­…•½Õ¹Ğ¡¥Ñ•´¹Á…­…•Ì¥ôğA½È±½©„è€‘í±½©…ÍQ•áÑô‘í½µ¥ÑÑ•‘MÑ½É•ÍQ•áÑõ€ì(€€€€€€€€€ô¤°(€€€€€€€€€€¸¸¸¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ğ(€€€€€€€€€€€€ül(€€€€€€€€€€€€€€€€€€€€¬€‘í½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘½Õ¹Ñô™½Éµ…Ì‘”•¹Ù¥¼É•ÍÕµ¥‘…Ì€ ‘í™½Éµ…ÑA…­…•½Õ¹Ğ¡½µÁ…Ñ•‘%Ñ•µÌ¹½µ¥ÑÑ•‘A…­…•Ì¥ô¤ìÑ½Ñ…¥ÌÁÉ•Í•ÉÙ…‘½Ì¹€°(€€€€€€€€€€€€€t(€€€€€€€€€€€€èmt¤°(€€€€€€€tì(€€€€€ô¤°(€€€€€€ˆˆ°(€€€t¤°(€t¹©½¥¸ ‰q¸ˆ¤ì((€É•ÑÕÉ¸ìÍÕ‰©•Ğ°¡Ñµ°°Ñ•áĞôì)ô()…Íå¹Œ™Õ¹Ñ¥½¸Í•¹‘µ…¥±]¥Ñ¡I•Í•¹¡ì(€Ñ¼°(€ÍÕ‰©•Ğ°(€¡Ñµ°°(€Ñ•áĞ°)ôèµ…¥±½¹Ñ•¹Ğ€˜ìÑ¼èÍÑÉ¥¹mtô¤ì(€½¹ÍĞ…Á¥-•ä€ôÁÉ½•ÍÌ¹•¹Ø¹IM9}A%}-dü¹ÑÉ¥´ ¤ì(€½¹ÍĞ™É½´€ôÁÉ½•ÍÌ¹•¹Ø¹I1Q=I%=M}5%1}I=4ü¹ÑÉ¥´ ¤ì(€½¹ÍĞÉ•Á±åQ¼€ôÁÉ½•ÍÌ¹•¹Ø¹I1Q=I%=M}5%1}IA1e}Q<ü¹ÑÉ¥´ ¤ì((€¥˜€ ……Á¥-•äñğ€…™É½´¤ì(€€€Ñ¡É½Ü¹•Üµ…¥±½¹™¥ÉÉ½È (€€€€€€‰¹Ù¥¼‘””µµ…¥°¹…¼½¹™¥ÕÉ…‘¼¸•™¥¹„IM9}A%}-d”I1Q=I%=M}5%1}I=4¹¼…µ‰¥•¹Ñ”‘¼‰…­•¹¸ˆ°(€€€€¤ì(€ô((€½¹ÍĞÉ•ÍÁ½¹Í”€ô…İ…¥Ğ™•Ñ  ‰¡ÑÑÁÌè¼½…Á¤¹É•Í•¹¹½´½•µ…¥±Ìˆ°ì(€€€µ•Ñ¡½è€‰A=MPˆ°(€€€¡•…‘•ÉÌèì(€€€€€ÕÑ¡½É¥é…Ñ¥½¸è	•…É•È€‘í…Á¥-•åõ€°(€€€€€€‰½¹Ñ•¹ĞµQåÁ”ˆè€‰…ÁÁ±¥…Ñ¥½¸½©Í½¸ˆ°(€€€€€€‰%‘•µÁ½Ñ•¹äµ-•äˆèÉåÁÑ¼¹É…¹‘½µUU% ¤°(€€€ô°(€€€‰½‘äè)M=8¹ÍÑÉ¥¹¥™ä¡ì(€€€€€™É½´°(€€€€€Ñ¼°(€€€€€ÍÕ‰©•Ğ°(€€€€€¡Ñµ°°(€€€€€Ñ•áĞ°(€€€€€€¸¸¸¡É•Á±åQ¼€üìÉ•Á±å}Ñ¼èÉ•Á±åQ¼ô€èíô¤°(€€€ô¤°(€ô¤ì((€¥˜€ …É•ÍÁ½¹Í”¹½¬¤ì(€€€½¹ÍĞ‰½‘ä€ô…İ…¥ĞÉ•ÍÁ½¹Í”¹Ñ•áĞ ¤ì(€€€Ñ¡É½Ü¹•ÜÉÉ½È (€€€€€…±¡„¹¼ÁÉ½Ù•‘½È‘””µµ…¥°€ ‘íÉ•ÍÁ½¹Í”¹ÍÑ…ÑÕÍô¤è€‘í‰½‘äñğÉ•ÍÁ½¹Í”¹ÍÑ…ÑÕÍQ•áÑõ€°(€€€€¤ì(€ô((€É•ÑÕÉ¸É•ÍÁ½¹Í”¹©Í½¸ ¤ì)ô()…Íå¹Œ™Õ¹Ñ¥½¸Í…Ù•!¥ÍÑ½Éä¡ì(€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€…ÍÍÕ¹Ñ¼°(€™¥±ÑÉ½Ì°(€ÍÑ…ÑÕÌ°(€•ÉÉ¼°)ôèì(€‘•ÍÑ¥¹…Ñ…É¥½ÌèÍÑÉ¥¹mtì(€…ÍÍÕ¹Ñ¼èÍÑÉ¥¹œì(€™¥±ÑÉ½ÌèI•½ÉñÍÑÉ¥¹œ°Õ¹­¹½İ¸øì(€ÍÑ…ÑÕÌè€‰ÍÕ•ÍÍ¼ˆğ€‰•ÉÉ¼ˆì(€•ÉÉ¼üèÍÑÉ¥¹œğ¹Õ±°ì)ô°½¹Ñ•áĞè…Ñ…‰…Í•½¹Ñ•áĞ¤ì(€ÑÉäì(€€€…İ…¥ĞÉ•…Ñ•I•±…Ñ½É¥½¹Ù¥½!¥ÍÑ½É¥¼¡ì(€€€€€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€€€€€…ÍÍÕ¹Ñ¼°(€€€€€™¥±ÑÉ½Ì°(€€€€€ÍÑ…ÑÕÌ°(€€€€€•ÉÉ¼°(€€€ô°½¹Ñ•áĞ¤ì(€ô…Ñ €¡¡¥ÍÑ½ÉåÉÉ½È¤ì(€€€½¹Í½±”¹•ÉÉ½È ‰…±¡„…¼Í…±Ù…È¡¥ÍÑ½É¥¼‘”•¹Ù¥¼èˆ°¡¥ÍÑ½ÉåÉÉ½È¤ì(€ô)ô()•áÁ½ÉĞ…Íå¹Œ™Õ¹Ñ¥½¸A=MP¡É•ÅÕ•ÍĞèI•ÅÕ•ÍĞ¤ì(€¥˜€ …¥ÍMÕÁ…‰…Í•½¹™¥ÕÉ• ¤¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰MÕÁ…‰…Í”¹…¼½¹™¥ÕÉ…‘¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ÔÀÌô°(€€€€¤ì(€ô((€½¹ÍĞ…ÕÑ¡½É¥é…Ñ¥½¸€ôÉ•ÅÕ•ÍĞ¹¡•…‘•ÉÌ¹•Ğ ‰…ÕÑ¡½É¥é…Ñ¥½¸ˆ¤€üü€ˆˆì(€½¹ÍĞÑ½­•¸€ô…ÕÑ¡½É¥é…Ñ¥½¸¹ÍÑ…ÉÑÍ]¥Ñ  ‰	•…É•È€ˆ¤(€€€€ü…ÕÑ¡½É¥é…Ñ¥½¸¹Í±¥” ‰	•…É•È€ˆ¹±•¹Ñ ¤¹ÑÉ¥´ ¤(€€€€è€ˆˆì((€¥˜€ …Ñ½­•¸¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰M•ÍÍ…¼½‰É¥…Ñ½É¥„Á…É„•¹Ù¥…È¼É•±…Ñ½É¥¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÄô°(€€€€¤ì(€ô((€½¹ÍĞ…ÕÑ¡•¹Ñ¥…Ñ•‘±¥•¹Ğ€ôÉ•…Ñ•MÕÁ…‰…Í•±¥•¹Ñ½É•ÍÍQ½­•¸¡Ñ½­•¸¤ì(€½¹ÍĞì‘…Ñ„èÕÍ•É…Ñ„°•ÉÉ½ÈèÕÍ•ÉÉÉ½Èô€ô(€€€…İ…¥Ğ…ÕÑ¡•¹Ñ¥…Ñ•‘±¥•¹Ğ¹…ÕÑ ¹•ÑUÍ•È¡Ñ½­•¸¤ì((€¥˜€¡ÕÍ•ÉÉÉ½Èñğ€…ÕÍ•É…Ñ„¹ÕÍ•È¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰M•ÍÍ…¼¥¹Ù…±¥‘„½Ô•áÁ¥É…‘„¸¹ÑÉ”¹½Ù…µ•¹Ñ”¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÄô°(€€€€¤ì(€ô((€½¹ÍĞ‘…Ñ…‰…Í•½¹Ñ•áĞè…Ñ…‰…Í•½¹Ñ•áĞ€ôì(€€€ÍÕÁ…‰…Í”è…ÕÑ¡•¹Ñ¥…Ñ•‘±¥•¹Ğ°(€€€ÕÍ•É%èÕÍ•É…Ñ„¹ÕÍ•È¹¥°(€ôì((€±•ĞÁ…å±½…èÕ¹­¹½İ¸ì(€ÑÉäì(€€€Á…å±½…€ô…İ…¥ĞÉ•ÅÕ•ÍĞ¹©Í½¸ ¤ì(€ô…Ñ ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰A…å±½…¥¹Ù…±¥‘¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÀô°(€€€€¤ì(€ô((€¥˜€ …¥ÍI•½É¡Á…å±½…¤¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è€‰A…å±½…¥¹Ù…±¥‘¼¸ˆô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÀô°(€€€€¤ì(€ô((€½¹ÍĞ‘•ÍÑ¥¹…Ñ…É¥½%‘Ì€ôÕ¹¥ÅÕ”¡•ÑMÑÉ¥¹ÉÉ…ä¡Á…å±½…¹‘•ÍÑ¥¹…Ñ…É¥½%‘Ì¤¤ì(€±•Ğ•µ…¥±Í5…¹Õ…¥ÌèÍÑÉ¥¹mtì(€ÑÉäì(€€€•µ…¥±Í5…¹Õ…¥Ì€ôÕ¹¥ÅÕ” (€€€€€•ÑMÑÉ¥¹ÉÉ…ä¡Á…å±½…¹•µ…¥±Í5…¹Õ…¥Ì¤¹µ…À ¡•µ…¥°¤€ôø(€€€€€€€Ù…±¥‘…Ñ•µ…¥±‘‘É•ÍÌ¡•µ…¥°¤°(€€€€€€¤°(€€€€¤ì(€ô…Ñ €¡Ù…±¥‘…Ñ¥½¹ÉÉ½È¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”è™½Éµ…Ñ…Ñ…‰…Í•ÉÉ½È¡Ù…±¥‘…Ñ¥½¹ÉÉ½È¤ô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÀô°(€€€€¤ì(€ô((€±•Ğ…Ñ¥Ù½Ìèİ…¥Ñ•ñI•ÑÕÉ¹QåÁ”ñÑåÁ•½˜•ÑI•±…Ñ½É¥½•ÍÑ¥¹…Ñ…É¥½Ìøøì(€ÑÉäì(€€€…Ñ¥Ù½Ì€ô…İ…¥Ğ•ÑI•±…Ñ½É¥½•ÍÑ¥¹…Ñ…É¥½Ì¡Õ¹‘•™¥¹•°‘…Ñ…‰…Í•½¹Ñ•áĞ¤ì(€ô…Ñ €¡‘…Ñ…‰…Í•ÉÉ½È¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì(€€€€€€€½¬è™…±Í”°(€€€€€€€µ•ÍÍ…”èÉÉ¼…¼…ÉÉ•…È‘•ÍÑ¥¹…Ñ…É¥½Ìè€‘í™½Éµ…Ñ…Ñ…‰…Í•ÉÉ½È¡‘…Ñ…‰…Í•ÉÉ½È¥õ€°(€€€€€ô°(€€€€€ìÍÑ…ÑÕÌè€ÔÀÀô°(€€€€¤ì(€ô((€½¹ÍĞ…Ñ¥Ù½ÍA½É%€ô¹•Ü5…À¡…Ñ¥Ù½Ì¹µ…À ¡¥Ñ•´¤€ôøm¥Ñ•´¹¥°¥Ñ•µt¤¤ì(€½¹ÍĞ‘•ÍÑ¥¹…Ñ…É¥½Í…‘…ÍÑÉ…‘½Ì€ô‘•ÍÑ¥¹…Ñ…É¥½%‘Ì¹™±…Ñ5…À ¡¥¤€ôøì(€€€½¹ÍĞ¥Ñ•´€ô…Ñ¥Ù½ÍA½É%¹•Ğ¡¥¤ì((€€€É•ÑÕÉ¸¥Ñ•´€üm¥Ñ•´¹•µ…¥±t€èmtì(€ô¤ì(€½¹ÍĞ‘•ÍÑ¥¹…Ñ…É¥½Ì€ôÕ¹¥ÅÕ”¡l¸¸¹‘•ÍÑ¥¹…Ñ…É¥½Í…‘…ÍÑÉ…‘½Ì°€¸¸¹•µ…¥±Í5…¹Õ…¥Ít¤ì(€½¹ÍĞ•µ…¥±½¹Ñ•¹Ğ€ô‰Õ¥±‘I•Á½ÉÑµ…¥°¡Á…å±½…¤ì(€½¹ÍĞ™¥±ÑÉ½Ì€ôì(€€€™¥±ÑÉ½Ìè¥ÍI•½É¡Á…å±½…¹™¥±ÑÉ½Ì¤€üÁ…å±½…¹™¥±ÑÉ½Ì€èíô°(€€€™¥±ÑÉ½ÍI•ÍÕµ¼è¥ÍI•½É¡Á…å±½…¹™¥±ÑÉ½ÍI•ÍÕµ¼¤€üÁ…å±½…¹™¥±ÑÉ½ÍI•ÍÕµ¼€èíô°(€€€É•±…Ñ½É¥¼è¥ÍI•½É¡Á…å±½…¹É•±…Ñ½É¥¼¤€üÁ…å±½…¹É•±…Ñ½É¥¼€èíô°(€ôì((€¥˜€ …‘•ÍÑ¥¹…Ñ…É¥½Ì¹±•¹Ñ ¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì(€€€€€€€½¬è™…±Í”°(€€€€€€€µ•ÍÍ…”è€‰M•±•¥½¹”…¼µ•¹½ÌÕ´‘•ÍÑ¥¹…Ñ…É¥¼…Ñ¥Ù¼Á…É„•¹Ù¥…È¸ˆ°(€€€€€ô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÀô°(€€€€¤ì(€ô((€¥˜€¡‘•ÍÑ¥¹…Ñ…É¥½Ì¹±•¹Ñ €ø€ÔÀ¤ì(€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì(€€€€€€€½¬è™…±Í”°(€€€€€€€µ•ÍÍ…”è€‰<•¹Ù¥¼…•¥Ñ„¹¼µ…á¥µ¼€ÔÀ‘•ÍÑ¥¹…Ñ…É¥½ÌÁ½ÈÙ•è¸ˆ°(€€€€€ô°(€€€€€ìÍÑ…ÑÕÌè€ĞÀÀô°(€€€€¤ì(€ô((€ÑÉäì(€€€…İ…¥ĞÍ•¹‘µ…¥±]¥Ñ¡I•Í•¹¡ì€¸¸¹•µ…¥±½¹Ñ•¹Ğ°Ñ¼è‘•ÍÑ¥¹…Ñ…É¥½Ìô¤ì(€€€…İ…¥ĞÍ…Ù•!¥ÍÑ½Éä¡ì(€€€€€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€€€€€…ÍÍÕ¹Ñ¼è•µ…¥±½¹Ñ•¹Ğ¹ÍÕ‰©•Ğ°(€€€€€™¥±ÑÉ½Ì°(€€€€€ÍÑ…ÑÕÌè€‰ÍÕ•ÍÍ¼ˆ°(€€€ô°‘…Ñ…‰…Í•½¹Ñ•áĞ¤ì((€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸¡ì(€€€€€½¬èÑÉÕ”°(€€€€€Ñ½Ñ…±•ÍÑ¥¹…Ñ…É¥½Ìè‘•ÍÑ¥¹…Ñ…É¥½Ì¹±•¹Ñ °(€€€ô¤ì(€ô…Ñ €¡•ÉÉ½È¤ì(€€€½¹ÍĞµ•ÍÍ…”€ô™½Éµ…Ñ…Ñ…‰…Í•ÉÉ½È¡•ÉÉ½È¤ì(€€€…İ…¥ĞÍ…Ù•!¥ÍÑ½Éä¡ì(€€€€€‘•ÍÑ¥¹…Ñ…É¥½Ì°(€€€€€…ÍÍÕ¹Ñ¼è•µ…¥±½¹Ñ•¹Ğ¹ÍÕ‰©•Ğ°(€€€€€™¥±ÑÉ½Ì°(€€€€€ÍÑ…ÑÕÌè€‰•ÉÉ¼ˆ°(€€€€€•ÉÉ¼èµ•ÍÍ…”°(€€€ô°‘…Ñ…‰…Í•½¹Ñ•áĞ¤ì((€€€É•ÑÕÉ¸9•áÑI•ÍÁ½¹Í”¹©Í½¸ (€€€€€ì½¬è™…±Í”°µ•ÍÍ…”ô°(€€€€€ìÍÑ…ÑÕÌè•ÉÉ½È¥¹ÍÑ…¹•½˜µ…¥±½¹™¥ÉÉ½È€ü€ÔÀÄ€è€ÔÀÀô°(€€€€¤ì(€ô)ô

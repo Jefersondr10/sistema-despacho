@@ -1,6 +1,9 @@
 "use client";
 
-import { RomaneioDocument, type RomaneioGroup } from "@/app/_components/romaneio-document";
+import {
+  RomaneioDocument,
+  type RomaneioGroup,
+} from "@/app/_components/romaneio-document";
 import { Badge, EmptyState, FeedbackMessage } from "@/app/_components/ui";
 import { formatPackageDate, getStoreName } from "@/app/_lib/mock-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
@@ -13,7 +16,9 @@ export function RomaneioLoteView({ loteId }: { loteId: string }) {
   const { catalogs, allPackages, batches, loading, error } =
     useSupabaseDispatchData("romaneio", loteId);
   const batch = batches.find((item) => item.id === loteId);
-  const packages = allPackages.filter((item) => item.lote_id === loteId);
+  const packages = allPackages.filter(
+    (item) => item.lote_id === loteId && item.status !== "Cancelado",
+  );
 
   const group: RomaneioGroup | null = batch
     ? {
