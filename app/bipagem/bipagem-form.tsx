@@ -368,6 +368,17 @@ export function BipagemForm() {
   }, [databaseContext, loading]);
 
   useEffect(() => {
+    if (!loading && !loadingOpenSession) {
+      const focusTimer = window.setTimeout(
+        () => codeRef.current?.focus({ preventScroll: true }),
+        0,
+      );
+
+      return () => window.clearTimeout(focusTimer);
+    }
+  }, [loading, loadingOpenSession]);
+
+  useEffect(() => {
     const hasCancellationDraft =
       cancellationMode &&
       (Boolean(cancellationReason.trim()) || pendingCancellations.length > 0);
@@ -1479,7 +1490,6 @@ export function BipagemForm() {
                   : "Bipe ou digite o código do pacote"
               }
               autoComplete="off"
-              autoFocus
               required
             />
           </label>
