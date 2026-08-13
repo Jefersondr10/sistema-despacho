@@ -32,6 +32,11 @@ test("busca de cancelamento percorre a conta sem exigir loja e trata ambiguidade
     /checkingPackage \|\|\s*cancellationCandidates\.length > 0/,
   );
   assert.match(bipagemSource, /firstCancellationCandidateRef\.current\?\.focus/);
+  assert.match(databaseSource, /select\("id, codigo"\)/);
+  assert.match(
+    databaseSource,
+    /normalizeDatabaseTrackingCode\(item\.codigo\) === normalizedCode/,
+  );
 });
 
 test("cancelamento em lote exige motivo geral apenas ao finalizar", () => {

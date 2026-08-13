@@ -1941,22 +1941,25 @@ export async function getPacotesFinalizadosPorCodigo(
   );
 
   if (lookupError && isMissingRpcFunctionError(lookupError)) {
-    // Compatibilidade temporaria para deploy frontend-first. Pacotes novos ja
-    // persistem o codigo normalizado; a RPC deve ser aplicada logo depois para
-    // tambem localizar codigos legados com espacos ou caixa diferente.
+    // Compatibilidade temporaria para deploy frontend-first. O fallback traz
+    // apenas id/codigo e normaliza no cliente para incluir registros legados;
+    // a RPC deve ser aplicada logo depois para manter a busca indexada.
     const { data: legacyMatches, error: legacyLookupError } = await supabase
       .from("pacotes")
-      .select("id")
+      .select("id, codigo")
       .eq("user_id", userId)
-      .eq("codigo", normalizedCode)
       .eq("status", "finalizado")
-      .returns<Array<{ id: string }>>();
+      .returns<Array<{ id: string; codigo: string }>>();
 
     if (legacyLookupError) {
       throw legacyLookupError;
     }
 
-    pacoteIds = (legacyMatches ?? []).map((item) => item.id);
+    pacoteIds = (legacyMatches ?? [])
+      .filter(
+        (item) => normalizeDatabaseTrackingCode(item.codigo) === normalizedCode,
+      )
+      .map((item) => item.id);
   } else if (lookupError) {
     throw lookupError;
   }
