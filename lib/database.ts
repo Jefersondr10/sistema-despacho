@@ -95,6 +95,74 @@ export type RelatorioEnvioRow = {
   enviado_em: string;
 };
 
+export type FeedbackCategory =
+  | "sugestao"
+  | "reclamacao"
+  | "problema"
+  | "duvida"
+  | "elogio";
+
+export type FeedbackArea =
+  | "bipagem"
+  | "pacotes"
+  | "relatorios"
+  | "cadastros"
+  | "geral";
+
+export type FeedbackStatus =
+  | "novo"
+  | "em_analise"
+  | "respondido"
+  | "resolvido"
+  | "arquivado";
+
+export type FeedbackRow = {
+  id: string;
+  user_id: string;
+  sender_email: string;
+  submission_key: string;
+  category: FeedbackCategory;
+  area: FeedbackArea;
+  subject: string;
+  message: string;
+  page_path: string | null;
+  status: FeedbackStatus;
+  admin_response: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackManagementOptions = {
+  status?: FeedbackStatus;
+  category?: FeedbackCategory;
+  area?: FeedbackArea;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type FeedbackPageOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export type FeedbackPage = {
+  items: FeedbackRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type FeedbackManagementSummary = {
+  total: number;
+  novos: number;
+  emAnalise: number;
+  respondidos: number;
+  resolvidos: number;
+  arquivados: number;
+};
+
 export type SessaoBipagemRow = {
   id: string;
   user_id: string;
@@ -801,6 +869,198 @@ export function mapMovimentacaoRowToPackageMovement(
     tipo_movimentacao: mapMovementType(row.tipo_movimentacao),
     data_hora: row.criada_em,
     criado_em: row.criada_em,
+  };
+}
+
+const feedbackSelect = [
+  "id",
+  "user_id",
+  "sender_email",
+  "submission_key",
+  "category",
+  "area",
+  "subject",
+  "message",
+  "page_path",
+  "status",
+  "admin_response",
+  "reviewed_at",
+  "created_at",
+  "updated_at",
+].join(", ");
+
+type FeedbackManagementRpcRow = FeedbackRow & {
+  total_count: number | string;
+};
+
+type FeedbackManagementSummaryRpcRow = {
+  total: number | string;
+  novo: number | string;
+  em_analise: number | string;
+  respondido: number | string;
+  resolvido: number | string;
+  arquivado: number | string;
+};
+
+function getFeedbackPageNumber(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.max(1, Math.trunc(value));
+}
+
+function getFeedbackPageSize(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 20;
+  }
+
+  return Math.max(1, Math.min(50, Math.trunc(value)));
+}
+
+function getFeedbackCount(value: unknown) {
+  const count = Number(value ?? 0);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function getFeedbackPageSettings(options?: FeedbackPageOptions) {
+  const page = getFeedbackPageNumber(options?.page);
+  const pageSize = getFeedbackPageSize(options?.pageSize);
+
+  return {
+    page,
+    pageSize,
+    offset: (page - 1) * pageSize,
+  };
+}
+
+export async function getFeedbackAdminStatus(
+  context?: DatabaseContext,
+): Promise<boolean> {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc("is_feedback_admin");
+
+  if (error) {
+    throw error;
+  }
+
+  return data === true;
+}
+
+export async function getOwnFeedbacks(
+  context?: DatabaseContext,
+): Promise<FeedbackRow[]> {
+  const result = await getOwnFeedbackPage(
+    { page: 1, pageSize: 50 },
+    context,
+  );
+
+  return result.items;
+}
+
+export async function getOwnFeedbackPage(
+  options?: FeedbackPageOptions,
+  context?: DatabaseContext,
+): Promise<FeedbackPage> {
+  const { supabase, userId } = await getDatabaseContext(context);
+  const { page, pageSize, offset } = getFeedbackPageSettings(options);
+  const { data, error, count } = await supabase
+    .from("feedbacks")
+    .select(feedbackSelect, { count: "exact" })
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + pageSize - 1)
+    .returns<FeedbackRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    items: data ?? [],
+    total: getFeedbackCount(count),
+    page,
+    pageSize,
+  };
+}
+
+export async function getFeedbacksForManagement(
+  options?: FeedbackManagementOptions,
+  context?: DatabaseContext,
+): Promise<FeedbackPage> {
+  const { supabase } = await getDatabaseContext(context);
+  const { page, pageSize, offset } = getFeedbackPageSettings(options);
+  const parameters = {
+    p_status: options?.status ?? null,
+    p_category: options?.category ?? null,
+    p_area: options?.area ?? null,
+    p_search: options?.search?.trim() || null,
+    p_limit: pageSize,
+    p_offset: offset,
+  };
+  const { data, error } = await supabase.rpc(
+    "list_feedbacks_for_management",
+    parameters,
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = ((data ?? []) as FeedbackManagementRpcRow[]);
+  let total = getFeedbackCount(rows[0]?.total_count);
+
+  // A pagina pode ter ficado vazia depois de exclusoes concorrentes. Uma
+  // consulta minima na primeira pagina preserva o total filtrado correto.
+  if (!rows.length && offset > 0) {
+    const { data: firstPageData, error: firstPageError } = await supabase.rpc(
+      "list_feedbacks_for_management",
+      { ...parameters, p_limit: 1, p_offset: 0 },
+    );
+
+    if (firstPageError) {
+      throw firstPageError;
+    }
+
+    const firstPageRows =
+      (firstPageData ?? []) as FeedbackManagementRpcRow[];
+    total = getFeedbackCount(firstPageRows[0]?.total_count);
+  }
+
+  return {
+    items: rows.map(({ total_count, ...feedback }) => {
+      void total_count;
+      return feedback;
+    }),
+    total,
+    page,
+    pageSize,
+  };
+}
+
+export async function getFeedbackManagementSummary(
+  context?: DatabaseContext,
+): Promise<FeedbackManagementSummary> {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "get_feedback_management_summary",
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  const candidate = Array.isArray(data) ? data[0] : data;
+  const row = (candidate ?? {}) as Partial<FeedbackManagementSummaryRpcRow>;
+
+  return {
+    total: getFeedbackCount(row.total),
+    novos: getFeedbackCount(row.novo),
+    emAnalise: getFeedbackCount(row.em_analise),
+    respondidos: getFeedbackCount(row.respondido),
+    resolvidos: getFeedbackCount(row.resolvido),
+    arquivados: getFeedbackCount(row.arquivado),
   };
 }
 

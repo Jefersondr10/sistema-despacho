@@ -11,6 +11,7 @@ const navItems = [
   { href: "/pacotes-cancelados", label: "Cancelados", icon: "cancel" },
   { href: "/relatorios", label: "Relatórios", icon: "report" },
   { href: "/cadastros", label: "Cadastros", icon: "settings" },
+  { href: "/feedback", label: "Feedback", icon: "feedback" },
 ] as const;
 
 type NavigationIcon = (typeof navItems)[number]["icon"];
@@ -58,6 +59,12 @@ function NavIcon({ icon }: { icon: NavigationIcon }) {
         <circle cx="16" cy="7" r="2" />
         <circle cx="8" cy="17" r="2" />
         <circle cx="10" cy="12" r="2" />
+      </>
+    ),
+    feedback: (
+      <>
+        <path d="M21 12a8 8 0 0 1-8 8H7l-4 2 1.4-4.2A9 9 0 1 1 21 12Z" />
+        <path d="M8 10h8M8 14h5" />
       </>
     ),
   };

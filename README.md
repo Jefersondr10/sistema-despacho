@@ -9,11 +9,17 @@ Crie `.env.local`:
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://SEU-PROJETO.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=SUA_CHAVE_PUBLICAVEL
+SUPABASE_SERVICE_ROLE_KEY=SUA_CHAVE_SERVICE_ROLE
 RESEND_API_KEY=SUA_CHAVE_RESEND
-RESEND_FROM_EMAIL=Sistema Despacho <despacho@seu-dominio.com>
+RELATORIOS_EMAIL_FROM=Sistema Despacho <despacho@seu-dominio.com>
+RELATORIOS_EMAIL_REPLY_TO=
+FEEDBACK_EMAIL_TO=jefersondr10@gmail.com
 ```
 
-A aplicação usa somente a chave publicável no navegador. Nunca exponha `service_role` em variáveis `NEXT_PUBLIC_*`.
+A aplicação usa somente a chave publicável no navegador. A
+`SUPABASE_SERVICE_ROLE_KEY` é usada exclusivamente pelas rotas server-side para
+consultar e marcar o estado interno de entrega das notificações. Nunca exponha
+essa chave em variáveis `NEXT_PUBLIC_*`, logs ou respostas JSON.
 
 ```bash
 npm install
@@ -25,13 +31,41 @@ npm run dev
 No painel do Supabase:
 
 1. Em **Authentication > Providers > Email**, habilite e-mail/senha.
-2. Decida se novos e-mails precisam de confirmação.
+2. Mantenha a confirmação de e-mail habilitada. A API de feedback rejeita
+   contas cujo endereço ainda não foi confirmado.
 3. Em **Authentication > URL Configuration**, defina a Site URL e os Redirect URLs:
    - local: `http://localhost:3000/login`;
    - produção: `https://SEU-DOMINIO/login`.
 4. Crie a conta proprietária dos dados antigos em **Authentication > Users** e confirme o e-mail, se necessário.
 
 A tela `/login` oferece entrada, criação de conta e recuperação de senha. A sessão é persistida e renovada pelo cliente oficial do Supabase. Rotas internas sem sessão são redirecionadas para `/login`; as APIs exigem `Authorization: Bearer <access_token>`.
+
+## Feedback e notificações por e-mail
+
+O envio de feedback usa `POST /api/feedback` e exige uma sessão válida do
+Supabase. O corpo JSON tem limite real de 16 KB e aceita somente categoria,
+área, assunto, mensagem, página atual e uma chave UUID de idempotência criada
+pelo cliente. O banco aplica novamente validação, isolamento e limite de
+frequência pela RPC `submit_feedback`.
+
+Cada notificação usa um identificador persistente criado no banco. Repetir a
+mesma solicitação tenta novamente somente uma entrega pendente; solicitações já
+marcadas como notificadas não voltam a chamar o provedor de e-mail.
+
+As notificações de novos feedbacks sempre usam o destinatário fixo definido em
+`FEEDBACK_EMAIL_TO`; a API nunca aceita destinatário, remetente, assunto de
+e-mail ou HTML vindos do navegador. `RELATORIOS_EMAIL_FROM` e
+`RESEND_API_KEY` também ficam exclusivamente no backend. O e-mail autenticado
+do autor é usado apenas como `reply_to`.
+
+Administradores revisam pela rota `PATCH /api/feedback/[id]`, protegida pela RPC
+`review_feedback`. O PATCH envia também `expectedUpdatedAt`, permitindo que o
+banco rejeite com HTTP 409 uma edição baseada em dados desatualizados. Uma
+resposta nova e não vazia é enviada ao e-mail confirmado atual retornado pelo
+banco. Mudanças somente de status não alteram o conteúdo do e-mail pendente.
+Se o Resend estiver indisponível ou sem configuração, o feedback ou a revisão
+continuam salvos; a resposta da API informa `notificationSent: false` sem expor
+detalhes internos do provedor.
 
 ## Migration de isolamento e backfill
 
