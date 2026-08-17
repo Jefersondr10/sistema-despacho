@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 
 import {
   Badge,
@@ -12,6 +13,12 @@ import {
   StatusBadge,
 } from "@/app/_components/ui";
 import { SelectField } from "@/app/_components/select-field";
+import {
+  MobileCameraScanner,
+  type CameraScanOutcome,
+} from "@/app/bipagem/mobile-camera-scanner";
+import { parseTrackingCode } from "@/app/bipagem/tracking-code-policy";
+import { useAccessibleFullscreenDialog } from "@/app/bipagem/use-accessible-fullscreen-dialog";
 import type {
   DispatchPackage,
   OperationType,
@@ -45,6 +52,8 @@ type Notice = {
   type: "success" | "warning" | "danger" | "neutral";
   text: string;
 };
+
+type FullscreenPackagesMode = "browse" | "manual-remove";
 
 type PendingCancellationItem = {
   pacote: DispatchPackage;
@@ -98,11 +107,30 @@ function makeId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function shouldAutoFocusCodeField() {
+  return !window.matchMedia(
+    "(max-width: 1279px) and (pointer: coarse)",
+  ).matches;
+}
+
 export function BipagemForm() {
   const codeRef = useRef<HTMLInputElement>(null);
+  const sessionListRef = useRef<HTMLDivElement>(null);
+  const processingTrackingRef = useRef(false);
+  const finishingSessionRef = useRef(false);
   const cancellationReasonRef = useRef<HTMLTextAreaElement>(null);
   const firstCancellationCandidateRef = useRef<HTMLButtonElement>(null);
   const cancellationPanelRef = useRef<HTMLFormElement>(null);
+  const duplicateManagerRef = useRef<HTMLElement>(null);
+  const duplicateManagerInitialFocusRef = useRef<HTMLButtonElement>(null);
+  const fullscreenPackagesRef = useRef<HTMLElement>(null);
+  const fullscreenPackagesInitialFocusRef = useRef<HTMLButtonElement>(null);
+  const manualPackageRemovalInputRef = useRef<HTMLInputElement>(null);
+  const mobileBatchHistoryRef = useRef<HTMLElement>(null);
+  const mobileBatchHistoryInitialFocusRef = useRef<HTMLButtonElement>(null);
+  const mobileSessionOptionsTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileSessionOptionsRef = useRef<HTMLElement>(null);
+  const mobileSessionOptionsInitialFocusRef = useRef<HTMLButtonElement>(null);
   const { user } = useAuth();
   const {
     catalogs,
@@ -157,6 +185,20 @@ export function BipagemForm() {
   );
   const [showOnlySessionDuplicates, setShowOnlySessionDuplicates] =
     useState(false);
+  const [showMobileManualInput, setShowMobileManualInput] = useState(false);
+  const [showMobileSessionOptions, setShowMobileSessionOptions] =
+    useState(false);
+  const [showFullscreenSessionPackages, setShowFullscreenSessionPackages] =
+    useState(false);
+  const [fullscreenPackagesMode, setFullscreenPackagesMode] =
+    useState<FullscreenPackagesMode>("browse");
+  const [manualPackageRemovalQuery, setManualPackageRemovalQuery] =
+    useState("");
+  const [showMobileBatchHistory, setShowMobileBatchHistory] = useState(false);
+  const [sessionPackageActionError, setSessionPackageActionError] =
+    useState("");
+  const [sessionPackageActionStatus, setSessionPackageActionStatus] =
+    useState("");
 
   const databaseContext = useMemo(
     () => ({ userId: user?.id }),
@@ -177,6 +219,7 @@ export function BipagemForm() {
     [catalogs.carriers],
   );
   const sessionOpen = Boolean(activeBatchId);
+  const mobileImmersiveSession = sessionOpen && !cancellationMode;
   const selectedLojaId =
     lojaId && (sessionOpen || activeStores.some((item) => item.id === lojaId))
       ? lojaId
@@ -261,6 +304,14 @@ export function BipagemForm() {
     [duplicateSessionCodes],
   );
   const hasSessionDuplicates = duplicateSessionCodes.size > 0;
+  const duplicateExcessCount = useMemo(
+    () =>
+      Array.from(sessionCodeCounts.values()).reduce(
+        (total, count) => total + Math.max(0, count - 1),
+        0,
+      ),
+    [sessionCodeCounts],
+  );
   const latestSessionPackage = sessionPackages[0] ?? null;
   const duplicateSessionPackages = useMemo(
     () =>
@@ -292,6 +343,27 @@ export function BipagemForm() {
     () => filteredSessionPackages.slice(0, visibleSessionPackageCount),
     [filteredSessionPackages, visibleSessionPackageCount],
   );
+  const fullscreenSessionPackages = useMemo(() => {
+    if (fullscreenPackagesMode !== "manual-remove") {
+      return sessionPackages;
+    }
+
+    const normalizedQuery = normalizeTrackingCode(manualPackageRemovalQuery);
+    if (!normalizedQuery) {
+      return [];
+    }
+
+    return sessionPackages.filter((item) =>
+      normalizeTrackingCode(item.codigo_rastreio).includes(normalizedQuery),
+    );
+  }, [
+    fullscreenPackagesMode,
+    manualPackageRemovalQuery,
+    sessionPackages,
+  ]);
+  const manualPackageRemovalHasQuery = Boolean(
+    normalizeTrackingCode(manualPackageRemovalQuery),
+  );
   const submitDisabled =
     loading ||
     loadingOpenSession ||
@@ -305,6 +377,66 @@ export function BipagemForm() {
     loadingOpenSession ||
     savingSession ||
     checkingPackage;
+  const sessionMutationLocked =
+    savingSession || savingCancellation || checkingPackage;
+  const cameraDisabledMessage = loading || loadingOpenSession
+    ? "Aguarde o carregamento dos dados."
+    : !selectedLojaId
+      ? "Selecione a loja para liberar a câmera."
+      : !selectedMarketplace
+        ? "Selecione o marketplace para liberar a câmera."
+        : !tipoOperacao
+          ? "Selecione Coleta ou Postagem para liberar a câmera."
+          : melhorEnvio && !transportadora
+            ? "Selecione a transportadora para liberar a câmera."
+            : error
+              ? "Corrija o erro de carregamento antes de usar a câmera."
+              : "";
+  const cameraPaused =
+    showClearSessionConfirm ||
+    showDuplicateFinalizeDialog ||
+    showExitCancellationConfirm ||
+    showFinalizeCancellationConfirm ||
+    Boolean(pendingSessionCancelPackage) ||
+    Boolean(selectedBatch) ||
+    showOnlySessionDuplicates ||
+    showFullscreenSessionPackages ||
+    showMobileBatchHistory ||
+    showMobileSessionOptions ||
+    cancellationCandidates.length > 0;
+
+  useAccessibleFullscreenDialog({
+    open: showOnlySessionDuplicates,
+    dialogRef: duplicateManagerRef,
+    initialFocusRef: duplicateManagerInitialFocusRef,
+    onClose: closeDuplicatePackages,
+  });
+
+  useAccessibleFullscreenDialog({
+    open: showFullscreenSessionPackages && mobileImmersiveSession,
+    dialogRef: fullscreenPackagesRef,
+    initialFocusRef:
+      fullscreenPackagesMode === "manual-remove"
+        ? manualPackageRemovalInputRef
+        : fullscreenPackagesInitialFocusRef,
+    onClose: closeFullscreenSessionPackages,
+  });
+
+  useAccessibleFullscreenDialog({
+    open: showMobileSessionOptions && mobileImmersiveSession,
+    dialogRef: mobileSessionOptionsRef,
+    initialFocusRef: mobileSessionOptionsInitialFocusRef,
+    onClose: closeMobileSessionOptions,
+  });
+
+  useAccessibleFullscreenDialog({
+    open: showMobileBatchHistory && mobileImmersiveSession,
+    dialogRef: mobileBatchHistoryRef,
+    initialFocusRef: mobileBatchHistoryInitialFocusRef,
+    onClose: selectedBatch
+      ? closeBatchFromMobileHistory
+      : closeMobileBatchHistory,
+  });
 
   useEffect(() => {
     if (loading) {
@@ -368,7 +500,11 @@ export function BipagemForm() {
   }, [databaseContext, loading]);
 
   useEffect(() => {
-    if (!loading && !loadingOpenSession) {
+    if (
+      !loading &&
+      !loadingOpenSession &&
+      shouldAutoFocusCodeField()
+    ) {
       const focusTimer = window.setTimeout(
         () => codeRef.current?.focus({ preventScroll: true }),
         0,
@@ -453,8 +589,136 @@ export function BipagemForm() {
     }
   }
 
-  function focusCodeField() {
+  function focusCodeField(force = cancellationMode) {
+    if (!force && !shouldAutoFocusCodeField()) {
+      return;
+    }
     window.setTimeout(() => codeRef.current?.focus({ preventScroll: true }), 0);
+  }
+
+  function openMobileManualEntry() {
+    setShowMobileSessionOptions(false);
+    flushSync(() => setShowMobileManualInput(true));
+    window.requestAnimationFrame(() =>
+      window.requestAnimationFrame(() =>
+        codeRef.current?.focus({ preventScroll: true }),
+      ),
+    );
+  }
+
+  function showDuplicatePackages() {
+    setShowMobileSessionOptions(false);
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
+    setShowOnlySessionDuplicates(true);
+    setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+    window.requestAnimationFrame(() =>
+      sessionListRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      }),
+    );
+  }
+
+  function closeDuplicatePackages() {
+    setShowOnlySessionDuplicates(false);
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
+    setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
+    setNotice({
+      type: hasSessionDuplicates ? "warning" : "neutral",
+      text: hasSessionDuplicates
+        ? "A correção foi pausada. Ainda existem duplicados neste lote."
+        : "Duplicados corrigidos. A bipagem foi liberada.",
+    });
+    focusCodeField();
+  }
+
+  function closeMobileSessionOptions() {
+    setShowMobileSessionOptions(false);
+  }
+
+  function openFullscreenSessionPackages() {
+    setShowMobileSessionOptions(false);
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
+    setFullscreenPackagesMode("browse");
+    setManualPackageRemovalQuery("");
+    setShowFullscreenSessionPackages(true);
+  }
+
+  function openManualPackageRemoval() {
+    if (
+      !sessionPackages.length ||
+      processingTrackingRef.current ||
+      sessionMutationLocked
+    ) {
+      return;
+    }
+
+    setShowMobileSessionOptions(false);
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
+    setManualPackageRemovalQuery("");
+    setFullscreenPackagesMode("manual-remove");
+    setShowFullscreenSessionPackages(true);
+  }
+
+  function closeFullscreenSessionPackages() {
+    setShowFullscreenSessionPackages(false);
+    setFullscreenPackagesMode("browse");
+    setManualPackageRemovalQuery("");
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
+    window.requestAnimationFrame(() =>
+      mobileSessionOptionsTriggerRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
+  function openMobileBatchHistory() {
+    if (processingTrackingRef.current || sessionMutationLocked) {
+      return;
+    }
+
+    setShowMobileSessionOptions(false);
+    setSelectedHistoryBatchId("");
+    setVisibleSelectedBatchPackageCount(BATCH_PACKAGE_PAGE_SIZE);
+    setShowMobileBatchHistory(true);
+  }
+
+  function closeMobileBatchHistory() {
+    setShowMobileBatchHistory(false);
+    setSelectedHistoryBatchId("");
+    setVisibleSelectedBatchPackageCount(BATCH_PACKAGE_PAGE_SIZE);
+    window.requestAnimationFrame(() =>
+      mobileSessionOptionsTriggerRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
+  function openBatchFromMobileHistory(batchId: string) {
+    openBatchHistory(batchId);
+    window.requestAnimationFrame(() =>
+      mobileBatchHistoryInitialFocusRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
+  function closeBatchFromMobileHistory() {
+    setSelectedHistoryBatchId("");
+    setVisibleSelectedBatchPackageCount(BATCH_PACKAGE_PAGE_SIZE);
+    window.requestAnimationFrame(() =>
+      mobileBatchHistoryInitialFocusRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
+  function cancelSessionPackageFromFullscreen(item: DispatchPackage) {
+    setShowFullscreenSessionPackages(false);
+    setSessionPackageActionError("");
+    cancelSessionPackage(item);
+  }
+
+  function discardSessionFromMobileOptions() {
+    setShowMobileSessionOptions(false);
+    clearSession();
   }
 
   function resetSessionConfig() {
@@ -467,6 +731,14 @@ export function BipagemForm() {
     setTransportadora("");
     setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
     setShowOnlySessionDuplicates(false);
+    setShowMobileManualInput(false);
+    setShowMobileSessionOptions(false);
+    setShowFullscreenSessionPackages(false);
+    setFullscreenPackagesMode("browse");
+    setManualPackageRemovalQuery("");
+    setShowMobileBatchHistory(false);
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
     clearCodeField();
   }
 
@@ -534,6 +806,16 @@ export function BipagemForm() {
     return "";
   }
 
+  function reportTrackingOutcome(
+    tone: CameraScanOutcome["tone"],
+    message: string,
+    accepted = false,
+    code?: string,
+  ): CameraScanOutcome {
+    setNotice({ type: tone, text: message });
+    return { tone, message, accepted, code };
+  }
+
   async function ensureOpenSession(selectedOperation: OperationType) {
     if (activeBatchId) {
       return activeBatchId;
@@ -568,27 +850,63 @@ export function BipagemForm() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const outcome = await processTrackingCode(getCodeFieldValue());
+    if (!cancellationMode && outcome.accepted) {
+      setShowMobileManualInput(false);
+    }
+  }
+
+  async function processTrackingCode(
+    rawCode: string,
+  ): Promise<CameraScanOutcome> {
+    if (processingTrackingRef.current || finishingSessionRef.current) {
+      return {
+        tone: "warning",
+        message: "Aguarde o pacote anterior terminar de processar.",
+        accepted: false,
+      } satisfies CameraScanOutcome;
+    }
+
+    processingTrackingRef.current = true;
+
+    try {
 
     if (cancellationCandidates.length) {
       firstCancellationCandidateRef.current?.focus({ preventScroll: true });
-      return;
+      return {
+        tone: "warning",
+        message: "Escolha o pacote pendente antes de continuar.",
+        accepted: false,
+      } satisfies CameraScanOutcome;
     }
 
-    const code = getCodeFieldValue();
+    const rawValue = rawCode.trim();
     if (cancellationMode) {
-      void cancelPackageByCode(code);
-      return;
+      await cancelPackageByCode(rawValue);
+      return {
+        tone: "success",
+        message: "Código processado na lista de cancelamento.",
+        accepted: true,
+      } satisfies CameraScanOutcome;
     }
 
-    const validationMessage = validateSessionConfig(code);
+    const validationMessage = validateSessionConfig(rawValue);
     if (validationMessage) {
-      setNotice({ type: "warning", text: validationMessage });
+      const outcome = reportTrackingOutcome("warning", validationMessage);
       focusCodeField();
-      return;
+      return outcome;
+    }
+
+    const parsedCode = parseTrackingCode(rawValue);
+    if (!parsedCode.accepted) {
+      const outcome = reportTrackingOutcome("danger", parsedCode.message);
+      clearCodeField();
+      focusCodeField();
+      return outcome;
     }
 
     const selectedOperation = tipoOperacao as OperationType;
-    const normalizedCode = normalizeTrackingCode(code);
+    const normalizedCode = normalizeTrackingCode(parsedCode.code);
     const duplicatedInSession = sessionNormalizedCodes.has(normalizedCode);
 
     let duplicatedSavedPackage = null;
@@ -600,24 +918,24 @@ export function BipagemForm() {
         databaseContext,
       );
     } catch (error) {
-      setNotice({
-        type: "danger",
-        text: `Erro ao verificar duplicidade: ${formatDatabaseError(error)}`,
-      });
+      const outcome = reportTrackingOutcome(
+        "danger",
+        `Erro ao verificar duplicidade: ${formatDatabaseError(error)}`,
+      );
       focusCodeField();
-      return;
+      return outcome;
     } finally {
       setCheckingPackage(false);
     }
 
     if (duplicatedSavedPackage) {
-      setNotice({
-        type: "danger",
-        text: "Pacote duplicado: este código já foi bipado em outro lote.",
-      });
+      const outcome = reportTrackingOutcome(
+        "danger",
+        "Pacote duplicado: este código já foi bipado em outro lote.",
+      );
       clearCodeField();
       focusCodeField();
-      return;
+      return outcome;
     }
 
     setSavingSession(true);
@@ -665,28 +983,38 @@ export function BipagemForm() {
           ...current.filter((item) => item.id !== addedPackage.id),
         ]);
       }
-      setNotice({
-        type: duplicatedInSession || serverDetectedDuplicate ? "warning" : "success",
-        text: duplicatedInSession || serverDetectedDuplicate
+      const outcome = reportTrackingOutcome(
+        duplicatedInSession || serverDetectedDuplicate ? "warning" : "success",
+        duplicatedInSession || serverDetectedDuplicate
           ? DUPLICATE_SESSION_WARNING
           : sessionOpen
             ? `Rastreio ${normalizedCode} adicionado ao lote.`
             : `Lote iniciado. Rastreio ${normalizedCode} adicionado.`,
-      });
+        true,
+        normalizedCode,
+      );
       clearCodeField();
+      return outcome;
     } catch (error) {
-      setNotice({
-        type: "danger",
-        text: `Erro ao salvar pacote no lote: ${formatDatabaseError(error)}`,
-      });
+      return reportTrackingOutcome(
+        "danger",
+        `Erro ao salvar pacote no lote: ${formatDatabaseError(error)}`,
+      );
     } finally {
       setSavingSession(false);
       focusCodeField();
     }
+    } finally {
+      processingTrackingRef.current = false;
+    }
   }
 
   async function finishSession() {
-    if (savingSession) {
+    if (
+      savingSession ||
+      processingTrackingRef.current ||
+      finishingSessionRef.current
+    ) {
       return;
     }
 
@@ -703,6 +1031,7 @@ export function BipagemForm() {
       return;
     }
 
+    finishingSessionRef.current = true;
     setSavingSession(true);
 
     try {
@@ -752,12 +1081,25 @@ export function BipagemForm() {
         text: `Erro ao finalizar o lote: ${formatDatabaseError(error)}`,
       });
     } finally {
+      finishingSessionRef.current = false;
       setSavingSession(false);
       focusCodeField();
     }
   }
 
   function clearSession() {
+    if (
+      finishingSessionRef.current ||
+      processingTrackingRef.current ||
+      sessionMutationLocked
+    ) {
+      setNotice({
+        type: "warning",
+        text: "Aguarde a leitura ou alteração atual terminar.",
+      });
+      return;
+    }
+
     if (!activeBatchId) {
       setNotice({ type: "neutral", text: "O lote já está vazio." });
       focusCodeField();
@@ -768,7 +1110,12 @@ export function BipagemForm() {
   }
 
   async function confirmClearSession() {
-    if (!activeBatchId || savingSession) {
+    if (
+      !activeBatchId ||
+      savingSession ||
+      checkingPackage ||
+      processingTrackingRef.current
+    ) {
       return;
     }
 
@@ -781,6 +1128,7 @@ export function BipagemForm() {
       setShowClearSessionConfirm(false);
       setNotice({ type: "neutral", text: "Lote atual descartado." });
     } catch (error) {
+      setShowClearSessionConfirm(false);
       setNotice({
         type: "danger",
         text: `Erro ao descartar lote: ${formatDatabaseError(error)}`,
@@ -819,7 +1167,7 @@ export function BipagemForm() {
       type: "warning",
       text: "Cancelamento em lote aberto. Bipe os rastreios e informe o motivo geral ao finalizar.",
     });
-    focusCodeField();
+    focusCodeField(true);
     window.setTimeout(
       () =>
         cancellationPanelRef.current?.scrollIntoView({
@@ -856,7 +1204,7 @@ export function BipagemForm() {
     setCancellationReason("");
     setPendingCancellations([]);
     setNotice({ type: "neutral", text: "Cancelamento em lote fechado." });
-    focusCodeField();
+    focusCodeField(false);
   }
 
   async function cancelPackageByCode(code: string) {
@@ -1009,6 +1357,7 @@ export function BipagemForm() {
     }
 
     const cancellationSnapshot = [...pendingCancellations];
+    let cancellationCompleted = false;
     setShowFinalizeCancellationConfirm(false);
     setSavingCancellation(true);
 
@@ -1045,6 +1394,7 @@ export function BipagemForm() {
       setCancellationMode(false);
       setCancellationCandidates([]);
       setCancellationReason("");
+      cancellationCompleted = true;
       clearCodeField();
       setNotice({
         type: "success",
@@ -1057,22 +1407,35 @@ export function BipagemForm() {
       });
     } finally {
       setSavingCancellation(false);
-      focusCodeField();
+      focusCodeField(!cancellationCompleted);
     }
   }
 
 
   function cancelSessionPackage(item: DispatchPackage) {
+    if (processingTrackingRef.current || sessionMutationLocked) {
+      setNotice({
+        type: "warning",
+        text: "Aguarde a leitura ou alteração atual terminar.",
+      });
+      return;
+    }
     setPendingSessionCancelPackage(item);
     setSessionCancelReason("");
     setSessionCancelError("");
   }
 
   async function removeSessionPackage(item: DispatchPackage) {
-    if (!activeBatchId || savingSession) {
+    if (
+      !activeBatchId ||
+      processingTrackingRef.current ||
+      sessionMutationLocked
+    ) {
       return;
     }
 
+    setSessionPackageActionError("");
+    setSessionPackageActionStatus("");
     setSavingSession(true);
 
     try {
@@ -1090,19 +1453,42 @@ export function BipagemForm() {
         type: "neutral",
         text: `Pacote ${item.codigo_rastreio} removido do lote.`,
       });
+      if (
+        showFullscreenSessionPackages &&
+        fullscreenPackagesMode === "manual-remove"
+      ) {
+        setManualPackageRemovalQuery("");
+        setSessionPackageActionStatus(
+          `Código ${item.codigo_rastreio} removido do lote.`,
+        );
+      }
     } catch (error) {
-      setNotice({
-        type: "danger",
-        text: `Erro ao remover pacote do lote: ${formatDatabaseError(error)}`,
-      });
+      const message = `Erro ao remover pacote do lote: ${formatDatabaseError(error)}`;
+      setSessionPackageActionError(message);
+      setNotice({ type: "danger", text: message });
     } finally {
       setSavingSession(false);
-      focusCodeField();
+      if (
+        showFullscreenSessionPackages &&
+        fullscreenPackagesMode === "manual-remove"
+      ) {
+        window.requestAnimationFrame(() =>
+          manualPackageRemovalInputRef.current?.focus({ preventScroll: true }),
+        );
+      } else {
+        focusCodeField();
+      }
     }
   }
 
   async function confirmSessionPackageCancellation() {
-    if (!pendingSessionCancelPackage || savingCancellation) {
+    if (
+      !pendingSessionCancelPackage ||
+      savingCancellation ||
+      savingSession ||
+      checkingPackage ||
+      processingTrackingRef.current
+    ) {
       return;
     }
 
@@ -1231,9 +1617,15 @@ export function BipagemForm() {
   );
 
   return (
-    <section className="grid min-w-0 items-start gap-5 transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] 2xl:gap-7">
+    <section
+      className={`grid min-w-0 items-start gap-5 pb-[calc(7rem+env(safe-area-inset-bottom))] transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] xl:pb-0 2xl:gap-7 ${
+        mobileImmersiveSession
+          ? "mobile-immersive-session max-xl:fixed max-xl:inset-0 max-xl:z-[80] max-xl:flex max-xl:h-dvh max-xl:flex-col max-xl:items-stretch max-xl:gap-0 max-xl:overflow-hidden max-xl:bg-slate-100 max-xl:pb-0"
+          : ""
+      }`}
+    >
       {loading || loadingOpenSession ? (
-        <div className="xl:col-span-2">
+        <div className={`xl:col-span-2 ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
           <FeedbackMessage tone="neutral">
             Carregando seus dados e o lote em andamento...
           </FeedbackMessage>
@@ -1241,7 +1633,7 @@ export function BipagemForm() {
       ) : null}
 
       {error ? (
-        <div className="xl:col-span-2">
+        <div className={`xl:col-span-2 ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
           <FeedbackMessage tone="danger">{error}</FeedbackMessage>
         </div>
       ) : null}
@@ -1254,7 +1646,7 @@ export function BipagemForm() {
           cancellationMode
             ? "mx-auto w-full max-w-6xl scroll-mt-24 xl:col-span-2 xl:grid-cols-[minmax(280px,0.7fr)_minmax(0,1.3fr)] xl:items-start"
             : ""
-        }`}
+        } ${mobileImmersiveSession ? "max-xl:contents" : ""}`}
       >
         {cancellationMode ? (
           <div className="rounded-2xl border border-rose-200 bg-white p-4 shadow-sm sm:p-5">
@@ -1296,7 +1688,11 @@ export function BipagemForm() {
             </ol>
           </div>
         ) : (
-        <div className="rounded-2xl border border-slate-200/90 bg-white p-6 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)]">
+        <div
+          className={`rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 ${
+            sessionOpen ? "hidden xl:block" : ""
+          }`}
+        >
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <h2 className="text-lg font-semibold text-slate-950">
@@ -1452,12 +1848,97 @@ export function BipagemForm() {
         )}
 
         <div
-          className={`rounded-2xl border bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] sm:p-5 ${
+          className={`mobile-session-scan-panel rounded-2xl border bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.4)] sm:p-5 ${
             cancellationMode
               ? "border-rose-300"
               : "border-slate-200"
+          } ${
+            mobileImmersiveSession
+              ? "max-xl:shrink-0 max-xl:rounded-none max-xl:border-x-0 max-xl:border-t-0 max-xl:p-2 max-xl:pt-[calc(0.5rem+env(safe-area-inset-top))] max-xl:shadow-none"
+              : ""
           }`}
         >
+          {!cancellationMode && sessionOpen ? (
+            <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 xl:hidden">
+              <div className="flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-500">
+                    Lote em andamento
+                  </p>
+                  <p className="mt-1 truncate text-sm font-bold text-slate-950">
+                    {getCatalogStoreName(selectedLojaId)} · {selectedMarketplace}
+                  </p>
+                </div>
+                <Badge tone="green">{sessionPackages.length} pacotes</Badge>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2">
+                {tipoOperacao ? (
+                  <OperationBadge operation={tipoOperacao} />
+                ) : null}
+                <MelhorEnvioBadge active={melhorEnvio} />
+                {melhorEnvio ? (
+                  <Badge tone={transportadora ? "purple" : "amber"}>
+                    {transportadora || "Transportadora pendente"}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          {!cancellationMode ? (
+            <div
+              className={`gap-2 ${
+                showMobileManualInput ? "mb-2 grid" : "hidden"
+              } xl:mb-4 xl:grid`}
+            >
+              <label
+                htmlFor="tracking-code-input"
+                className="sr-only text-sm font-medium text-slate-700 xl:not-sr-only"
+              >
+                Código do pacote
+              </label>
+              <div className="flex min-w-0 items-center gap-2">
+                <input
+                  ref={codeRef}
+                  id="tracking-code-input"
+                  className="min-h-11 min-w-0 flex-1 rounded-xl border-2 border-slate-300 bg-white px-3 font-mono text-sm font-bold uppercase text-slate-950 outline-none transition placeholder:font-medium placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 xl:min-h-20 xl:px-5 xl:text-2xl xl:tracking-wide xl:placeholder:text-base xl:placeholder:tracking-normal"
+                  placeholder="Bipe ou digite o código do pacote"
+                  autoComplete="off"
+                  required
+                />
+                <button
+                  type="submit"
+                  disabled={submitDisabled || Boolean(cameraDisabledMessage)}
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl bg-slate-950 px-3 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300 xl:hidden"
+                >
+                  Adicionar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearCodeField();
+                    setShowMobileManualInput(false);
+                  }}
+                  className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-600 xl:hidden"
+                  aria-label="Fechar entrada manual"
+                >
+                  Fechar
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {!cancellationMode ? (
+            <MobileCameraScanner
+              key={cameraDisabledMessage ? "camera-disabled" : "camera-ready"}
+              busy={submitDisabled}
+              disabled={Boolean(cameraDisabledMessage)}
+              disabledMessage={cameraDisabledMessage}
+              pause={cameraPaused}
+              onDetected={processTrackingCode}
+            />
+          ) : null}
+
           {cancellationMode ? (
             <div className="mb-4 grid gap-3">
               <label className="grid gap-2 text-sm font-medium text-rose-900">
@@ -1475,36 +1956,32 @@ export function BipagemForm() {
             </div>
           ) : null}
 
-          <label className="grid gap-2 text-sm font-medium text-slate-700">
-            {cancellationMode ? "Rastreio finalizado" : "Código do pacote"}
-            <input
-              ref={codeRef}
-              className={`rounded-xl border-2 bg-white px-5 font-mono text-2xl font-bold tracking-wide text-slate-950 outline-none transition placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 ${
-                cancellationMode
-                  ? "min-h-16 border-rose-300 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
-                  : "min-h-20 border-slate-300 focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-              }`}
-              placeholder={
-                cancellationMode
-                  ? "Bipe o pacote que deseja cancelar"
-                  : "Bipe ou digite o código do pacote"
-              }
-              autoComplete="off"
-              required
-            />
-          </label>
+          {cancellationMode ? (
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Rastreio finalizado
+              <input
+                ref={codeRef}
+                className="min-h-16 rounded-xl border-2 border-rose-300 bg-white px-5 font-mono text-2xl font-bold tracking-wide text-slate-950 outline-none transition placeholder:text-base placeholder:font-medium placeholder:tracking-normal placeholder:text-slate-400 focus:border-rose-600 focus:ring-4 focus:ring-rose-100"
+                placeholder="Bipe o pacote que deseja cancelar"
+                autoComplete="off"
+                required
+              />
+            </label>
+          ) : null}
 
           <div
             className={`mt-4 grid gap-3 ${
               cancellationMode
                 ? "sm:grid-cols-3"
                 : "sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2"
-            }`}
+            } ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}
           >
             <button
               type="submit"
               disabled={submitDisabled}
-              className={`inline-flex min-h-12 items-center justify-center rounded-xl px-5 text-sm font-bold text-white transition focus:outline-none focus:ring-4 ${
+              className={`${
+                cancellationMode ? "inline-flex" : "hidden xl:inline-flex"
+              } min-h-12 items-center justify-center rounded-xl px-5 text-sm font-bold text-white transition focus:outline-none focus:ring-4 ${
                 cancellationMode
                   ? "bg-rose-700 hover:bg-rose-800 focus:ring-rose-100"
                   : "bg-slate-950 hover:bg-slate-800 focus:ring-slate-200"
@@ -1539,7 +2016,7 @@ export function BipagemForm() {
                   type="button"
                   onClick={finishSession}
                   disabled={finalizeDisabled}
-                  className={`inline-flex min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 ${
+                  className={`hidden min-h-12 items-center justify-center rounded-md px-5 text-sm font-semibold text-white transition focus:outline-none focus:ring-4 xl:inline-flex ${
                     finalizeDisabled
                       ? "cursor-not-allowed bg-slate-300 focus:ring-slate-100"
                       : "bg-teal-700 hover:bg-teal-800 focus:ring-teal-100"
@@ -1568,8 +2045,11 @@ export function BipagemForm() {
             )}
           </div>
 
-          {notice ? (
-            <div className="mt-4">
+          {notice &&
+          (!mobileImmersiveSession ||
+            notice.type === "warning" ||
+            notice.type === "danger") ? (
+            <div className={`mt-4 ${mobileImmersiveSession ? "mobile-scan-notice max-xl:mt-2" : ""}`}>
               <FeedbackMessage tone={notice.type}>{notice.text}</FeedbackMessage>
             </div>
           ) : null}
@@ -1649,7 +2129,7 @@ export function BipagemForm() {
           ) : null}
 
           {!cancellationMode && recentCancellations.length ? (
-            <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
+            <div className={`mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
               <h3 className="text-sm font-semibold text-slate-950">
                 Últimos cancelamentos
               </h3>
@@ -1666,9 +2146,22 @@ export function BipagemForm() {
       </form>
 
       {!cancellationMode ? (
-      <div className="grid min-w-0 w-full gap-5 self-start">
-        <div className="flex min-w-0 w-full flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6">
-          <div className="mb-4 flex shrink-0 flex-col items-start gap-3 sm:flex-row sm:justify-between sm:gap-4">
+      <div
+        className={`mobile-session-list grid min-w-0 w-full gap-5 self-start ${
+          mobileImmersiveSession
+            ? "max-xl:flex max-xl:min-h-0 max-xl:flex-1 max-xl:flex-col max-xl:self-stretch max-xl:overflow-hidden max-xl:px-2 max-xl:pb-[calc(4.75rem+env(safe-area-inset-bottom))]"
+            : ""
+        }`}
+      >
+        <div
+          ref={sessionListRef}
+          className={`flex min-w-0 w-full scroll-mt-20 flex-col rounded-2xl border border-slate-200/90 bg-white p-3 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 ${
+            mobileImmersiveSession
+              ? "max-xl:min-h-0 max-xl:flex-1 max-xl:rounded-xl max-xl:p-2 max-xl:shadow-none"
+              : ""
+          }`}
+        >
+          <div className={`mb-3 flex shrink-0 flex-col items-start gap-3 sm:mb-4 sm:flex-row sm:justify-between sm:gap-4 ${mobileImmersiveSession ? "max-xl:mb-2 max-xl:flex-row max-xl:items-center max-xl:justify-between max-xl:gap-2" : ""}`}>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-slate-950">
                 Pacotes deste lote
@@ -1677,13 +2170,13 @@ export function BipagemForm() {
                 {sessionPackages.length} pacotes no lote atual.
               </p>
             </div>
-            <div className="shrink-0">
+            <div className={`shrink-0 ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
               <StatusBadge status="Pendente no lote" />
             </div>
           </div>
 
           <div
-            className={`mb-4 min-w-0 shrink-0 rounded-lg border px-4 py-3 ${
+            className={`mb-3 min-w-0 shrink-0 rounded-lg border px-3 py-2.5 sm:mb-4 sm:px-4 sm:py-3 ${mobileImmersiveSession ? "max-xl:hidden" : ""} ${
               latestSessionPackage
                 ? "border-emerald-200 bg-emerald-50"
                 : "border-slate-200 bg-slate-50"
@@ -1705,15 +2198,19 @@ export function BipagemForm() {
           </div>
 
           {sessionPackages.length ? (
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-4">
-              {sessionHeader}
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 sm:gap-4">
+              <div className={mobileImmersiveSession ? "max-xl:hidden" : ""}>
+                {sessionHeader}
+              </div>
               {hasSessionDuplicates ? (
-                <FeedbackMessage tone="danger">
-                  {DUPLICATE_SESSION_WARNING} Códigos:{" "}
-                  {duplicateSessionCodeList.join(", ")}.
-                </FeedbackMessage>
+                <div className={mobileImmersiveSession ? "max-xl:hidden" : ""}>
+                  <FeedbackMessage tone="danger">
+                    {DUPLICATE_SESSION_WARNING} Códigos:{" "}
+                    {duplicateSessionCodeList.join(", ")}.
+                  </FeedbackMessage>
+                </div>
               ) : null}
-              <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className={`flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
                 <p className="text-xs font-medium text-slate-500">
                   Exibindo {filteredSessionPackages.length} de{" "}
                   {sessionPackages.length} pacotes.
@@ -1756,13 +2253,15 @@ export function BipagemForm() {
                   </button>
                 </div>
               </div>
-              <div className="app-scroll-region max-h-[min(55dvh,32rem)] min-h-40 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-gutter:stable] sm:pr-2">
+              <div className={`app-scroll-region h-[54dvh] min-h-56 min-w-0 flex-1 overflow-x-hidden overflow-y-auto pr-1 [scrollbar-gutter:stable] sm:h-auto sm:max-h-[50dvh] sm:pr-2 xl:max-h-[min(55dvh,32rem)] ${mobileImmersiveSession ? "max-xl:h-auto max-xl:min-h-0 max-xl:max-h-none max-xl:overscroll-contain max-xl:pr-0" : ""}`}>
                 {visibleSessionPackages.length ? (
                   <ol className="space-y-2">
                   {visibleSessionPackages.map((item) => {
                     const isDuplicate = duplicateSessionCodes.has(
                       normalizeTrackingCode(item.codigo_rastreio),
                     );
+                    const isLatestSessionPackage =
+                      latestSessionPackage?.id === item.id;
                     const packageNumber = sessionPackageNumbers.get(item.id);
 
                     return (
@@ -1771,7 +2270,9 @@ export function BipagemForm() {
                         className={`flex flex-col items-stretch gap-3 rounded-lg border px-3 py-3 sm:flex-row sm:items-center sm:justify-between ${
                           isDuplicate
                             ? "border-rose-300 bg-rose-50"
-                            : "border-slate-200"
+                            : isLatestSessionPackage
+                              ? "border-emerald-400 bg-emerald-50 ring-2 ring-emerald-200"
+                              : "border-slate-200"
                         }`}
                       >
                         <div className="flex min-w-0 items-start gap-2">
@@ -1790,24 +2291,32 @@ export function BipagemForm() {
                                 Duplicado
                               </span>
                             ) : null}
+                            {isLatestSessionPackage ? (
+                              <span className="inline-flex min-h-7 shrink-0 items-center rounded-md border border-emerald-300 bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                                Último bipado
+                              </span>
+                            ) : null}
                           </span>
                         </div>
                         <div className="grid w-full shrink-0 grid-cols-2 gap-2 sm:w-auto sm:flex sm:flex-wrap sm:justify-end">
                           <button
                             type="button"
                             onClick={() => removeSessionPackage(item)}
-                            className={`inline-flex min-h-10 items-center justify-center rounded-md border bg-white px-3 text-xs font-semibold transition ${
+                            disabled={sessionMutationLocked}
+                            aria-label={`${isDuplicate ? "Remover repetição" : "Remover pacote"} ${item.codigo_rastreio}`}
+                            className={`inline-flex min-h-11 items-center justify-center rounded-md border bg-white px-3 text-xs font-semibold transition disabled:cursor-wait disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${
                               isDuplicate
                                 ? "border-rose-300 text-rose-700 hover:bg-rose-100"
                                 : "border-slate-300 text-slate-700 hover:border-slate-400 hover:text-slate-950"
                             }`}
                           >
-                            Remover
+                            {isDuplicate ? "Remover repetição" : "Remover"}
                           </button>
                           <button
                             type="button"
                             onClick={() => cancelSessionPackage(item)}
-                            className="inline-flex min-h-9 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100"
+                            disabled={sessionMutationLocked}
+                            className="inline-flex min-h-11 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-wait disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                           >
                             Cancelar
                           </button>
@@ -1846,7 +2355,7 @@ export function BipagemForm() {
           )}
         </div>
 
-        <div className="flex min-h-[320px] flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6">
+        <div className={`flex min-h-[320px] flex-col rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
           <div className="mb-4 shrink-0">
             <h2 className="text-lg font-semibold text-slate-950">
               Histórico de lotes
@@ -1927,7 +2436,757 @@ export function BipagemForm() {
       </div>
       ) : null}
 
-      {selectedBatch ? (
+      {!cancellationMode ? (
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-3 pt-2 shadow-[0_-14px_36px_-24px_rgba(15,23,42,0.55)] backdrop-blur xl:hidden">
+          <div className="mx-auto flex max-w-xl items-center gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {mobileImmersiveSession ? (
+              <button
+                ref={mobileSessionOptionsTriggerRef}
+                type="button"
+                onClick={() => setShowMobileSessionOptions(true)}
+                disabled={sessionMutationLocked}
+                aria-haspopup="dialog"
+                aria-expanded={showMobileSessionOptions}
+                aria-controls="mobile-session-options"
+                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                Opções
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={openMobileManualEntry}
+                disabled={Boolean(cameraDisabledMessage) || submitDisabled}
+                aria-controls="tracking-code-input"
+                aria-expanded={showMobileManualInput}
+                className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-2 text-center text-xs font-bold leading-4 text-slate-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                Adicionar manualmente
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={hasSessionDuplicates ? showDuplicatePackages : finishSession}
+              disabled={
+                !hasSessionDuplicates &&
+                (finalizeDisabled || !sessionPackages.length || !activeBatchId)
+              }
+              className={`inline-flex min-h-12 min-w-[10rem] flex-1 items-center justify-center rounded-xl px-4 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                hasSessionDuplicates
+                  ? "bg-rose-700 hover:bg-rose-800"
+                  : "bg-teal-700 hover:bg-teal-800"
+              }`}
+            >
+              {hasSessionDuplicates
+                ? `Corrigir ${duplicateExcessCount} ${duplicateExcessCount === 1 ? "duplicado" : "duplicados"}`
+                : "Finalizar lote"}
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {showMobileSessionOptions && mobileImmersiveSession ? (
+        <section
+          id="mobile-session-options"
+          ref={mobileSessionOptionsRef}
+          tabIndex={-1}
+          className="fixed inset-0 z-[90] flex items-end bg-slate-950/55 px-3 pt-6 xl:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-session-options-title"
+        >
+          <div className="mx-auto max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto overscroll-contain rounded-t-2xl bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-2xl [scrollbar-gutter:stable]">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[0.65rem] font-bold uppercase tracking-[0.15em] text-slate-400">
+                  Lote em andamento
+                </p>
+                <h2 id="mobile-session-options-title" className="mt-1 text-lg font-bold text-slate-950">
+                  Opções da bipagem
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={closeMobileSessionOptions}
+                className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700"
+              >
+                Fechar
+              </button>
+            </div>
+
+            <div className="mt-4 grid gap-2">
+              <button
+                type="button"
+                onClick={openFullscreenSessionPackages}
+                disabled={!sessionPackages.length || sessionMutationLocked}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              >
+                Ver pacotes em tela cheia ({sessionPackages.length})
+              </button>
+              <button
+                ref={mobileSessionOptionsInitialFocusRef}
+                type="button"
+                onClick={openMobileManualEntry}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
+              >
+                Adicionar código manualmente
+              </button>
+              <button
+                type="button"
+                onClick={openManualPackageRemoval}
+                disabled={!sessionPackages.length || sessionMutationLocked}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-amber-300 bg-amber-50 px-4 text-sm font-bold text-amber-900 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                Remover código manualmente
+              </button>
+              <button
+                type="button"
+                onClick={showDuplicatePackages}
+                disabled={!hasSessionDuplicates}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-rose-300 bg-rose-50 px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                {hasSessionDuplicates
+                  ? `Corrigir ${duplicateExcessCount} duplicado${duplicateExcessCount === 1 ? "" : "s"}`
+                  : "Nenhum duplicado"}
+              </button>
+              <button
+                type="button"
+                onClick={openMobileBatchHistory}
+                disabled={sessionMutationLocked}
+                aria-haspopup="dialog"
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-4 text-sm font-bold text-sky-900 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                Histórico e romaneios
+              </button>
+              <button
+                type="button"
+                onClick={discardSessionFromMobileOptions}
+                disabled={sessionMutationLocked}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+              >
+                Descartar lote
+              </button>
+            </div>
+
+            <p className="mt-3 text-center text-xs font-medium leading-5 text-slate-500">
+              A câmera fica pausada enquanto este menu está aberto.
+            </p>
+          </div>
+        </section>
+      ) : null}
+
+      {showFullscreenSessionPackages && mobileImmersiveSession ? (
+        <section
+          ref={fullscreenPackagesRef}
+          tabIndex={-1}
+          className={`fixed inset-0 z-[100] flex h-dvh flex-col overflow-hidden bg-slate-100 text-slate-950 xl:hidden ${
+            fullscreenPackagesMode === "manual-remove"
+              ? "mobile-manual-removal-dialog"
+              : ""
+          }`}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="fullscreen-packages-title"
+        >
+          <header className="shrink-0 border-b border-slate-200 bg-white px-3 pb-3 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-sm">
+            <div className="mx-auto flex w-full max-w-xl items-center gap-3">
+              <button
+                ref={fullscreenPackagesInitialFocusRef}
+                type="button"
+                onClick={closeFullscreenSessionPackages}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="ml-1">Voltar</span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="fullscreen-packages-title"
+                  className="truncate text-base font-bold"
+                >
+                  {fullscreenPackagesMode === "manual-remove"
+                    ? "Remover código bipado"
+                    : "Pacotes bipados"}
+                </h2>
+                <p className="mt-0.5 text-xs font-medium text-slate-500">
+                  {sessionPackages.length}{" "}
+                  {sessionPackages.length === 1 ? "pacote no lote" : "pacotes no lote"}
+                </p>
+              </div>
+              {hasSessionDuplicates ? (
+                <span
+                  className="shrink-0 rounded-full bg-rose-100 px-2.5 py-1 text-xs font-bold text-rose-800"
+                  aria-label={`${duplicateExcessCount} repetições pendentes`}
+                >
+                  {duplicateExcessCount} duplicado{duplicateExcessCount === 1 ? "" : "s"}
+                </span>
+              ) : null}
+            </div>
+          </header>
+
+          {fullscreenPackagesMode === "manual-remove" ? (
+            <div className="mobile-manual-removal-search shrink-0 border-b border-amber-200 bg-amber-50 px-3 py-3">
+              <div className="mx-auto grid w-full max-w-xl gap-2">
+                <label
+                  htmlFor="manual-package-removal-query"
+                  className="text-xs font-bold text-amber-950"
+                >
+                  Código bipado
+                </label>
+                <input
+                  ref={manualPackageRemovalInputRef}
+                  id="manual-package-removal-query"
+                  value={manualPackageRemovalQuery}
+                  onChange={(event) => {
+                    setManualPackageRemovalQuery(event.target.value);
+                    setSessionPackageActionError("");
+                    setSessionPackageActionStatus("");
+                  }}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  placeholder="Digite ou bipe para localizar"
+                  className="min-h-12 w-full rounded-xl border-2 border-amber-300 bg-white px-3 font-mono text-base font-bold uppercase text-slate-950 outline-none transition placeholder:font-sans placeholder:text-sm placeholder:font-medium placeholder:normal-case focus:border-amber-600 focus:ring-4 focus:ring-amber-100"
+                />
+                <div className="flex items-start justify-between gap-3 text-xs font-medium leading-5 text-amber-950">
+                  <p className="max-w-md">
+                    Escolha uma leitura e toque em Remover do lote. Isso não
+                    cancela o pacote.
+                  </p>
+                  <span
+                    className="shrink-0 rounded-full bg-white px-2.5 py-1 font-bold"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {manualPackageRemovalHasQuery
+                      ? `${fullscreenSessionPackages.length} encontrado${fullscreenSessionPackages.length === 1 ? "" : "s"}`
+                      : "Digite um código"}
+                  </span>
+                </div>
+                {sessionPackageActionStatus ? (
+                  <p
+                    className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-bold text-emerald-800"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {sessionPackageActionStatus}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mobile-manual-removal-results mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto overscroll-contain px-3 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] [scrollbar-gutter:stable]">
+            {sessionPackageActionError ? (
+              <p
+                className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-semibold leading-5 text-rose-800"
+                role="alert"
+              >
+                {sessionPackageActionError}
+              </p>
+            ) : null}
+            {fullscreenSessionPackages.length ? (
+              <ol className="space-y-3">
+                {fullscreenSessionPackages.map((item) => {
+                  const isDuplicate = duplicateSessionCodes.has(
+                    normalizeTrackingCode(item.codigo_rastreio),
+                  );
+                  const isLatestSessionPackage =
+                    latestSessionPackage?.id === item.id;
+                  const packageNumber = sessionPackageNumbers.get(item.id);
+
+                  return (
+                    <li
+                      key={`fullscreen-${item.id}`}
+                      className={`rounded-2xl border bg-white p-4 shadow-sm ${
+                        isDuplicate
+                          ? "border-rose-300 bg-rose-50"
+                          : isLatestSessionPackage
+                            ? "border-emerald-400 bg-emerald-50"
+                            : "border-slate-200"
+                      } ${isLatestSessionPackage ? "ring-2 ring-emerald-200" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-slate-400">
+                            Pacote {packageNumber}
+                          </p>
+                          <p
+                            className="mt-2 break-all font-mono text-base font-bold leading-6 text-slate-950"
+                            title={item.codigo_rastreio}
+                          >
+                            {item.codigo_rastreio}
+                          </p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">
+                            {formatPackageDate(item.data_hora_bipagem)}
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-col items-end gap-1.5">
+                          {isLatestSessionPackage ? (
+                            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[0.65rem] font-bold text-emerald-800">
+                              ÚLTIMO BIPADO
+                            </span>
+                          ) : null}
+                          {isDuplicate ? (
+                            <span className="rounded-full bg-rose-100 px-2.5 py-1 text-[0.65rem] font-bold text-rose-800">
+                              DUPLICADO
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      <div
+                        className={`mt-4 grid gap-2 ${
+                          fullscreenPackagesMode === "manual-remove"
+                            ? "grid-cols-1"
+                            : "grid-cols-2"
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => removeSessionPackage(item)}
+                          disabled={sessionMutationLocked}
+                          className={`inline-flex min-h-12 items-center justify-center rounded-xl border bg-white px-3 text-sm font-bold transition disabled:cursor-wait disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${
+                            isDuplicate
+                              ? "border-rose-300 text-rose-700"
+                              : "border-slate-300 text-slate-700"
+                          }`}
+                          aria-label={`${
+                            fullscreenPackagesMode === "manual-remove"
+                              ? "Remover do lote"
+                              : isDuplicate
+                                ? "Remover repetição"
+                                : "Remover pacote"
+                          } ${item.codigo_rastreio}`}
+                        >
+                          {fullscreenPackagesMode === "manual-remove"
+                            ? "Remover do lote"
+                            : isDuplicate
+                              ? "Remover repetição"
+                              : "Remover"}
+                        </button>
+                        {fullscreenPackagesMode === "browse" ? (
+                          <button
+                            type="button"
+                            onClick={() => cancelSessionPackageFromFullscreen(item)}
+                            disabled={sessionMutationLocked}
+                            className="inline-flex min-h-12 items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-sm font-bold text-rose-700 transition disabled:cursor-wait disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                          >
+                            Cancelar
+                          </button>
+                        ) : null}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            ) : fullscreenPackagesMode === "manual-remove" &&
+              !manualPackageRemovalHasQuery &&
+              sessionPackages.length ? (
+              <div className="grid min-h-full place-items-center px-5 py-10 text-center">
+                <div>
+                  <span
+                    className="mx-auto grid size-14 place-items-center rounded-full bg-amber-100 text-2xl font-bold text-amber-800"
+                    aria-hidden="true"
+                  >
+                    ⌕
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold">Localize a leitura</h3>
+                  <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                    Digite ou bipe o código acima. A remoção só será feita após
+                    tocar no pacote encontrado.
+                  </p>
+                </div>
+              </div>
+            ) : sessionPackages.length ? (
+              <div className="grid min-h-full place-items-center px-5 py-10 text-center">
+                <div>
+                  <span
+                    className="mx-auto grid size-14 place-items-center rounded-full bg-amber-100 text-2xl font-bold text-amber-800"
+                    aria-hidden="true"
+                  >
+                    ?
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold">Código não encontrado</h3>
+                  <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                    Confira o código digitado ou apague a busca para ver todas
+                    as leituras deste lote.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid min-h-full place-items-center px-5 py-10 text-center">
+                <div>
+                  <span
+                    className="mx-auto grid size-14 place-items-center rounded-full bg-slate-200 text-2xl font-bold text-slate-600"
+                    aria-hidden="true"
+                  >
+                    0
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold">Nenhum pacote no lote</h3>
+                  <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                    Volte à bipagem para adicionar novos rastreios.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </section>
+      ) : null}
+
+      {showMobileBatchHistory && mobileImmersiveSession ? (
+        <section
+          ref={mobileBatchHistoryRef}
+          tabIndex={-1}
+          className="fixed inset-0 z-[100] flex h-dvh flex-col overflow-hidden bg-slate-100 text-slate-950 xl:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-batch-history-title"
+        >
+          <header className="shrink-0 border-b border-slate-200 bg-white px-3 pb-3 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-sm">
+            <div className="mx-auto flex w-full max-w-xl items-center gap-3">
+              <button
+                ref={mobileBatchHistoryInitialFocusRef}
+                type="button"
+                onClick={
+                  selectedBatch
+                    ? closeBatchFromMobileHistory
+                    : closeMobileBatchHistory
+                }
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="ml-1">
+                  {selectedBatch ? "Histórico" : "Voltar"}
+                </span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="mobile-batch-history-title"
+                  className="truncate text-base font-bold"
+                >
+                  {selectedBatch ? "Detalhes do lote" : "Histórico e romaneios"}
+                </h2>
+                <p className="mt-0.5 text-xs font-medium text-slate-500">
+                  {selectedBatch
+                    ? getBatchCode(selectedBatch)
+                    : `${sortedBatches.length} lote${sortedBatches.length === 1 ? " finalizado" : "s finalizados"}`}
+                </p>
+              </div>
+            </div>
+          </header>
+
+          <div className="mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]">
+            {selectedBatch ? (
+              <div className="space-y-3">
+                <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="grid gap-3 text-sm sm:grid-cols-2">
+                    <p>
+                      <span className="font-bold text-slate-700">Loja:</span>{" "}
+                      {getCatalogStoreName(selectedBatch.loja_id)}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-700">Marketplace:</span>{" "}
+                      {selectedBatch.marketplace}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-700">Operação:</span>{" "}
+                      {getOperationLabel(selectedBatch.tipo_operacao)}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-700">Melhor Envio:</span>{" "}
+                      {selectedBatch.melhor_envio ? "Sim" : "Não"}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-700">Transportadora:</span>{" "}
+                      {selectedBatch.transportadora || "Sem transportadora"}
+                    </p>
+                    <p>
+                      <span className="font-bold text-slate-700">Finalizado:</span>{" "}
+                      {selectedBatch.finalizado_em
+                        ? formatPackageDate(selectedBatch.finalizado_em)
+                        : "Sem data"}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openBatchRomaneio(selectedBatch.id)}
+                    className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white"
+                  >
+                    Abrir romaneio
+                  </button>
+                </article>
+
+                <div className="space-y-2">
+                  <h3 className="px-1 text-sm font-bold text-slate-950">
+                    Pacotes ({selectedBatchPackages.length})
+                  </h3>
+                  {visibleSelectedBatchPackages.length ? (
+                    <ol className="space-y-2">
+                      {visibleSelectedBatchPackages.map((item, index) => (
+                        <li
+                          key={`mobile-history-package-${item.id}`}
+                          className="rounded-xl border border-slate-200 bg-white px-3 py-3 shadow-sm"
+                        >
+                          <span className="mr-2 text-sm font-bold text-slate-400">
+                            {index + 1}.
+                          </span>
+                          <span className="break-all font-mono text-sm font-bold text-slate-950">
+                            {item.codigo_rastreio}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <EmptyState>Nenhum pacote encontrado para este lote.</EmptyState>
+                  )}
+                  {visibleSelectedBatchPackages.length <
+                  selectedBatchPackages.length ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setVisibleSelectedBatchPackageCount((current) =>
+                          Math.min(
+                            current + BATCH_PACKAGE_PAGE_SIZE,
+                            selectedBatchPackages.length,
+                          ),
+                        )
+                      }
+                      className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
+                    >
+                      Mostrar mais pacotes ({visibleSelectedBatchPackages.length} de{" "}
+                      {selectedBatchPackages.length})
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+            ) : sortedBatches.length ? (
+              <div className="space-y-3">
+                {visibleBatches.map((batch) => (
+                  <article
+                    key={`mobile-history-${batch.id}`}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                  >
+                    <p className="break-all font-mono text-base font-bold text-slate-950">
+                      {getBatchCode(batch)}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold leading-5 text-slate-700">
+                      {getCatalogStoreName(batch.loja_id)} · {batch.marketplace} ·{" "}
+                      {getOperationLabel(batch.tipo_operacao)}
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-slate-500">
+                      {batch.finalizado_em
+                        ? formatPackageDate(batch.finalizado_em)
+                        : "Sem data de finalização"}{" "}
+                      · {batch.total_pacotes} pacote{batch.total_pacotes === 1 ? "" : "s"}
+                    </p>
+                    <div className="mt-4 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => openBatchFromMobileHistory(batch.id)}
+                        className="inline-flex min-h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700"
+                      >
+                        Ver detalhes
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openBatchRomaneio(batch.id)}
+                        className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-3 text-sm font-bold text-white"
+                      >
+                        Romaneio
+                      </button>
+                    </div>
+                  </article>
+                ))}
+                {visibleBatches.length < sortedBatches.length ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setVisibleBatchCount((current) =>
+                        Math.min(
+                          current + BATCH_HISTORY_PAGE_SIZE,
+                          sortedBatches.length,
+                        ),
+                      )
+                    }
+                    className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700"
+                  >
+                    Mostrar mais lotes ({visibleBatches.length} de{" "}
+                    {sortedBatches.length})
+                  </button>
+                ) : null}
+              </div>
+            ) : (
+              <div className="grid min-h-full place-items-center px-5 py-10 text-center">
+                <div>
+                  <span
+                    className="mx-auto grid size-14 place-items-center rounded-full bg-slate-200 text-2xl font-bold text-slate-600"
+                    aria-hidden="true"
+                  >
+                    0
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold">Nenhum lote finalizado</h3>
+                  <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                    Os lotes finalizados e seus romaneios aparecerão aqui.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <footer className="shrink-0 border-t border-slate-200 bg-white px-3 pt-2 shadow-[0_-14px_36px_-24px_rgba(15,23,42,0.55)]">
+            <div className="mx-auto w-full max-w-xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={
+                  selectedBatch
+                    ? closeBatchFromMobileHistory
+                    : closeMobileBatchHistory
+                }
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white"
+              >
+                {selectedBatch ? "Voltar ao histórico" : "Voltar à bipagem"}
+              </button>
+            </div>
+          </footer>
+        </section>
+      ) : null}
+
+      {showOnlySessionDuplicates ? (
+        <section
+          ref={duplicateManagerRef}
+          tabIndex={-1}
+          className="fixed inset-0 z-[100] flex h-dvh flex-col overflow-hidden bg-slate-100 text-slate-950 xl:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="duplicate-manager-title"
+        >
+          <header className="shrink-0 border-b border-slate-200 bg-white px-3 pb-3 pt-[calc(0.5rem+env(safe-area-inset-top))] shadow-sm">
+            <div className="mx-auto flex w-full max-w-xl items-center gap-3">
+              <button
+                ref={duplicateManagerInitialFocusRef}
+                type="button"
+                onClick={closeDuplicatePackages}
+                className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-3 text-sm font-bold text-slate-700"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="ml-1">Voltar</span>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h2
+                  id="duplicate-manager-title"
+                  className="truncate text-base font-bold"
+                >
+                  Corrigir duplicados
+                </h2>
+                <p className="mt-0.5 text-xs font-semibold text-rose-700">
+                  {duplicateExcessCount}{" "}
+                  {duplicateExcessCount === 1 ? "repetição" : "repetições"}{" "}
+                  para remover
+                </p>
+              </div>
+              <span
+                className="grid min-h-11 min-w-11 shrink-0 place-items-center rounded-xl bg-rose-700 px-2 text-sm font-bold text-white"
+                aria-label={`${duplicateExcessCount} repetições pendentes`}
+              >
+                {duplicateExcessCount}
+              </span>
+            </div>
+          </header>
+
+          <div className="mx-auto min-h-0 w-full max-w-xl flex-1 overflow-y-auto overscroll-contain p-3 [scrollbar-gutter:stable]">
+            {sessionPackageActionError ? (
+              <p
+                className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-semibold leading-5 text-rose-800"
+                role="alert"
+              >
+                {sessionPackageActionError}
+              </p>
+            ) : null}
+            {duplicateSessionPackages.length ? (
+              <div className="space-y-3">
+                <p className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2.5 text-sm font-semibold leading-5 text-rose-800">
+                  Escolha uma ocorrência de cada código repetido para remover do
+                  lote. A câmera fica pausada enquanto você faz a correção.
+                </p>
+                {duplicateSessionPackages.map((item) => {
+                  const packageNumber = sessionPackageNumbers.get(item.id);
+
+                  return (
+                    <article
+                      key={`duplicate-${item.id}`}
+                      className="rounded-2xl border border-rose-300 bg-white p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[0.65rem] font-bold uppercase tracking-[0.14em] text-slate-400">
+                            Pacote {packageNumber}
+                          </p>
+                          <p
+                            className="mt-2 break-all font-mono text-base font-bold leading-6 text-slate-950"
+                            title={item.codigo_rastreio}
+                          >
+                            {item.codigo_rastreio}
+                          </p>
+                          <p className="mt-1 text-xs font-medium text-slate-500">
+                            {formatPackageDate(item.data_hora_bipagem)}
+                          </p>
+                        </div>
+                        <span className="shrink-0 rounded-full bg-rose-100 px-2.5 py-1 text-[0.65rem] font-bold text-rose-800">
+                          DUPLICADO
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeSessionPackage(item)}
+                        disabled={sessionMutationLocked}
+                        className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-rose-700 px-4 text-sm font-bold text-white transition disabled:cursor-wait disabled:bg-slate-300"
+                        aria-label={`Remover repetição ${item.codigo_rastreio}`}
+                      >
+                        {savingSession
+                          ? "Removendo..."
+                          : "Remover esta repetição"}
+                      </button>
+                    </article>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="grid min-h-full place-items-center px-5 py-10 text-center">
+                <div>
+                  <span
+                    className="mx-auto grid size-14 place-items-center rounded-full bg-emerald-100 text-2xl font-bold text-emerald-700"
+                    aria-hidden="true"
+                  >
+                    ✓
+                  </span>
+                  <h3 className="mt-4 text-xl font-bold">
+                    Duplicados corrigidos
+                  </h3>
+                  <p className="mt-2 text-sm font-medium leading-6 text-slate-600">
+                    Não há mais repetições pendentes neste lote.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <footer className="shrink-0 border-t border-slate-200 bg-white px-3 pt-2 shadow-[0_-14px_36px_-24px_rgba(15,23,42,0.55)]">
+            <div className="mx-auto w-full max-w-xl pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <button
+                type="button"
+                onClick={closeDuplicatePackages}
+                className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white"
+              >
+                {hasSessionDuplicates
+                  ? "Voltar à bipagem"
+                  : "Continuar bipagem"}
+              </button>
+            </div>
+          </footer>
+        </section>
+      ) : null}
+
+      {selectedBatch && !showMobileBatchHistory ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 px-4 py-6"
           role="dialog"
@@ -2226,12 +3485,16 @@ export function BipagemForm() {
               <button
                 type="button"
                 onClick={() => {
+                  if (savingCancellation) {
+                    return;
+                  }
                   setPendingSessionCancelPackage(null);
                   setSessionCancelReason("");
                   setSessionCancelError("");
                   focusCodeField();
                 }}
-                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100"
+                disabled={savingCancellation}
+                className="inline-flex min-h-11 items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 focus:outline-none focus:ring-4 focus:ring-slate-100 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-400"
               >
                 Cancelar
               </button>
