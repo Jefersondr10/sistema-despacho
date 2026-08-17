@@ -8,6 +8,10 @@ function read(relativePath: string) {
 
 const scannerSource = read("app/bipagem/mobile-camera-scanner.tsx");
 const bipagemSource = read("app/bipagem/bipagem-form.tsx");
+const authenticatedAppShellSource = read(
+  "app/_components/authenticated-app-shell.tsx",
+);
+const globalStylesSource = read("app/globals.css");
 const fullscreenDialogSource = read(
   "app/bipagem/use-accessible-fullscreen-dialog.ts",
 );
@@ -80,10 +84,14 @@ test("versão móvel mantém lista rolável e finalização fixa", () => {
   assert.match(bipagemSource, /Remover repetição/);
 });
 
-test("lote aberto usa modo imersivo móvel sem alterar o layout desktop", () => {
+test("mobile entra no modo imersivo antes do primeiro pacote sem tocar no banco", () => {
   assert.match(
     bipagemSource,
-    /const mobileImmersiveSession = sessionOpen && !cancellationMode/,
+    /const \[mobileScanningStarted, setMobileScanningStarted\] =\s*useState\(false\)/,
+  );
+  assert.match(
+    bipagemSource,
+    /const mobileImmersiveSession =\s*\(sessionOpen \|\| mobileScanningStarted\) && !cancellationMode/,
   );
   assert.match(
     bipagemSource,
@@ -101,6 +109,38 @@ test("lote aberto usa modo imersivo móvel sem alterar o layout desktop", () => 
   assert.match(
     bipagemSource,
     /mobileImmersiveSession \? "max-xl:hidden"[^\n]*>[\s\S]{0,500}Histórico de lotes/,
+  );
+  assert.match(
+    bipagemSource,
+    /mobileImmersiveSession \? "max-xl:hidden" : ""[\s\S]{0,500}Configuração do lote/,
+  );
+  assert.match(
+    bipagemSource,
+    /!cancellationMode && !mobileImmersiveSession\s*\? "max-xl:hidden"/,
+  );
+  assert.match(
+    bipagemSource,
+    /\{!cancellationMode && mobileImmersiveSession \? \(\s*<MobileCameraScanner/,
+  );
+  assert.match(
+    bipagemSource,
+    /onClick=\{startMobileScanning\}[\s\S]{0,500}Iniciar bipagem/,
+  );
+
+  const startPosition = bipagemSource.indexOf("function startMobileScanning");
+  const nextFunctionPosition = bipagemSource.indexOf(
+    "function showDuplicatePackages",
+    startPosition,
+  );
+  assert.ok(startPosition > 0 && nextFunctionPosition > startPosition);
+  const startMobileScanningSource = bipagemSource.slice(
+    startPosition,
+    nextFunctionPosition,
+  );
+  assert.match(startMobileScanningSource, /setMobileScanningStarted\(true\)/);
+  assert.doesNotMatch(
+    startMobileScanningSource,
+    /createSessaoBipagem|ensureOpenSession|adicionarItemSessaoBipagem|\.rpc\(|\.from\(/,
   );
   assert.match(bipagemSource, /xl:grid-cols-/);
 });
@@ -121,51 +161,70 @@ test("opções móveis pausam a câmera e reutilizam confirmações do lote", ()
   assert.match(bipagemSource, /discardSessionFromMobileOptions/);
   assert.match(
     bipagemSource,
-    /function discardSessionFromMobileOptions\(\)[\s\S]*clearSession\(\)/,
+    /function discardSessionFromMobileOptions\(\)[\s\S]*if \(!activeBatchId\)[\s\S]*setMobileScanningStarted\(false\)[\s\S]*return;[\s\S]*clearSession\(\)/,
   );
   assert.match(bipagemSource, /A câmera fica pausada enquanto este menu está aberto/);
 });
 
-test("rodapé móvel permite iniciar o primeiro pacote por entrada manual", () => {
+test("rodapé móvel inicia a bipagem antes de criar o lote", () => {
   const mobileFooterPosition = bipagemSource.indexOf(
     "fixed inset-x-0 bottom-0",
-  );
-  const preBatchManualPosition = bipagemSource.indexOf(
-    "Adicionar manualmente",
-    mobileFooterPosition,
   );
   const mobileOptionsPosition = bipagemSource.indexOf(
     'id="mobile-session-options"',
   );
 
   assert.ok(mobileFooterPosition > 0);
-  assert.ok(
-    preBatchManualPosition > mobileFooterPosition &&
-      preBatchManualPosition < mobileOptionsPosition,
-  );
   const mobileFooterSource = bipagemSource.slice(
     mobileFooterPosition,
     mobileOptionsPosition,
   );
-  assert.match(
-    bipagemSource,
-    /function openMobileManualEntry\(\)[\s\S]*setShowMobileManualInput\(true\)[\s\S]*codeRef\.current\?\.focus/,
-  );
-  assert.match(mobileFooterSource, /onClick=\{openMobileManualEntry\}/);
+  assert.match(mobileFooterSource, /onClick=\{startMobileScanning\}/);
   assert.match(
     mobileFooterSource,
     /disabled=\{Boolean\(cameraDisabledMessage\) \|\| submitDisabled\}/,
   );
-  assert.match(mobileFooterSource, /Adicionar manualmente/);
+  assert.match(mobileFooterSource, /Iniciar bipagem/);
+  assert.doesNotMatch(mobileFooterSource, /Adicionar manualmente/);
+  assert.match(
+    bipagemSource,
+    /function resetSessionConfig\(\)[\s\S]*setMobileScanningStarted\(false\)/,
+  );
+});
+
+test("entrada manual abre com foco e pausa a câmera", () => {
+  assert.match(
+    bipagemSource,
+    /function openMobileManualEntry\(\)[\s\S]*setShowMobileManualInput\(true\)[\s\S]*codeRef\.current\?\.focus/,
+  );
+  assert.match(
+    bipagemSource,
+    /const cameraPaused =[\s\S]*showMobileManualInput \|\|/,
+  );
+  assert.match(
+    bipagemSource,
+    /<MobileCameraScanner[\s\S]*pause=\{cameraPaused\}/,
+  );
   assert.match(
     bipagemSource,
     /type="submit"[\s\S]{0,100}disabled=\{submitDisabled \|\| Boolean\(cameraDisabledMessage\)\}/,
   );
-  assert.match(
-    bipagemSource,
-    /handleSubmit[\s\S]*outcome\.accepted[\s\S]*setShowMobileManualInput\(false\)/,
-  );
   assert.doesNotMatch(scannerSource, /Adicionar manualmente/);
+});
+
+test("shell esconde o cabeçalho e trava o scroll durante a bipagem imersiva", () => {
+  assert.match(
+    authenticatedAppShellSource,
+    /<header className="mobile-app-shell-header[^"\n]*xl:hidden"/,
+  );
+  assert.match(
+    globalStylesSource,
+    /html:has\(\.mobile-immersive-session\),\s*body:has\(\.mobile-immersive-session\)\s*\{\s*overflow: hidden;/,
+  );
+  assert.match(
+    globalStylesSource,
+    /body:has\(\.mobile-immersive-session\) \.mobile-app-shell-header\s*\{\s*display: none;/,
+  );
 });
 
 test("correção de duplicados ocupa a tela do celular e pausa a câmera", () => {

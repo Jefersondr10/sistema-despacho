@@ -180,7 +180,7 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
       </aside>
 
       <div className="min-w-0 overflow-x-clip">
-        <header className="app-scroll-region sticky top-0 z-30 max-h-[55dvh] overflow-y-auto border-b border-slate-200/80 bg-white/90 px-3 py-3 shadow-[0_8px_30px_-24px_rgba(15,23,42,0.4)] backdrop-blur-xl sm:px-5 xl:hidden">
+        <header className="mobile-app-shell-header app-scroll-region sticky top-0 z-30 max-h-[55dvh] overflow-y-auto border-b border-slate-200/80 bg-white/90 px-3 py-3 shadow-[0_8px_30px_-24px_rgba(15,23,42,0.4)] backdrop-blur-xl sm:px-5 xl:hidden">
           <div className="flex items-center justify-between gap-3">
             <div className="flex shrink-0 items-center gap-3">
               <BrandMark compact />

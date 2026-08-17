@@ -131,6 +131,7 @@ export function BipagemForm() {
   const mobileSessionOptionsTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileSessionOptionsRef = useRef<HTMLElement>(null);
   const mobileSessionOptionsInitialFocusRef = useRef<HTMLButtonElement>(null);
+  const mobileImmersiveRef = useRef<HTMLElement>(null);
   const { user } = useAuth();
   const {
     catalogs,
@@ -186,6 +187,7 @@ export function BipagemForm() {
   const [showOnlySessionDuplicates, setShowOnlySessionDuplicates] =
     useState(false);
   const [showMobileManualInput, setShowMobileManualInput] = useState(false);
+  const [mobileScanningStarted, setMobileScanningStarted] = useState(false);
   const [showMobileSessionOptions, setShowMobileSessionOptions] =
     useState(false);
   const [showFullscreenSessionPackages, setShowFullscreenSessionPackages] =
@@ -219,7 +221,8 @@ export function BipagemForm() {
     [catalogs.carriers],
   );
   const sessionOpen = Boolean(activeBatchId);
-  const mobileImmersiveSession = sessionOpen && !cancellationMode;
+  const mobileImmersiveSession =
+    (sessionOpen || mobileScanningStarted) && !cancellationMode;
   const selectedLojaId =
     lojaId && (sessionOpen || activeStores.some((item) => item.id === lojaId))
       ? lojaId
@@ -403,6 +406,7 @@ export function BipagemForm() {
     showFullscreenSessionPackages ||
     showMobileBatchHistory ||
     showMobileSessionOptions ||
+    showMobileManualInput ||
     cancellationCandidates.length > 0;
 
   useAccessibleFullscreenDialog({
@@ -606,6 +610,26 @@ export function BipagemForm() {
     );
   }
 
+  function startMobileScanning() {
+    if (cameraDisabledMessage || submitDisabled) {
+      setNotice({
+        type: "warning",
+        text:
+          cameraDisabledMessage ||
+          "Aguarde o carregamento terminar para iniciar a bipagem.",
+      });
+      return;
+    }
+
+    clearCodeField();
+    setShowMobileManualInput(false);
+    setNotice(null);
+    setMobileScanningStarted(true);
+    window.requestAnimationFrame(() =>
+      mobileImmersiveRef.current?.focus({ preventScroll: true }),
+    );
+  }
+
   function showDuplicatePackages() {
     setShowMobileSessionOptions(false);
     setSessionPackageActionError("");
@@ -717,7 +741,30 @@ export function BipagemForm() {
   }
 
   function discardSessionFromMobileOptions() {
+    if (
+      processingTrackingRef.current ||
+      finishingSessionRef.current ||
+      sessionMutationLocked
+    ) {
+      setNotice({
+        type: "warning",
+        text: "Aguarde a leitura ou alteração atual terminar.",
+      });
+      return;
+    }
+
     setShowMobileSessionOptions(false);
+
+    if (!activeBatchId) {
+      setShowMobileManualInput(false);
+      setMobileScanningStarted(false);
+      setNotice({
+        type: "neutral",
+        text: "Bipagem encerrada antes da primeira leitura.",
+      });
+      return;
+    }
+
     clearSession();
   }
 
@@ -732,6 +779,7 @@ export function BipagemForm() {
     setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
     setShowOnlySessionDuplicates(false);
     setShowMobileManualInput(false);
+    setMobileScanningStarted(false);
     setShowMobileSessionOptions(false);
     setShowFullscreenSessionPackages(false);
     setFullscreenPackagesMode("browse");
@@ -1161,6 +1209,7 @@ export function BipagemForm() {
   }
 
   function activateCancellationMode() {
+    setMobileScanningStarted(false);
     setCancellationMode(true);
     clearCodeField();
     setNotice({
@@ -1618,6 +1667,11 @@ export function BipagemForm() {
 
   return (
     <section
+      ref={mobileImmersiveRef}
+      tabIndex={mobileImmersiveSession ? -1 : undefined}
+      aria-label={
+        mobileImmersiveSession ? "Tela exclusiva de bipagem" : undefined
+      }
       className={`grid min-w-0 items-start gap-5 pb-[calc(7rem+env(safe-area-inset-bottom))] transition xl:grid-cols-[minmax(380px,0.9fr)_minmax(460px,1.1fr)] xl:pb-0 2xl:gap-7 ${
         mobileImmersiveSession
           ? "mobile-immersive-session max-xl:fixed max-xl:inset-0 max-xl:z-[80] max-xl:flex max-xl:h-dvh max-xl:flex-col max-xl:items-stretch max-xl:gap-0 max-xl:overflow-hidden max-xl:bg-slate-100 max-xl:pb-0"
@@ -1690,7 +1744,7 @@ export function BipagemForm() {
         ) : (
         <div
           className={`rounded-2xl border border-slate-200/90 bg-white p-4 shadow-[0_18px_50px_-32px_rgba(15,23,42,0.38)] sm:p-6 ${
-            sessionOpen ? "hidden xl:block" : ""
+            mobileImmersiveSession ? "max-xl:hidden" : ""
           }`}
         >
           <div className="mb-5 flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1856,14 +1910,18 @@ export function BipagemForm() {
             mobileImmersiveSession
               ? "max-xl:shrink-0 max-xl:rounded-none max-xl:border-x-0 max-xl:border-t-0 max-xl:p-2 max-xl:pt-[calc(0.5rem+env(safe-area-inset-top))] max-xl:shadow-none"
               : ""
+          } ${
+            !cancellationMode && !mobileImmersiveSession
+              ? "max-xl:hidden"
+              : ""
           }`}
         >
-          {!cancellationMode && sessionOpen ? (
+          {!cancellationMode && mobileImmersiveSession ? (
             <div className="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 xl:hidden">
               <div className="flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-[0.68rem] font-bold uppercase tracking-[0.14em] text-slate-500">
-                    Lote em andamento
+                    {sessionOpen ? "Lote em andamento" : "Bipagem pronta"}
                   </p>
                   <p className="mt-1 truncate text-sm font-bold text-slate-950">
                     {getCatalogStoreName(selectedLojaId)} · {selectedMarketplace}
@@ -1928,7 +1986,7 @@ export function BipagemForm() {
             </div>
           ) : null}
 
-          {!cancellationMode ? (
+          {!cancellationMode && mobileImmersiveSession ? (
             <MobileCameraScanner
               key={cameraDisabledMessage ? "camera-disabled" : "camera-ready"}
               busy={submitDisabled}
@@ -2164,7 +2222,7 @@ export function BipagemForm() {
           <div className={`mb-3 flex shrink-0 flex-col items-start gap-3 sm:mb-4 sm:flex-row sm:justify-between sm:gap-4 ${mobileImmersiveSession ? "max-xl:mb-2 max-xl:flex-row max-xl:items-center max-xl:justify-between max-xl:gap-2" : ""}`}>
             <div className="min-w-0">
               <h2 className="text-lg font-semibold text-slate-950">
-                Pacotes deste lote
+                {mobileImmersiveSession ? "Pacotes bipados" : "Pacotes deste lote"}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
                 {sessionPackages.length} pacotes no lote atual.
@@ -2440,47 +2498,47 @@ export function BipagemForm() {
         <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-3 pt-2 shadow-[0_-14px_36px_-24px_rgba(15,23,42,0.55)] backdrop-blur xl:hidden">
           <div className="mx-auto flex max-w-xl items-center gap-2 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             {mobileImmersiveSession ? (
-              <button
-                ref={mobileSessionOptionsTriggerRef}
-                type="button"
-                onClick={() => setShowMobileSessionOptions(true)}
-                disabled={sessionMutationLocked}
-                aria-haspopup="dialog"
-                aria-expanded={showMobileSessionOptions}
-                aria-controls="mobile-session-options"
-                className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-400"
-              >
-                Opções
-              </button>
+              <>
+                <button
+                  ref={mobileSessionOptionsTriggerRef}
+                  type="button"
+                  onClick={() => setShowMobileSessionOptions(true)}
+                  disabled={sessionMutationLocked}
+                  aria-haspopup="dialog"
+                  aria-expanded={showMobileSessionOptions}
+                  aria-controls="mobile-session-options"
+                  className="inline-flex min-h-12 shrink-0 items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 disabled:cursor-wait disabled:bg-slate-100 disabled:text-slate-400"
+                >
+                  Opções
+                </button>
+                <button
+                  type="button"
+                  onClick={hasSessionDuplicates ? showDuplicatePackages : finishSession}
+                  disabled={
+                    !hasSessionDuplicates &&
+                    (finalizeDisabled || !sessionPackages.length || !activeBatchId)
+                  }
+                  className={`inline-flex min-h-12 min-w-[10rem] flex-1 items-center justify-center rounded-xl px-4 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${
+                    hasSessionDuplicates
+                      ? "bg-rose-700 hover:bg-rose-800"
+                      : "bg-teal-700 hover:bg-teal-800"
+                  }`}
+                >
+                  {hasSessionDuplicates
+                    ? `Corrigir ${duplicateExcessCount} ${duplicateExcessCount === 1 ? "duplicado" : "duplicados"}`
+                    : "Finalizar bipagem"}
+                </button>
+              </>
             ) : (
               <button
                 type="button"
-                onClick={openMobileManualEntry}
+                onClick={startMobileScanning}
                 disabled={Boolean(cameraDisabledMessage) || submitDisabled}
-                aria-controls="tracking-code-input"
-                aria-expanded={showMobileManualInput}
-                className="inline-flex min-h-12 min-w-0 flex-1 items-center justify-center rounded-xl border border-slate-300 bg-white px-2 text-center text-xs font-bold leading-4 text-slate-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                className="inline-flex min-h-14 w-full items-center justify-center rounded-xl bg-teal-700 px-5 text-base font-bold text-white shadow-sm transition hover:bg-teal-800 focus:outline-none focus:ring-4 focus:ring-teal-200 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none"
               >
-                Adicionar manualmente
+                Iniciar bipagem
               </button>
             )}
-            <button
-              type="button"
-              onClick={hasSessionDuplicates ? showDuplicatePackages : finishSession}
-              disabled={
-                !hasSessionDuplicates &&
-                (finalizeDisabled || !sessionPackages.length || !activeBatchId)
-              }
-              className={`inline-flex min-h-12 min-w-[10rem] flex-1 items-center justify-center rounded-xl px-4 text-sm font-bold text-white transition disabled:cursor-not-allowed disabled:bg-slate-300 ${
-                hasSessionDuplicates
-                  ? "bg-rose-700 hover:bg-rose-800"
-                  : "bg-teal-700 hover:bg-teal-800"
-              }`}
-            >
-              {hasSessionDuplicates
-                ? `Corrigir ${duplicateExcessCount} ${duplicateExcessCount === 1 ? "duplicado" : "duplicados"}`
-                : "Finalizar lote"}
-            </button>
           </div>
         </div>
       ) : null}
@@ -2564,7 +2622,7 @@ export function BipagemForm() {
                 disabled={sessionMutationLocked}
                 className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-rose-300 bg-white px-4 text-sm font-bold text-rose-700 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
               >
-                Descartar lote
+                {activeBatchId ? "Descartar lote" : "Sair da bipagem"}
               </button>
             </div>
 

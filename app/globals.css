@@ -262,6 +262,17 @@ textarea {
   }
 }
 
+@media (max-width: 1279px) {
+  html:has(.mobile-immersive-session),
+  body:has(.mobile-immersive-session) {
+    overflow: hidden;
+  }
+
+  body:has(.mobile-immersive-session) .mobile-app-shell-header {
+    display: none;
+  }
+}
+
 @media (orientation: landscape) and (max-height: 500px) {
   .mobile-camera-preview {
     height: 30dvh !important;
