@@ -49,6 +49,31 @@ test("aceita formatos amplos usados por marketplaces e transportadoras", () => {
   );
 });
 
+test("codigo simples preserva A mesmo quando o restante parece outro formato", () => {
+  const values = [
+    "A57712345675",
+    "A57712345675B",
+    "AAA123456785BR",
+    "A35190830290856000160550010000000011000000010",
+  ];
+
+  for (const value of values) {
+    assert.deepEqual(accepted(value), {
+      accepted: true,
+      code: value,
+      extracted: false,
+      kind: "carrier-code",
+    });
+  }
+
+  assert.deepEqual(accepted("A 57712345675"), {
+    accepted: true,
+    code: "A57712345675",
+    extracted: false,
+    kind: "carrier-code",
+  });
+});
+
 test("extrai o rastreio de URL, JSON e Data Matrix sem escolher o CEP", () => {
   assert.equal(
     accepted(

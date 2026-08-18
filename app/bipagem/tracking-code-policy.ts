@@ -223,6 +223,7 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
   }
 
   const candidates = new Map<string, Candidate>();
+  let authoritativePlainCode: Candidate | null = null;
   const addCandidate = (value: string, origin: CandidateOrigin) => {
     const classified = classifyCandidate(value, origin);
     if (!classified) return;
@@ -231,9 +232,21 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
       baseScore(classified.kind) +
       originScore(origin) +
       Math.min(classified.code.length, MAX_TRACKING_LENGTH) / 100;
+    const candidate = { ...classified, score };
+
+    // Quando a entrada inteira foi reconhecida como codigo simples, ela e a
+    // identidade autoritativa. Candidatos internos nao podem descartar prefixos
+    // legitimos, inclusive quando o operador digitou o codigo com espacos.
+    if (
+      origin === "plain" &&
+      canonicalizeCandidate(classified.code) === canonicalWhole
+    ) {
+      authoritativePlainCode = candidate;
+    }
+
     const previous = candidates.get(classified.code);
     if (!previous || score > previous.score) {
-      candidates.set(classified.code, { ...classified, score });
+      candidates.set(classified.code, candidate);
     }
   };
 
@@ -312,9 +325,11 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
     addCandidate(match[1], "preferred");
   }
 
-  const selected = [...candidates.values()].sort(
-    (left, right) => right.score - left.score,
-  )[0];
+  const selected =
+    authoritativePlainCode ??
+    [...candidates.values()].sort(
+      (left, right) => right.score - left.score,
+    )[0];
 
   if (!selected) {
     const containsPostalCode = /(?:^|\D)\d{5}-?\d{3}(?!\d)/.test(decoded);
