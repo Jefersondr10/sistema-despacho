@@ -4,7 +4,9 @@ import { formatPackageDate } from "@/app/_lib/mock-data";
 export type RomaneioGroup = {
   id: string;
   codigo_lote: string;
+  loja_id: string;
   loja_nome: string;
+  marketplace_id: string | null;
   marketplace: string;
   tipo_operacao: OperationType;
   melhor_envio: boolean;
@@ -27,7 +29,11 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
   const trackingColumnCount = getTrackingColumnCount(group.pacotes);
 
   return (
-    <article className="romaneio-sheet rounded-xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
+    <article
+      className="romaneio-sheet rounded-xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none"
+      data-loja-id={group.loja_id}
+      data-marketplace-id={group.marketplace_id ?? undefined}
+    >
       <div className="border-b-2 border-slate-900 pb-4 print:pb-3">
         <div className="flex items-start justify-between gap-4">
           <div>

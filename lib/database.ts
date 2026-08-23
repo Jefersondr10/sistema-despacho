@@ -166,6 +166,7 @@ export type FeedbackManagementSummary = {
 export type SessaoBipagemRow = {
   id: string;
   user_id: string;
+  estacao_id: string | null;
   codigo_lote: string | null;
   loja_id: string;
   marketplace_id: string;
@@ -328,6 +329,7 @@ export type CreateRelatorioEnvioHistoricoInput = {
 };
 
 export type CreateSessaoInput = {
+  estacao_id: string;
   loja_id: string;
   marketplace_id: string;
   tipo_operacao: TipoOperacao;
@@ -504,6 +506,7 @@ function getSessaoPayload(input: CreateSessaoInput) {
   }
 
   return {
+    estacao_id: requireText(input.estacao_id, "estacao_id"),
     loja_id: requireText(input.loja_id, "loja_id"),
     marketplace_id: requireText(input.marketplace_id, "marketplace_id"),
     tipo_operacao: validateTipoOperacao(input.tipo_operacao),
@@ -767,6 +770,7 @@ export function mapPacoteRowToDispatchPackage(
     codigo_lote: row.sessao?.codigo_lote ?? null,
     loja_id: row.loja_id,
     codigo_rastreio: row.codigo,
+    marketplace_id: row.marketplace_id,
     marketplace: row.marketplace?.nome ?? row.marketplace_id,
     melhor_envio: row.melhor_envio,
     transportadora: row.transportadora?.nome ?? null,
@@ -794,6 +798,7 @@ export function mapSessaoRowToDispatchBatch(
     id: row.id,
     codigo_lote: row.codigo_lote,
     loja_id: row.loja_id,
+    marketplace_id: row.marketplace_id,
     marketplace: row.marketplace?.nome ?? row.marketplace_id,
     melhor_envio: row.melhor_envio,
     transportadora: row.transportadora?.nome ?? null,
@@ -820,6 +825,7 @@ export function mapItemSessaoRowToDispatchPackage(
     codigo_lote: sessao.codigo_lote,
     loja_id: sessao.loja_id,
     codigo_rastreio: row.codigo_normalizado,
+    marketplace_id: sessao.marketplace_id,
     marketplace: sessao.marketplace?.nome ?? sessao.marketplace_id,
     melhor_envio: sessao.melhor_envio,
     transportadora: sessao.transportadora?.nome ?? null,
@@ -1629,18 +1635,34 @@ export async function createSessaoBipagem(
   input: CreateSessaoInput,
   context?: DatabaseContext,
 ) {
-  const { supabase, userId } = await getDatabaseContext(context);
-  const { data, error } = await supabase
-    .from("sessoes_bipagem")
-    .insert(withAuthenticatedOwner(getSessaoPayload(input), userId))
-    .select("*")
-    .single<SessaoBipagemRow>();
+  const { supabase } = await getDatabaseContext(context);
+  const payload = getSessaoPayload(input);
+  const { data, error } = await supabase.rpc(
+    "iniciar_sessao_bipagem_independente",
+    {
+      p_estacao_id: payload.estacao_id,
+      p_loja_id: payload.loja_id,
+      p_marketplace_id: payload.marketplace_id,
+      p_tipo_operacao: payload.tipo_operacao,
+      p_melhor_envio: payload.melhor_envio,
+      p_transportadora_id: payload.transportadora_id,
+      p_iniciada_em: payload.iniciada_em,
+    },
+  );
 
   if (error) {
     throw error;
   }
 
-  return data;
+  const sessao = (Array.isArray(data) ? data[0] : data) as
+    | SessaoBipagemRow
+    | null;
+
+  if (!sessao) {
+    throw new Error("Não foi possível iniciar o lote deste aparelho.");
+  }
+
+  return sessao;
 }
 
 export async function criarSessaoBipagem(
@@ -1747,17 +1769,36 @@ async function getItensSessaoBipagem(
 }
 
 export async function getSessaoBipagemAbertaComItens(
+  estacaoId: string,
   context?: DatabaseContext,
 ) {
   const databaseContext = await getDatabaseContext(context);
   const { supabase, userId } = databaseContext;
+  const normalizedStationId = requireText(estacaoId, "estacao_id");
+  const { data: stationRows, error: stationError } = await supabase.rpc(
+    "obter_sessao_bipagem_aberta",
+    { p_estacao_id: normalizedStationId },
+  );
+
+  if (stationError) {
+    throw stationError;
+  }
+
+  const stationSession = (
+    Array.isArray(stationRows) ? stationRows[0] : stationRows
+  ) as SessaoBipagemRow | null;
+
+  if (!stationSession) {
+    return null;
+  }
+
   const { data: sessao, error } = await supabase
     .from("sessoes_bipagem")
     .select(sessaoComRelacionamentosSelect)
+    .eq("id", stationSession.id)
     .eq("user_id", userId)
+    .eq("estacao_id", normalizedStationId)
     .eq("status", "aberta")
-    .order("iniciada_em", { ascending: false })
-    .limit(1)
     .maybeSingle<SessaoComRelacionamentosRow>();
 
   if (error) {
@@ -1783,7 +1824,11 @@ export async function adicionarItemSessaoBipagem(
     p_sessao_id: input.sessao_id,
     p_codigo: input.codigo,
   };
-  let result = await supabase.rpc("adicionar_item_sessao_bipagem_v2", args);
+  let result = await supabase.rpc("adicionar_item_sessao_bipagem_v3", args);
+
+  if (result.error && isMissingRpcFunctionError(result.error)) {
+    result = await supabase.rpc("adicionar_item_sessao_bipagem_v2", args);
+  }
 
   // Permite publicar o frontend antes da migration sem interromper a bipagem.
   // A RPC antiga retorna a sessao inteira, com o item novo na primeira linha.

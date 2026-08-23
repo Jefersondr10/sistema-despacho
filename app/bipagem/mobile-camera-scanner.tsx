@@ -14,12 +14,20 @@ import {
   registerCameraMiss,
   type CameraScanGate,
 } from "./camera-scan-policy";
+import styles from "./mobile-camera-scanner.module.css";
 
 type ScannerControls = {
   stop: () => void | Promise<void>;
 };
 
 type CameraStatus = "idle" | "starting" | "active" | "processing" | "paused" | "error";
+
+type CameraVisualAlert = {
+  id: number;
+  tone: "warning" | "danger";
+};
+
+const CAMERA_VISUAL_ALERT_DURATION_MS = 850;
 
 export type CameraScanOutcome = {
   tone: "success" | "warning" | "danger";
@@ -71,6 +79,8 @@ export function MobileCameraScanner({
   const startTokenRef = useRef(0);
   const mountedRef = useRef(true);
   const processingRef = useRef(false);
+  const visualAlertSequenceRef = useRef(0);
+  const visualAlertTimeoutRef = useRef<number | null>(null);
   const busyRef = useRef(busy);
   const onDetectedRef = useRef(onDetected);
   const gateRef = useRef<CameraScanGate>(createCameraScanGate());
@@ -80,6 +90,38 @@ export function MobileCameraScanner({
   const [errorMessage, setErrorMessage] = useState("");
   const [scanFeedback, setScanFeedback] = useState<CameraScanOutcome | null>(
     null,
+  );
+  const [visualAlert, setVisualAlert] = useState<CameraVisualAlert | null>(null);
+
+  const clearVisualAlert = useCallback(() => {
+    if (visualAlertTimeoutRef.current !== null) {
+      window.clearTimeout(visualAlertTimeoutRef.current);
+      visualAlertTimeoutRef.current = null;
+    }
+    if (mountedRef.current) {
+      setVisualAlert(null);
+    }
+  }, []);
+
+  const triggerVisualAlert = useCallback(
+    (tone: CameraScanOutcome["tone"]) => {
+      if (tone === "success") {
+        return;
+      }
+
+      if (visualAlertTimeoutRef.current !== null) {
+        window.clearTimeout(visualAlertTimeoutRef.current);
+      }
+
+      visualAlertSequenceRef.current += 1;
+      const id = visualAlertSequenceRef.current;
+      setVisualAlert({ id, tone });
+      visualAlertTimeoutRef.current = window.setTimeout(() => {
+        visualAlertTimeoutRef.current = null;
+        setVisualAlert((current) => (current?.id === id ? null : current));
+      }, CAMERA_VISUAL_ALERT_DURATION_MS);
+    },
+    [],
   );
 
   useEffect(() => {
@@ -111,8 +153,9 @@ export function MobileCameraScanner({
 
     processingRef.current = false;
     gateRef.current = createCameraScanGate();
+    clearVisualAlert();
     audioFeedback.close();
-  }, [audioFeedback]);
+  }, [audioFeedback, clearVisualAlert]);
 
   const stopCamera = useCallback(
     (nextStatus: CameraStatus = "idle") => {
@@ -295,6 +338,7 @@ export function MobileCameraScanner({
               }
 
               setScanFeedback(outcome);
+              triggerVisualAlert(outcome.tone);
               audioFeedback.play(outcome.tone);
               safelyVibrate(
                 outcome.tone === "success"
@@ -314,6 +358,7 @@ export function MobileCameraScanner({
                   message: "Não foi possível processar este código.",
                   accepted: false,
                 });
+                triggerVisualAlert("danger");
                 audioFeedback.play("danger");
                 safelyVibrate([140, 70, 140]);
               }
@@ -353,7 +398,15 @@ export function MobileCameraScanner({
         setOpeningPending(false);
       }
     }
-  }, [audioFeedback, busy, disabled, pause, releaseCamera, status]);
+  }, [
+    audioFeedback,
+    busy,
+    disabled,
+    pause,
+    releaseCamera,
+    status,
+    triggerVisualAlert,
+  ]);
 
   useEffect(() => {
     if (
@@ -461,6 +514,14 @@ export function MobileCameraScanner({
       className="mb-3 grid gap-2 rounded-2xl border border-teal-200 bg-teal-50/70 p-2.5 xl:hidden"
       aria-labelledby="mobile-camera-title"
     >
+      {visualAlert ? (
+        <div
+          key={visualAlert.id}
+          className={styles.alertFlash}
+          data-tone={visualAlert.tone}
+          aria-hidden="true"
+        />
+      ) : null}
       <div className="flex items-center justify-between gap-2">
         <h2 id="mobile-camera-title" className="text-sm font-bold text-slate-950">
           Câmera de bipagem

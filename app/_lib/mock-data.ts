@@ -43,6 +43,7 @@ export type DispatchPackage = {
   codigo_lote?: string | null;
   loja_id: Store["id"];
   codigo_rastreio: string;
+  marketplace_id?: Marketplace["id"] | null;
   marketplace: string;
   melhor_envio: boolean;
   transportadora: string | null;
@@ -90,6 +91,7 @@ export type DispatchBatch = {
   id: string;
   codigo_lote?: string | null;
   loja_id: Store["id"];
+  marketplace_id?: Marketplace["id"] | null;
   marketplace: string;
   melhor_envio: boolean;
   transportadora: string | null;

@@ -18,6 +18,7 @@ test("somente chaves da aplicacao sao selecionadas para limpeza", () => {
   const keys = [
     `${ACCOUNT_STORAGE_PREFIX}usuario-a:filtros`,
     "sb-projeto-auth-token",
+    "sistema-despacho-device:bipagem-estacao",
     `${ACCOUNT_STORAGE_PREFIX}usuario-a:sessao-bipagem`,
   ];
   const storage = {
@@ -28,5 +29,5 @@ test("somente chaves da aplicacao sao selecionadas para limpeza", () => {
     removeItem() {},
   };
 
-  assert.deepEqual(getAccountStorageKeys(storage), [keys[0], keys[2]]);
+  assert.deepEqual(getAccountStorageKeys(storage), [keys[0], keys[3]]);
 });

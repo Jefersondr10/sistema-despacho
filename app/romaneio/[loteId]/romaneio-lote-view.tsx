@@ -24,7 +24,9 @@ export function RomaneioLoteView({ loteId }: { loteId: string }) {
     ? {
         id: batch.id,
         codigo_lote: getBatchCode(batch),
+        loja_id: batch.loja_id,
         loja_nome: getStoreName(batch.loja_id, catalogs.stores),
+        marketplace_id: batch.marketplace_id ?? null,
         marketplace: batch.marketplace,
         tipo_operacao: batch.tipo_operacao,
         melhor_envio: batch.melhor_envio,

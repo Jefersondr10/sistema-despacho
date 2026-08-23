@@ -17,6 +17,7 @@ import {
   MobileCameraScanner,
   type CameraScanOutcome,
 } from "@/app/bipagem/mobile-camera-scanner";
+import { getOrCreateBipagemStationId } from "@/app/bipagem/bipagem-station";
 import { parseTrackingCode } from "@/app/bipagem/tracking-code-policy";
 import { useAccessibleFullscreenDialog } from "@/app/bipagem/use-accessible-fullscreen-dialog";
 import type {
@@ -75,6 +76,7 @@ function mapPendingItemToPackage(
   {
     sessaoId,
     lojaId,
+    marketplaceId,
     marketplace,
     melhorEnvio,
     transportadora,
@@ -82,6 +84,7 @@ function mapPendingItemToPackage(
   }: {
     sessaoId: string;
     lojaId: string;
+    marketplaceId: string;
     marketplace: string;
     melhorEnvio: boolean;
     transportadora: string | null;
@@ -93,6 +96,7 @@ function mapPendingItemToPackage(
     lote_id: sessaoId,
     loja_id: lojaId,
     codigo_rastreio: item.codigo_normalizado,
+    marketplace_id: marketplaceId,
     marketplace,
     melhor_envio: melhorEnvio,
     transportadora,
@@ -142,7 +146,7 @@ export function BipagemForm() {
     reload,
   } = useSupabaseDispatchData("bipagem");
   const [lojaId, setLojaId] = useState("");
-  const [marketplace, setMarketplace] = useState("");
+  const [marketplaceId, setMarketplaceId] = useState("");
   const [tipoOperacao, setTipoOperacao] = useState<OperationType | "">("");
   const [melhorEnvio, setMelhorEnvio] = useState(false);
   const [transportadora, setTransportadora] = useState("");
@@ -201,11 +205,20 @@ export function BipagemForm() {
     useState("");
   const [sessionPackageActionStatus, setSessionPackageActionStatus] =
     useState("");
+  const [stationIdentity, setStationIdentity] = useState<{
+    userId: string;
+    id: string;
+  } | null>(null);
+  const [stationError, setStationError] = useState("");
 
   const databaseContext = useMemo(
     () => ({ userId: user?.id }),
     [user?.id],
   );
+  const stationId =
+    stationIdentity && stationIdentity.userId === user?.id
+      ? stationIdentity.id
+      : "";
 
   const activeStores = useMemo(
     () => catalogs.stores.filter((item) => item.status !== "Inativa"),
@@ -227,15 +240,13 @@ export function BipagemForm() {
     lojaId && (sessionOpen || activeStores.some((item) => item.id === lojaId))
       ? lojaId
       : "";
-  const selectedMarketplace =
-    marketplace &&
-    (sessionOpen ||
-      activeMarketplaces.some((item) => item.name === marketplace))
-      ? marketplace
-      : "";
-  const selectedMarketplaceItem = activeMarketplaces.find(
-    (item) => item.name === selectedMarketplace,
+  const selectedMarketplaceItem = catalogs.marketplaces.find(
+    (item) =>
+      item.id === marketplaceId &&
+      (sessionOpen || activeMarketplaces.some((active) => active.id === item.id)),
   );
+  const selectedMarketplaceId = selectedMarketplaceItem?.id ?? "";
+  const selectedMarketplace = selectedMarketplaceItem?.name ?? "";
   const selectedCarrierItem = activeCarriers.find(
     (item) => item.name === transportadora,
   );
@@ -382,19 +393,23 @@ export function BipagemForm() {
     checkingPackage;
   const sessionMutationLocked =
     savingSession || savingCancellation || checkingPackage;
-  const cameraDisabledMessage = loading || loadingOpenSession
-    ? "Aguarde o carregamento dos dados."
-    : !selectedLojaId
-      ? "Selecione a loja para liberar a câmera."
-      : !selectedMarketplace
-        ? "Selecione o marketplace para liberar a câmera."
-        : !tipoOperacao
-          ? "Selecione Coleta ou Postagem para liberar a câmera."
-          : melhorEnvio && !transportadora
-            ? "Selecione a transportadora para liberar a câmera."
-            : error
-              ? "Corrija o erro de carregamento antes de usar a câmera."
-              : "";
+  const cameraDisabledMessage = stationError
+    ? stationError
+    : !stationId
+      ? "Preparando este aparelho para uma bipagem independente."
+      : loading || loadingOpenSession
+        ? "Aguarde o carregamento dos dados."
+        : !selectedLojaId
+          ? "Selecione a loja para liberar a câmera."
+          : !selectedMarketplace
+            ? "Selecione o marketplace para liberar a câmera."
+            : !tipoOperacao
+              ? "Selecione Coleta ou Postagem para liberar a câmera."
+              : melhorEnvio && !transportadora
+                ? "Selecione a transportadora para liberar a câmera."
+                : error
+                  ? "Corrija o erro de carregamento antes de usar a câmera."
+                  : "";
   const cameraPaused =
     showClearSessionConfirm ||
     showDuplicateFinalizeDialog ||
@@ -443,7 +458,43 @@ export function BipagemForm() {
   });
 
   useEffect(() => {
-    if (loading) {
+    if (!user?.id) {
+      return;
+    }
+
+    let cancelled = false;
+
+    queueMicrotask(() => {
+      if (cancelled) {
+        return;
+      }
+
+      try {
+        const id = getOrCreateBipagemStationId({
+          storage: window.localStorage,
+          randomUUID: () => window.crypto.randomUUID(),
+        });
+
+        setStationError("");
+        setStationIdentity({ userId: user.id, id });
+      } catch (stationIdentificationError) {
+        const message =
+          stationIdentificationError instanceof Error
+            ? stationIdentificationError.message
+            : "Não foi possível identificar este aparelho para a bipagem.";
+        setStationError(message);
+        setLoadingOpenSession(false);
+        setNotice({ type: "danger", text: message });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (loading || !stationId) {
       return;
     }
 
@@ -456,7 +507,7 @@ export function BipagemForm() {
 
       setLoadingOpenSession(true);
 
-      void getSessaoBipagemAbertaComItens(databaseContext)
+      void getSessaoBipagemAbertaComItens(stationId, databaseContext)
         .then((openSession) => {
         if (cancelled) {
           return;
@@ -469,7 +520,7 @@ export function BipagemForm() {
 
         const { sessao, itens } = openSession;
         setLojaId(sessao.loja_id);
-        setMarketplace(sessao.marketplace?.nome ?? sessao.marketplace_id);
+        setMarketplaceId(sessao.marketplace_id);
         setTipoOperacao(sessao.tipo_operacao);
         setMelhorEnvio(sessao.melhor_envio);
         setTransportadora(sessao.transportadora?.nome ?? "");
@@ -501,7 +552,7 @@ export function BipagemForm() {
     return () => {
       cancelled = true;
     };
-  }, [databaseContext, loading]);
+  }, [databaseContext, loading, stationId]);
 
   useEffect(() => {
     if (
@@ -772,7 +823,7 @@ export function BipagemForm() {
     setSessionPackages([]);
     setActiveBatchId("");
     setLojaId("");
-    setMarketplace("");
+    setMarketplaceId("");
     setTipoOperacao("");
     setMelhorEnvio(false);
     setTransportadora("");
@@ -877,9 +928,14 @@ export function BipagemForm() {
       throw new Error("Transportadora nao encontrada nos cadastros.");
     }
 
+    if (!stationId) {
+      throw new Error("Este aparelho ainda não está pronto para iniciar o lote.");
+    }
+
     const timestamp = nowIso();
     const sessao = await createSessaoBipagem(
       {
+        estacao_id: stationId,
         loja_id: selectedLojaId,
         marketplace_id: selectedMarketplaceItem.id,
         tipo_operacao: selectedOperation,
@@ -1007,7 +1063,10 @@ export function BipagemForm() {
       if (addedItem.duplicado || duplicatedInSession) {
         // A duplicidade e rara. Somente nesse caminho sincronizamos a sessao
         // inteira para mostrar itens adicionados por outra aba/leitor.
-        const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+        const openSession = await getSessaoBipagemAbertaComItens(
+          stationId,
+          databaseContext,
+        );
         if (!openSession || openSession.sessao.id !== sessaoId) {
           throw new Error("O lote foi alterado em outro dispositivo. Recarregue a tela.");
         }
@@ -1021,6 +1080,7 @@ export function BipagemForm() {
         const addedPackage = mapPendingItemToPackage(addedItem, {
           sessaoId,
           lojaId: selectedLojaId,
+          marketplaceId: selectedMarketplaceId,
           marketplace: selectedMarketplace,
           melhorEnvio,
           transportadora: melhorEnvio ? transportadora : null,
@@ -1085,7 +1145,10 @@ export function BipagemForm() {
     try {
       // Confere a lista imediatamente antes da finalizacao. Isso impede que
       // uma segunda aba esconda itens ou duplicidades desta tela.
-      const openSession = await getSessaoBipagemAbertaComItens(databaseContext);
+      const openSession = await getSessaoBipagemAbertaComItens(
+        stationId,
+        databaseContext,
+      );
       if (!openSession || openSession.sessao.id !== activeBatchId) {
         throw new Error("O lote em andamento mudou em outro dispositivo. Recarregue a tela.");
       }
@@ -1574,6 +1637,7 @@ export function BipagemForm() {
               loja_id: savedPackage?.loja_id ?? targetPackage.loja_id,
               marketplace_id:
                 savedPackage?.marketplace_id ??
+                targetPackage.marketplace_id ??
                 getMarketplaceIdByName(targetPackage.marketplace),
               transportadora_id:
                 savedPackage?.transportadora_id ??
@@ -1783,13 +1847,13 @@ export function BipagemForm() {
 
             <SelectField
               label="Marketplace"
-              value={selectedMarketplace}
-              onChange={setMarketplace}
+              value={selectedMarketplaceId}
+              onChange={setMarketplaceId}
               disabled={configLocked}
               required
               placeholder="Selecione um marketplace"
               options={activeMarketplaces.map((item) => ({
-                value: item.name,
+                value: item.id,
                 label: item.name,
               }))}
             />

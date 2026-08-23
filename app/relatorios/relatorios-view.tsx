@@ -7,6 +7,7 @@ import {
   RomaneioDocument,
   type RomaneioGroup,
 } from "@/app/_components/romaneio-document";
+import { getRomaneioGroupId } from "@/app/_lib/romaneio-groups";
 import {
   Badge,
   EmptyState,
@@ -134,7 +135,14 @@ export function RelatoriosView() {
         batch?.codigo_lote ||
         item.codigo_lote ||
         `LOTE-${(item.lote_id || item.id).slice(0, 8).toUpperCase()}`;
-      const groupId = item.lote_id || item.id;
+      const loteId = item.lote_id || item.id;
+      const marketplaceId = item.marketplace_id ?? batch?.marketplace_id ?? null;
+      const groupId = getRomaneioGroupId({
+        loteId,
+        lojaId: item.loja_id,
+        marketplaceId,
+        marketplaceName: item.marketplace,
+      });
       const current = grouped.get(groupId);
 
       if (current) {
@@ -145,7 +153,9 @@ export function RelatoriosView() {
       grouped.set(groupId, {
         id: groupId,
         codigo_lote: batchCode,
+        loja_id: item.loja_id,
         loja_nome: getStoreName(item.loja_id, catalogs.stores),
+        marketplace_id: marketplaceId,
         marketplace: item.marketplace,
         tipo_operacao: item.tipo_operacao,
         melhor_envio: item.melhor_envio,
@@ -155,8 +165,12 @@ export function RelatoriosView() {
       });
     }
 
-    return Array.from(grouped.values()).sort((first, second) =>
-      second.data.localeCompare(first.data),
+    return Array.from(grouped.values()).sort(
+      (first, second) =>
+        first.loja_nome.localeCompare(second.loja_nome, "pt-BR") ||
+        first.marketplace.localeCompare(second.marketplace, "pt-BR") ||
+        second.data.localeCompare(first.data) ||
+        first.codigo_lote.localeCompare(second.codigo_lote, "pt-BR"),
     );
   }, [batchesById, catalogs.stores, filteredPackages]);
   const visibleRecipients = recipients;
@@ -558,7 +572,10 @@ export function RelatoriosView() {
         {mode === "romaneio" ? (
           <div className="p-5 print:p-0">
             {romaneioGroups.length ? (
-              <RomaneioDocument groups={romaneioGroups} />
+              <RomaneioDocument
+                groups={romaneioGroups}
+                totalLabel="Cada lote, loja e marketplace em uma folha separada"
+              />
             ) : (
               <EmptyState>Nenhum pacote para gerar romaneio.</EmptyState>
             )}
