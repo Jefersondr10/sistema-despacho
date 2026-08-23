@@ -432,7 +432,7 @@ test("mobile oferece histórico e romaneios sem interromper o lote atual", () =>
   assert.match(bipagemSource, /closeBatchFromMobileHistory/);
   assert.match(
     bipagemSource,
-    /function openStoreRomaneio\(batch:[\s\S]*modo: "romaneio"[\s\S]*lojaId: batch\.loja_id[\s\S]*data: getSaoPauloDateString/,
+    /function openStoreRomaneio\(batch:[\s\S]*modo: "romaneio"[\s\S]*lojaId: batch\.loja_id[\s\S]*marketplace: batch\.marketplace[\s\S]*data: getSaoPauloDateString/,
   );
   assert.match(bipagemSource, /openStoreRomaneio\(batch\)/);
   assert.match(bipagemSource, /openStoreRomaneio\(selectedBatch\)/);
@@ -443,10 +443,14 @@ test("mobile oferece histórico e romaneios sem interromper o lote atual", () =>
   assert.doesNotMatch(bipagemSource, /openBatchRomaneio/);
 });
 
-test("romaneio aberto pelo histórico consolida loja e dia", () => {
+test("romaneio aberto pelo histórico consolida loja, marketplace e dia", () => {
   assert.match(reportsPageSource, /searchParams: Promise<RelatoriosSearchParams>/);
   assert.match(reportsPageSource, /requestedMode === "romaneio"/);
   assert.match(reportsPageSource, /initialStoreId=\{requestedStoreId/);
+  assert.match(
+    reportsPageSource,
+    /initialMarketplace=\{requestedMarketplace/,
+  );
   assert.match(reportsPageSource, /initialDate=\{initialDate\}/);
   assert.match(
     reportsViewSource,
@@ -456,6 +460,10 @@ test("romaneio aberto pelo histórico consolida loja e dia", () => {
     reportsViewSource,
     /showBatchCodeSearch=\{mode !== "romaneio"\}/,
   );
-  assert.match(reportsViewSource, /groupRomaneioPackagesByStore\(/);
+  assert.match(
+    reportsViewSource,
+    /groupRomaneioPackagesByStoreAndMarketplace\(/,
+  );
+  assert.match(legacyRomaneioSource, /marketplace: batch\.marketplace/);
   assert.match(legacyRomaneioSource, /window\.location\.replace\(destinationUrl\)/);
 });

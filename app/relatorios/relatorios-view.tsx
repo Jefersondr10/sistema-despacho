@@ -23,7 +23,7 @@ import {
   getStoreName,
 } from "@/app/_lib/mock-data";
 import {
-  groupRomaneioPackagesByStore,
+  groupRomaneioPackagesByStoreAndMarketplace,
   type RomaneioGroup,
 } from "@/app/_lib/romaneio";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
@@ -95,10 +95,12 @@ function parseManualEmails(value: string) {
 export function RelatoriosView({
   initialMode = "resumido",
   initialStoreId,
+  initialMarketplace,
   initialDate,
 }: {
   initialMode?: ReportMode;
   initialStoreId?: string;
+  initialMarketplace?: string;
   initialDate?: string;
 }) {
   const { session, user } = useAuth();
@@ -112,6 +114,9 @@ export function RelatoriosView({
     return {
       ...defaults,
       lojaId: initialStoreId ? [initialStoreId] : defaults.lojaId,
+      marketplace: initialMarketplace
+        ? [initialMarketplace]
+        : defaults.marketplace,
       ...(initialDate
         ? {
             dateMode: "single" as const,
@@ -151,7 +156,7 @@ export function RelatoriosView({
   );
   const romaneioGroups = useMemo<RomaneioGroup[]>(
     () =>
-      groupRomaneioPackagesByStore(
+      groupRomaneioPackagesByStoreAndMarketplace(
         filteredPackages,
         catalogs.stores,
         filterSummary.data,
@@ -290,7 +295,7 @@ export function RelatoriosView({
             romaneios: romaneioGroups.map((group) => ({
               id: group.id,
               loja_nome: group.loja_nome,
-              marketplaces: group.marketplaces,
+              marketplace: group.marketplace,
               periodo: group.periodo,
               pacotes: group.pacotes.map((item) => ({
                 codigo_rastreio: item.codigo_rastreio,
@@ -554,7 +559,10 @@ export function RelatoriosView({
         {mode === "romaneio" ? (
           <div className="p-5 print:p-0">
             {romaneioGroups.length ? (
-              <RomaneioDocument groups={romaneioGroups} />
+              <RomaneioDocument
+                groups={romaneioGroups}
+                totalLabel="Cada combinação de loja e marketplace em uma folha separada"
+              />
             ) : (
               <EmptyState>Nenhum pacote para gerar romaneio.</EmptyState>
             )}

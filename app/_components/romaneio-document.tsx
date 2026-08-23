@@ -13,17 +13,15 @@ function getTrackingColumnCount(packages: DispatchPackage[]) {
   return hasLongTrackingCode ? 4 : 5;
 }
 
-function formatMarketplaces(marketplaces: string[]) {
-  return marketplaces.length
-    ? marketplaces.join(" · ")
-    : "Não informado";
-}
-
 function RomaneioSheet({ group }: { group: RomaneioGroup }) {
   const trackingColumnCount = getTrackingColumnCount(group.pacotes);
 
   return (
-    <article className="romaneio-sheet rounded-xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none">
+    <article
+      className="romaneio-sheet rounded-xl border border-slate-200 bg-white p-5 text-slate-950 shadow-sm print:rounded-none print:border-0 print:p-0 print:shadow-none"
+      data-loja-id={group.loja_id}
+      data-marketplace-id={group.marketplace_id ?? undefined}
+    >
       <div className="border-b-2 border-slate-900 pb-4 print:pb-3">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
@@ -45,10 +43,10 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
           </div>
           <div className="rounded-xl border-2 border-teal-600 bg-teal-50 px-4 py-3 print:bg-white">
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
-              Marketplaces
+              Marketplace
             </p>
             <p className="mt-1 break-words text-lg font-extrabold leading-tight text-teal-950 sm:text-xl print:text-lg">
-              {formatMarketplaces(group.marketplaces)}
+              {group.marketplace}
             </p>
           </div>
         </div>

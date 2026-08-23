@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import type { DispatchPackage, Store } from "../app/_lib/mock-data.ts";
-import { groupRomaneioPackagesByStore } from "../app/_lib/romaneio.ts";
+import { groupRomaneioPackagesByStoreAndMarketplace } from "../app/_lib/romaneio.ts";
 
 const stores: Store[] = [
   {
@@ -25,12 +25,14 @@ function makePackage({
   id,
   batchId,
   storeId,
+  marketplaceId,
   marketplace,
   status = "Finalizado",
 }: {
   id: string;
   batchId: string;
   storeId: string;
+  marketplaceId?: string;
   marketplace: string;
   status?: DispatchPackage["status"];
 }): DispatchPackage {
@@ -38,6 +40,7 @@ function makePackage({
     id,
     lote_id: batchId,
     loja_id: storeId,
+    marketplace_id: marketplaceId,
     codigo_rastreio: `RASTREIO-${id}`,
     marketplace,
     melhor_envio: false,
@@ -49,8 +52,8 @@ function makePackage({
   };
 }
 
-test("consolida lotes da mesma loja e agrega marketplaces", () => {
-  const groups = groupRomaneioPackagesByStore(
+test("separa marketplaces e consolida lotes da mesma combinação", () => {
+  const groups = groupRomaneioPackagesByStoreAndMarketplace(
     [
       makePackage({
         id: "bsb-lote-1",
@@ -61,6 +64,12 @@ test("consolida lotes da mesma loja e agrega marketplaces", () => {
       makePackage({
         id: "bsb-lote-2",
         batchId: "lote-2",
+        storeId: "loja-brasilia",
+        marketplace: "Amazon",
+      }),
+      makePackage({
+        id: "bsb-lote-5",
+        batchId: "lote-5",
         storeId: "loja-brasilia",
         marketplace: "Amazon",
       }),
@@ -84,16 +93,21 @@ test("consolida lotes da mesma loja e agrega marketplaces", () => {
 
   assert.deepEqual(
     groups.map((group) => group.id),
-    ["loja-brasilia", "loja-sao-paulo"],
+    [
+      "loja-brasilia::nome:amazon",
+      "loja-brasilia::nome:shopee",
+      "loja-sao-paulo::nome:mercado livre",
+    ],
   );
   assert.equal(groups[0]?.loja_nome, "Brasília");
   assert.equal(groups[0]?.periodo, "Hoje (18/08/2026)");
-  assert.deepEqual(groups[0]?.marketplaces, ["Amazon", "Shopee"]);
+  assert.equal(groups[0]?.marketplace, "Amazon");
   assert.deepEqual(
     groups[0]?.pacotes.map((item) => item.id),
-    ["bsb-lote-1", "bsb-lote-2"],
+    ["bsb-lote-2", "bsb-lote-5"],
   );
-  assert.deepEqual(groups[1]?.marketplaces, ["Mercado Livre"]);
+  assert.equal(groups[1]?.marketplace, "Shopee");
+  assert.equal(groups[2]?.marketplace, "Mercado Livre");
 });
 
 test("usa loja_id como chave mesmo quando os nomes das lojas coincidem", () => {
@@ -101,7 +115,7 @@ test("usa loja_id como chave mesmo quando os nomes das lojas coincidem", () => {
     ...store,
     name: "Centro",
   }));
-  const groups = groupRomaneioPackagesByStore(
+  const groups = groupRomaneioPackagesByStoreAndMarketplace(
     [
       makePackage({
         id: "brasilia",
@@ -124,14 +138,14 @@ test("usa loja_id como chave mesmo quando os nomes das lojas coincidem", () => {
   assert.deepEqual(
     groups.map((group) => [group.id, group.pacotes.length]),
     [
-      ["loja-brasilia", 1],
-      ["loja-sao-paulo", 1],
+      ["loja-brasilia::nome:amazon", 1],
+      ["loja-sao-paulo::nome:amazon", 1],
     ],
   );
 });
 
 test("normaliza marketplaces e oferece periodo seguro", () => {
-  const groups = groupRomaneioPackagesByStore(
+  const groups = groupRomaneioPackagesByStoreAndMarketplace(
     [
       makePackage({
         id: "amazon-1",
@@ -150,6 +164,35 @@ test("normaliza marketplaces e oferece periodo seguro", () => {
     "   ",
   );
 
-  assert.deepEqual(groups[0]?.marketplaces, ["Amazon"]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0]?.marketplace, "Amazon");
   assert.equal(groups[0]?.periodo, "Não informado");
+});
+
+test("usa marketplace_id para separar catálogos com nomes iguais", () => {
+  const groups = groupRomaneioPackagesByStoreAndMarketplace(
+    [
+      makePackage({
+        id: "amazon-a",
+        batchId: "lote-1",
+        storeId: "loja-brasilia",
+        marketplaceId: "market-a",
+        marketplace: "Amazon",
+      }),
+      makePackage({
+        id: "amazon-b",
+        batchId: "lote-2",
+        storeId: "loja-brasilia",
+        marketplaceId: "market-b",
+        marketplace: "Amazon",
+      }),
+    ],
+    stores,
+    "18/08/2026",
+  );
+
+  assert.deepEqual(
+    groups.map((group) => group.id),
+    ["loja-brasilia::id:market-a", "loja-brasilia::id:market-b"],
+  );
 });

@@ -238,14 +238,16 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
   return groups.map((group) => ({
     id: getOptionalString(group.id),
     loja_nome: getOptionalString(group.loja_nome) || "Loja não informada",
-    marketplaces: unique(
-      [
-        ...getStringArray(group.marketplaces),
-        getOptionalString(group.marketplace),
-      ]
-        .map((marketplace) => marketplace.trim())
-        .filter(Boolean),
-    ).sort((first, second) => first.localeCompare(second, "pt-BR")),
+    marketplace: formatRomaneioMarketplaces(
+      unique(
+        [
+          ...getStringArray(group.marketplaces),
+          getOptionalString(group.marketplace),
+        ]
+          .map((marketplace) => marketplace.trim())
+          .filter(Boolean),
+      ).sort((first, second) => first.localeCompare(second, "pt-BR")),
+    ),
     periodo: getOptionalString(group.periodo) || "Não informado",
     pacotes: Array.isArray(group.pacotes)
       ? group.pacotes.filter(isRecord).map((item) => ({
@@ -275,7 +277,6 @@ function buildRomaneioEmail(
   const groupsHtml = groups.length
     ? groups
         .map((group) => {
-          const marketplaces = formatRomaneioMarketplaces(group.marketplaces);
           const numberedPackages = group.pacotes.map((item, index) => ({
             ...item,
             number: index + 1,
@@ -308,7 +309,7 @@ function buildRomaneioEmail(
                   `,
                 )
                 .join("")
-            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote nesta loja.</td></tr>`;
+            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste romaneio.</td></tr>`;
 
           return `
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: separate; border-spacing: 0;">
@@ -320,8 +321,8 @@ function buildRomaneioEmail(
               </tr>
               <tr>
                 <td style="padding: 13px 22px; background-color: #f0fdfa; border-bottom: 2px solid #0d9488;">
-                  <p style="margin: 0 0 4px; color: #0f766e; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">Marketplaces</p>
-                  <p style="margin: 0; color: #134e4a; font-size: 18px; font-weight: 800; line-height: 1.25;">${escapeHtml(marketplaces)}</p>
+                  <p style="margin: 0 0 4px; color: #0f766e; font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;">Marketplace</p>
+                  <p style="margin: 0; color: #134e4a; font-size: 18px; font-weight: 800; line-height: 1.25;">${escapeHtml(group.marketplace)}</p>
                 </td>
               </tr>
               <tr>
@@ -369,7 +370,7 @@ function buildRomaneioEmail(
           <table role="presentation" width="720" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 720px; border-collapse: separate; border-spacing: 0;">
             <tr>
               <td style="padding: 0 0 16px; color: #334155; font-size: 12px;">
-                <strong style="color: #0f172a; font-size: 16px;">Romaneios de pacotes</strong><br />${escapeHtml(formatPackageCount(totalPacotes))} em ${escapeHtml(groups.length)} ${groups.length === 1 ? "loja" : "lojas"}
+                <strong style="color: #0f172a; font-size: 16px;">Romaneios de pacotes</strong><br />${escapeHtml(formatPackageCount(totalPacotes))} em ${escapeHtml(groups.length)} ${groups.length === 1 ? "romaneio" : "romaneios"}
               </td>
             </tr>
             <tr><td>${groupsHtml}</td></tr>
@@ -390,7 +391,7 @@ function buildRomaneioEmail(
 
       return [
         `LOJA: ${group.loja_nome}`,
-        `MARKETPLACES: ${formatRomaneioMarketplaces(group.marketplaces)}`,
+        `MARKETPLACE: ${group.marketplace}`,
         `Período: ${group.periodo}`,
         `Total: ${formatPackageCount(group.pacotes.length)}`,
         `Rastreios (${trackingColumnCount} por linha):`,

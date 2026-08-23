@@ -28,15 +28,15 @@ test("romaneio escolhe quatro ou cinco colunas e imprime em A4", () => {
   );
 });
 
-test("loja, marketplaces e periodo ficam em destaque sem lote", () => {
+test("loja, marketplace e periodo ficam em destaque sem lote", () => {
   assert.match(componentSource, />\s*Loja\s*</);
-  assert.match(componentSource, />\s*Marketplaces\s*</);
+  assert.match(componentSource, />\s*Marketplace\s*</);
   assert.match(componentSource, />\s*Período\s*</);
   assert.match(
     componentSource,
     /romaneio-store-name[^"\n]*place-items-center[^"\n]*text-center/,
   );
-  assert.match(componentSource, /group\.marketplaces/);
+  assert.match(componentSource, /group\.marketplace/);
   assert.match(componentSource, /group\.periodo/);
   assert.doesNotMatch(componentSource, /codigo_lote|>\s*Lote\s*</i);
 });
@@ -49,15 +49,19 @@ test("romaneio do email segue o mesmo resumo e preserva as assinaturas", () => {
   assert.ok(romaneioEmailSource);
   assert.match(romaneioEmailSource, /Romaneio de Pacotes/);
   assert.match(romaneioEmailSource, /LOJA:/);
-  assert.match(romaneioEmailSource, /MARKETPLACES:/);
+  assert.match(romaneioEmailSource, /MARKETPLACE:/);
   assert.match(romaneioEmailSource, /PERÍODO/);
-  assert.match(romaneioEmailSource, /groups\.length === 1 \? "loja" : "lojas"/);
+  assert.match(
+    romaneioEmailSource,
+    /groups\.length === 1 \? "romaneio" : "romaneios"/,
+  );
   assert.match(
     romaneioEmailSource,
     /class="romaneio-store-name"[^>]*text-align: center;/,
   );
   assert.doesNotMatch(romaneioEmailSource, /codigo_lote|\blotes?\b/i);
-  assert.doesNotMatch(romaneioEmailSource, /group\.marketplace\b|group\.data\b/);
+  assert.doesNotMatch(romaneioEmailSource, /group\.data\b/);
+  assert.match(romaneioEmailSource, /group\.marketplace\b/);
   assert.match(romaneioEmailSource, /Transportadora: _+/);
   assert.match(romaneioEmailSource, /Responsável pela expedição: _+/);
 });

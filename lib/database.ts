@@ -95,9 +95,78 @@ export type RelatorioEnvioRow = {
   enviado_em: string;
 };
 
+export type FeedbackCategory =
+  | "sugestao"
+  | "reclamacao"
+  | "problema"
+  | "duvida"
+  | "elogio";
+
+export type FeedbackArea =
+  | "bipagem"
+  | "pacotes"
+  | "relatorios"
+  | "cadastros"
+  | "geral";
+
+export type FeedbackStatus =
+  | "novo"
+  | "em_analise"
+  | "respondido"
+  | "resolvido"
+  | "arquivado";
+
+export type FeedbackRow = {
+  id: string;
+  user_id: string;
+  sender_email: string;
+  submission_key: string;
+  category: FeedbackCategory;
+  area: FeedbackArea;
+  subject: string;
+  message: string;
+  page_path: string | null;
+  status: FeedbackStatus;
+  admin_response: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackManagementOptions = {
+  status?: FeedbackStatus;
+  category?: FeedbackCategory;
+  area?: FeedbackArea;
+  search?: string;
+  page?: number;
+  pageSize?: number;
+};
+
+export type FeedbackPageOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export type FeedbackPage = {
+  items: FeedbackRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+};
+
+export type FeedbackManagementSummary = {
+  total: number;
+  novos: number;
+  emAnalise: number;
+  respondidos: number;
+  resolvidos: number;
+  arquivados: number;
+};
+
 export type SessaoBipagemRow = {
   id: string;
   user_id: string;
+  estacao_id: string | null;
   codigo_lote: string | null;
   loja_id: string;
   marketplace_id: string;
@@ -260,6 +329,7 @@ export type CreateRelatorioEnvioHistoricoInput = {
 };
 
 export type CreateSessaoInput = {
+  estacao_id: string;
   loja_id: string;
   marketplace_id: string;
   tipo_operacao: TipoOperacao;
@@ -436,6 +506,7 @@ function getSessaoPayload(input: CreateSessaoInput) {
   }
 
   return {
+    estacao_id: requireText(input.estacao_id, "estacao_id"),
     loja_id: requireText(input.loja_id, "loja_id"),
     marketplace_id: requireText(input.marketplace_id, "marketplace_id"),
     tipo_operacao: validateTipoOperacao(input.tipo_operacao),
@@ -699,6 +770,7 @@ export function mapPacoteRowToDispatchPackage(
     codigo_lote: row.sessao?.codigo_lote ?? null,
     loja_id: row.loja_id,
     codigo_rastreio: row.codigo,
+    marketplace_id: row.marketplace_id,
     marketplace: row.marketplace?.nome ?? row.marketplace_id,
     melhor_envio: row.melhor_envio,
     transportadora: row.transportadora?.nome ?? null,
@@ -726,6 +798,7 @@ export function mapSessaoRowToDispatchBatch(
     id: row.id,
     codigo_lote: row.codigo_lote,
     loja_id: row.loja_id,
+    marketplace_id: row.marketplace_id,
     marketplace: row.marketplace?.nome ?? row.marketplace_id,
     melhor_envio: row.melhor_envio,
     transportadora: row.transportadora?.nome ?? null,
@@ -752,6 +825,7 @@ export function mapItemSessaoRowToDispatchPackage(
     codigo_lote: sessao.codigo_lote,
     loja_id: sessao.loja_id,
     codigo_rastreio: row.codigo_normalizado,
+    marketplace_id: sessao.marketplace_id,
     marketplace: sessao.marketplace?.nome ?? sessao.marketplace_id,
     melhor_envio: sessao.melhor_envio,
     transportadora: sessao.transportadora?.nome ?? null,
@@ -801,6 +875,198 @@ export function mapMovimentacaoRowToPackageMovement(
     tipo_movimentacao: mapMovementType(row.tipo_movimentacao),
     data_hora: row.criada_em,
     criado_em: row.criada_em,
+  };
+}
+
+const feedbackSelect = [
+  "id",
+  "user_id",
+  "sender_email",
+  "submission_key",
+  "category",
+  "area",
+  "subject",
+  "message",
+  "page_path",
+  "status",
+  "admin_response",
+  "reviewed_at",
+  "created_at",
+  "updated_at",
+].join(", ");
+
+type FeedbackManagementRpcRow = FeedbackRow & {
+  total_count: number | string;
+};
+
+type FeedbackManagementSummaryRpcRow = {
+  total: number | string;
+  novo: number | string;
+  em_analise: number | string;
+  respondido: number | string;
+  resolvido: number | string;
+  arquivado: number | string;
+};
+
+function getFeedbackPageNumber(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 1;
+  }
+
+  return Math.max(1, Math.trunc(value));
+}
+
+function getFeedbackPageSize(value: number | undefined) {
+  if (value === undefined || !Number.isFinite(value)) {
+    return 20;
+  }
+
+  return Math.max(1, Math.min(50, Math.trunc(value)));
+}
+
+function getFeedbackCount(value: unknown) {
+  const count = Number(value ?? 0);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function getFeedbackPageSettings(options?: FeedbackPageOptions) {
+  const page = getFeedbackPageNumber(options?.page);
+  const pageSize = getFeedbackPageSize(options?.pageSize);
+
+  return {
+    page,
+    pageSize,
+    offset: (page - 1) * pageSize,
+  };
+}
+
+export async function getFeedbackAdminStatus(
+  context?: DatabaseContext,
+): Promise<boolean> {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc("is_feedback_admin");
+
+  if (error) {
+    throw error;
+  }
+
+  return data === true;
+}
+
+export async function getOwnFeedbacks(
+  context?: DatabaseContext,
+): Promise<FeedbackRow[]> {
+  const result = await getOwnFeedbackPage(
+    { page: 1, pageSize: 50 },
+    context,
+  );
+
+  return result.items;
+}
+
+export async function getOwnFeedbackPage(
+  options?: FeedbackPageOptions,
+  context?: DatabaseContext,
+): Promise<FeedbackPage> {
+  const { supabase, userId } = await getDatabaseContext(context);
+  const { page, pageSize, offset } = getFeedbackPageSettings(options);
+  const { data, error, count } = await supabase
+    .from("feedbacks")
+    .select(feedbackSelect, { count: "exact" })
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .range(offset, offset + pageSize - 1)
+    .returns<FeedbackRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return {
+    items: data ?? [],
+    total: getFeedbackCount(count),
+    page,
+    pageSize,
+  };
+}
+
+export async function getFeedbacksForManagement(
+  options?: FeedbackManagementOptions,
+  context?: DatabaseContext,
+): Promise<FeedbackPage> {
+  const { supabase } = await getDatabaseContext(context);
+  const { page, pageSize, offset } = getFeedbackPageSettings(options);
+  const parameters = {
+    p_status: options?.status ?? null,
+    p_category: options?.category ?? null,
+    p_area: options?.area ?? null,
+    p_search: options?.search?.trim() || null,
+    p_limit: pageSize,
+    p_offset: offset,
+  };
+  const { data, error } = await supabase.rpc(
+    "list_feedbacks_for_management",
+    parameters,
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = ((data ?? []) as FeedbackManagementRpcRow[]);
+  let total = getFeedbackCount(rows[0]?.total_count);
+
+  // A pagina pode ter ficado vazia depois de exclusoes concorrentes. Uma
+  // consulta minima na primeira pagina preserva o total filtrado correto.
+  if (!rows.length && offset > 0) {
+    const { data: firstPageData, error: firstPageError } = await supabase.rpc(
+      "list_feedbacks_for_management",
+      { ...parameters, p_limit: 1, p_offset: 0 },
+    );
+
+    if (firstPageError) {
+      throw firstPageError;
+    }
+
+    const firstPageRows =
+      (firstPageData ?? []) as FeedbackManagementRpcRow[];
+    total = getFeedbackCount(firstPageRows[0]?.total_count);
+  }
+
+  return {
+    items: rows.map(({ total_count, ...feedback }) => {
+      void total_count;
+      return feedback;
+    }),
+    total,
+    page,
+    pageSize,
+  };
+}
+
+export async function getFeedbackManagementSummary(
+  context?: DatabaseContext,
+): Promise<FeedbackManagementSummary> {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "get_feedback_management_summary",
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  const candidate = Array.isArray(data) ? data[0] : data;
+  const row = (candidate ?? {}) as Partial<FeedbackManagementSummaryRpcRow>;
+
+  return {
+    total: getFeedbackCount(row.total),
+    novos: getFeedbackCount(row.novo),
+    emAnalise: getFeedbackCount(row.em_analise),
+    respondidos: getFeedbackCount(row.respondido),
+    resolvidos: getFeedbackCount(row.resolvido),
+    arquivados: getFeedbackCount(row.arquivado),
   };
 }
 
@@ -1369,18 +1635,34 @@ export async function createSessaoBipagem(
   input: CreateSessaoInput,
   context?: DatabaseContext,
 ) {
-  const { supabase, userId } = await getDatabaseContext(context);
-  const { data, error } = await supabase
-    .from("sessoes_bipagem")
-    .insert(withAuthenticatedOwner(getSessaoPayload(input), userId))
-    .select("*")
-    .single<SessaoBipagemRow>();
+  const { supabase } = await getDatabaseContext(context);
+  const payload = getSessaoPayload(input);
+  const { data, error } = await supabase.rpc(
+    "iniciar_sessao_bipagem_independente",
+    {
+      p_estacao_id: payload.estacao_id,
+      p_loja_id: payload.loja_id,
+      p_marketplace_id: payload.marketplace_id,
+      p_tipo_operacao: payload.tipo_operacao,
+      p_melhor_envio: payload.melhor_envio,
+      p_transportadora_id: payload.transportadora_id,
+      p_iniciada_em: payload.iniciada_em,
+    },
+  );
 
   if (error) {
     throw error;
   }
 
-  return data;
+  const sessao = (Array.isArray(data) ? data[0] : data) as
+    | SessaoBipagemRow
+    | null;
+
+  if (!sessao) {
+    throw new Error("Não foi possível iniciar o lote deste aparelho.");
+  }
+
+  return sessao;
 }
 
 export async function criarSessaoBipagem(
@@ -1487,17 +1769,36 @@ async function getItensSessaoBipagem(
 }
 
 export async function getSessaoBipagemAbertaComItens(
+  estacaoId: string,
   context?: DatabaseContext,
 ) {
   const databaseContext = await getDatabaseContext(context);
   const { supabase, userId } = databaseContext;
+  const normalizedStationId = requireText(estacaoId, "estacao_id");
+  const { data: stationRows, error: stationError } = await supabase.rpc(
+    "obter_sessao_bipagem_aberta",
+    { p_estacao_id: normalizedStationId },
+  );
+
+  if (stationError) {
+    throw stationError;
+  }
+
+  const stationSession = (
+    Array.isArray(stationRows) ? stationRows[0] : stationRows
+  ) as SessaoBipagemRow | null;
+
+  if (!stationSession) {
+    return null;
+  }
+
   const { data: sessao, error } = await supabase
     .from("sessoes_bipagem")
     .select(sessaoComRelacionamentosSelect)
+    .eq("id", stationSession.id)
     .eq("user_id", userId)
+    .eq("estacao_id", normalizedStationId)
     .eq("status", "aberta")
-    .order("iniciada_em", { ascending: false })
-    .limit(1)
     .maybeSingle<SessaoComRelacionamentosRow>();
 
   if (error) {
@@ -1523,7 +1824,11 @@ export async function adicionarItemSessaoBipagem(
     p_sessao_id: input.sessao_id,
     p_codigo: input.codigo,
   };
-  let result = await supabase.rpc("adicionar_item_sessao_bipagem_v2", args);
+  let result = await supabase.rpc("adicionar_item_sessao_bipagem_v3", args);
+
+  if (result.error && isMissingRpcFunctionError(result.error)) {
+    result = await supabase.rpc("adicionar_item_sessao_bipagem_v2", args);
+  }
 
   // Permite publicar o frontend antes da migration sem interromper a bipagem.
   // A RPC antiga retorna a sessao inteira, com o item novo na primeira linha.

@@ -14,14 +14,14 @@ test("os sinais de sucesso, aviso e erro possuem assinaturas diferentes", () => 
   const danger = getCameraAudioCue("danger");
 
   assert.equal(success.length, 1);
-  assert.equal(warning.length, 2);
+  assert.equal(warning.length, 3);
   assert.equal(danger.length, 2);
   assert.notDeepEqual(warning, danger);
   assert.ok(success[0].durationSeconds < warning[1].durationSeconds);
   assert.ok(danger[1].frequencyHz < warning[1].frequencyHz);
 });
 
-test("o bip de sucesso fica mais agudo no volume máximo sem alterar aviso ou erro", () => {
+test("todos os sinais usam o ganho máximo e o aviso tem padrão próprio", () => {
   const success = getCameraAudioCue("success");
   const warning = getCameraAudioCue("warning");
   const danger = getCameraAudioCue("danger");
@@ -42,17 +42,24 @@ test("o bip de sucesso fica mais agudo no volume máximo sem alterar aviso ou er
   assert.deepEqual(warning, [
     {
       delaySeconds: 0,
-      durationSeconds: 0.09,
-      frequencyHz: 440,
+      durationSeconds: 0.11,
+      frequencyHz: 920,
       oscillatorType: "square",
-      volume: 0.1,
+      volume: 1,
     },
     {
-      delaySeconds: 0.13,
-      durationSeconds: 0.12,
-      frequencyHz: 330,
+      delaySeconds: 0.15,
+      durationSeconds: 0.13,
+      frequencyHz: 460,
       oscillatorType: "square",
-      volume: 0.1,
+      volume: 1,
+    },
+    {
+      delaySeconds: 0.32,
+      durationSeconds: 0.11,
+      frequencyHz: 920,
+      oscillatorType: "square",
+      volume: 1,
     },
   ]);
   assert.deepEqual(danger, [
@@ -61,16 +68,21 @@ test("o bip de sucesso fica mais agudo no volume máximo sem alterar aviso ou er
       durationSeconds: 0.12,
       frequencyHz: 240,
       oscillatorType: "sawtooth",
-      volume: 0.1,
+      volume: 1,
     },
     {
       delaySeconds: 0.15,
       durationSeconds: 0.17,
       frequencyHz: 155,
       oscillatorType: "sawtooth",
-      volume: 0.1,
+      volume: 1,
     },
   ]);
+  assert.ok(
+    [success, warning, danger]
+      .flat()
+      .every((note) => note.volume === 1),
+  );
 });
 
 test("o leitor inclui formatos logísticos 1D e 2D sem EAN ou UPC de produto", () => {
@@ -141,4 +153,30 @@ test("o som é disparado somente após o retorno do processamento da leitura", (
     scannerSource,
     /registerCameraDetection[\s\S]{0,300}audioFeedback\.play/,
   );
+});
+
+test("aviso e erro disparam um clarão vermelho finito e acessível", () => {
+  const scannerSource = readFileSync(
+    new URL("../app/bipagem/mobile-camera-scanner.tsx", import.meta.url),
+    "utf8",
+  );
+  const scannerStyles = readFileSync(
+    new URL(
+      "../app/bipagem/mobile-camera-scanner.module.css",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+
+  assert.match(scannerSource, /triggerVisualAlert\(outcome\.tone\)/);
+  assert.match(scannerSource, /triggerVisualAlert\("danger"\)/);
+  assert.match(scannerSource, /if \(tone === "success"\)/);
+  assert.match(scannerSource, /className=\{styles\.alertFlash\}/);
+  assert.match(scannerSource, /aria-hidden="true"/);
+  assert.match(scannerStyles, /position:\s*fixed/);
+  assert.match(scannerStyles, /background:\s*rgb\(220 38 38 \/ 72%\)/);
+  assert.match(scannerStyles, /animation-iteration-count:\s*1/);
+  assert.match(scannerStyles, /@media \(prefers-reduced-motion: reduce\)/);
+  assert.match(scannerStyles, /animation:\s*none/);
+  assert.doesNotMatch(scannerStyles, /animation-iteration-count:\s*infinite/);
 });

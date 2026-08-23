@@ -23,17 +23,24 @@ const CAMERA_AUDIO_CUES: Readonly<
   warning: [
     {
       delaySeconds: 0,
-      durationSeconds: 0.09,
-      frequencyHz: 440,
+      durationSeconds: 0.11,
+      frequencyHz: 920,
       oscillatorType: "square",
-      volume: 0.1,
+      volume: 1,
     },
     {
-      delaySeconds: 0.13,
-      durationSeconds: 0.12,
-      frequencyHz: 330,
+      delaySeconds: 0.15,
+      durationSeconds: 0.13,
+      frequencyHz: 460,
       oscillatorType: "square",
-      volume: 0.1,
+      volume: 1,
+    },
+    {
+      delaySeconds: 0.32,
+      durationSeconds: 0.11,
+      frequencyHz: 920,
+      oscillatorType: "square",
+      volume: 1,
     },
   ],
   danger: [
@@ -42,14 +49,14 @@ const CAMERA_AUDIO_CUES: Readonly<
       durationSeconds: 0.12,
       frequencyHz: 240,
       oscillatorType: "sawtooth",
-      volume: 0.1,
+      volume: 1,
     },
     {
       delaySeconds: 0.15,
       durationSeconds: 0.17,
       frequencyHz: 155,
       oscillatorType: "sawtooth",
-      volume: 0.1,
+      volume: 1,
     },
   ],
 };

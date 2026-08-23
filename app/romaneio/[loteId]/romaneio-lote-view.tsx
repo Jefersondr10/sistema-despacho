@@ -11,12 +11,14 @@ import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
 function getStoreRomaneioUrl(batch: {
   loja_id: string;
+  marketplace: string;
   finalizado_em: string | null;
   criado_em: string;
 }) {
   const params = new URLSearchParams({
     modo: "romaneio",
     lojaId: batch.loja_id,
+    marketplace: batch.marketplace,
     data: getSaoPauloDateString(batch.finalizado_em ?? batch.criado_em),
   });
 

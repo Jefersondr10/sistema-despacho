@@ -5,6 +5,7 @@ import { RelatoriosView } from "./relatorios-view";
 type RelatoriosSearchParams = {
   modo?: string | string[];
   lojaId?: string | string[];
+  marketplace?: string | string[];
   data?: string | string[];
 };
 
@@ -20,6 +21,7 @@ export default async function RelatoriosPage({
   const params = await searchParams;
   const requestedMode = getFirstSearchParam(params.modo);
   const requestedStoreId = getFirstSearchParam(params.lojaId)?.trim();
+  const requestedMarketplace = getFirstSearchParam(params.marketplace)?.trim();
   const requestedDate = getFirstSearchParam(params.data)?.trim();
   const initialDate =
     requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
@@ -37,6 +39,7 @@ export default async function RelatoriosPage({
       <RelatoriosView
         initialMode={requestedMode === "romaneio" ? "romaneio" : undefined}
         initialStoreId={requestedStoreId || undefined}
+        initialMarketplace={requestedMarketplace || undefined}
         initialDate={initialDate}
       />
     </>
