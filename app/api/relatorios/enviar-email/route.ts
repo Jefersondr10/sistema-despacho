@@ -64,11 +64,6 @@ type ReportSummaryEntry = {
 
 const MAX_STORES_PER_SUMMARY = 12;
 const MAX_SHIPPING_DETAILS_PER_MARKETPLACE = 12;
-const emailDateFormatter = new Intl.DateTimeFormat("pt-BR", {
-  dateStyle: "short",
-  timeStyle: "short",
-  timeZone: "America/Sao_Paulo",
-});
 
 const operationThemes: Array<{
   key: ReportOperation;
@@ -110,15 +105,6 @@ function getPackageCount(value: unknown) {
 
 function formatPackageCount(value: number) {
   return `${value} ${value === 1 ? "pacote" : "pacotes"}`;
-}
-
-function formatEmailDate(value: unknown) {
-  const rawValue = getOptionalString(value);
-  const date = new Date(rawValue);
-
-  return rawValue && !Number.isNaN(date.getTime())
-    ? emailDateFormatter.format(date)
-    : rawValue || "Não informada";
 }
 
 function compactStores(lojas: ReportSummaryEntry["lojas"]) {
@@ -250,11 +236,19 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
     : [];
 
   return groups.map((group) => ({
-    codigo_lote: getOptionalString(group.codigo_lote) || "Lote sem código",
+    id: getOptionalString(group.id),
     loja_nome: getOptionalString(group.loja_nome) || "Loja não informada",
-    marketplace:
-      getOptionalString(group.marketplace) || "Marketplace não informado",
-    data: formatEmailDate(group.data),
+    marketplace: formatRomaneioMarketplaces(
+      unique(
+        [
+          ...getStringArray(group.marketplaces),
+          getOptionalString(group.marketplace),
+        ]
+          .map((marketplace) => marketplace.trim())
+          .filter(Boolean),
+      ).sort((first, second) => first.localeCompare(second, "pt-BR")),
+    ),
+    periodo: getOptionalString(group.periodo) || "Não informado",
     pacotes: Array.isArray(group.pacotes)
       ? group.pacotes.filter(isRecord).map((item) => ({
           codigo_rastreio:
@@ -262,6 +256,12 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
         }))
       : [],
   }));
+}
+
+function formatRomaneioMarketplaces(marketplaces: string[]) {
+  return marketplaces.length
+    ? marketplaces.join(" · ")
+    : "Não informado";
 }
 
 function buildRomaneioEmail(
@@ -309,7 +309,7 @@ function buildRomaneioEmail(
                   `,
                 )
                 .join("")
-            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste lote.</td></tr>`;
+            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste romaneio.</td></tr>`;
 
           return `
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: separate; border-spacing: 0;">
@@ -329,14 +329,11 @@ function buildRomaneioEmail(
                 <td style="padding: 14px 20px;">
                   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
                     <tr>
-                      <td width="38%" style="padding: 5px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
-                        DATA<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.data)}</strong>
-                      </td>
-                      <td width="27%" style="padding: 5px 12px; color: #64748b; font-size: 11px; vertical-align: top;">
-                        TOTAL DE PACOTES<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.pacotes.length)}</strong>
+                      <td width="65%" style="padding: 5px 12px 5px 0; color: #64748b; font-size: 11px; vertical-align: top;">
+                        PERÍODO<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.periodo)}</strong>
                       </td>
                       <td width="35%" style="padding: 5px 0 5px 12px; color: #64748b; font-size: 11px; vertical-align: top;">
-                        LOTE<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.codigo_lote)}</strong>
+                        TOTAL DE PACOTES<br /><strong style="color: #0f172a; font-size: 13px;">${escapeHtml(group.pacotes.length)}</strong>
                       </td>
                     </tr>
                   </table>
@@ -373,7 +370,7 @@ function buildRomaneioEmail(
           <table role="presentation" width="720" cellpadding="0" cellspacing="0" border="0" style="width: 100%; max-width: 720px; border-collapse: separate; border-spacing: 0;">
             <tr>
               <td style="padding: 0 0 16px; color: #334155; font-size: 12px;">
-                <strong style="color: #0f172a; font-size: 16px;">Romaneios de pacotes</strong><br />${escapeHtml(formatPackageCount(totalPacotes))} em ${escapeHtml(groups.length)} ${groups.length === 1 ? "lote" : "lotes"}
+                <strong style="color: #0f172a; font-size: 16px;">Romaneios de pacotes</strong><br />${escapeHtml(formatPackageCount(totalPacotes))} em ${escapeHtml(groups.length)} ${groups.length === 1 ? "romaneio" : "romaneios"}
               </td>
             </tr>
             <tr><td>${groupsHtml}</td></tr>
@@ -385,7 +382,7 @@ function buildRomaneioEmail(
 
   const text = [
     "ROMANEIO DE PACOTES",
-    `Total geral: ${totalPacotes} pacotes`,
+    `Total geral: ${formatPackageCount(totalPacotes)}`,
     "",
     ...groups.flatMap((group) => {
       const trackingColumnCount = getRomaneioTrackingColumnCount(
@@ -395,9 +392,8 @@ function buildRomaneioEmail(
       return [
         `LOJA: ${group.loja_nome}`,
         `MARKETPLACE: ${group.marketplace}`,
-        `Data: ${group.data}`,
+        `Período: ${group.periodo}`,
         `Total: ${formatPackageCount(group.pacotes.length)}`,
-        `Lote: ${group.codigo_lote}`,
         `Rastreios (${trackingColumnCount} por linha):`,
         ...chunkTrackingItems(group.pacotes, trackingColumnCount).map(
           (row, rowIndex) =>

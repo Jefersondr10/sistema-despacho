@@ -3,11 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { PackageFilters } from "@/app/_components/package-filters";
-import {
-  RomaneioDocument,
-  type RomaneioGroup,
-} from "@/app/_components/romaneio-document";
-import { getRomaneioGroupId } from "@/app/_lib/romaneio-groups";
+import { RomaneioDocument } from "@/app/_components/romaneio-document";
 import {
   Badge,
   EmptyState,
@@ -26,6 +22,10 @@ import {
   getReportSummary,
   getStoreName,
 } from "@/app/_lib/mock-data";
+import {
+  groupRomaneioPackagesByStoreAndMarketplace,
+  type RomaneioGroup,
+} from "@/app/_lib/romaneio";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 import { useAuth } from "@/app/_lib/auth-context";
 import {
@@ -92,13 +92,41 @@ function parseManualEmails(value: string) {
   );
 }
 
-export function RelatoriosView() {
+export function RelatoriosView({
+  initialMode = "resumido",
+  initialStoreId,
+  initialMarketplace,
+  initialDate,
+}: {
+  initialMode?: ReportMode;
+  initialStoreId?: string;
+  initialMarketplace?: string;
+  initialDate?: string;
+}) {
   const { session, user } = useAuth();
   const loadRecipientsRequestIdRef = useRef(0);
-  const { catalogs, packages, batches, loading, error } =
+  const { catalogs, packages, loading, error } =
     useSupabaseDispatchData("relatorios");
-  const [mode, setMode] = useState<ReportMode>("resumido");
-  const [filters, setFilters] = useState(createDefaultPackageFilters);
+  const [mode, setMode] = useState<ReportMode>(initialMode);
+  const [filters, setFilters] = useState(() => {
+    const defaults = createDefaultPackageFilters();
+
+    return {
+      ...defaults,
+      lojaId: initialStoreId ? [initialStoreId] : defaults.lojaId,
+      marketplace: initialMarketplace
+        ? [initialMarketplace]
+        : defaults.marketplace,
+      ...(initialDate
+        ? {
+            dateMode: "single" as const,
+            selectedDate: initialDate,
+            startDate: initialDate,
+            endDate: initialDate,
+          }
+        : {}),
+    };
+  });
   const [recipients, setRecipients] = useState<RelatorioDestinatarioRow[]>([]);
   const [recipientsLoading, setRecipientsLoading] = useState(true);
   const [recipientsError, setRecipientsError] = useState("");
@@ -106,9 +134,13 @@ export function RelatoriosView() {
   const [manualEmail, setManualEmail] = useState("");
   const [sendingEmail, setSendingEmail] = useState(false);
   const [sendNotice, setSendNotice] = useState<Notice | null>(null);
+  const effectiveFilters = useMemo(
+    () => (mode === "romaneio" ? { ...filters, codigoLote: "" } : filters),
+    [filters, mode],
+  );
   const filteredPackages = useMemo(
-    () => filterPackages(packages, filters),
-    [packages, filters],
+    () => filterPackages(packages, effectiveFilters),
+    [packages, effectiveFilters],
   );
   const databaseContext = useMemo(
     () => ({ userId: user?.id }),
@@ -119,60 +151,18 @@ export function RelatoriosView() {
     [catalogs.stores, filteredPackages],
   );
   const filterSummary = useMemo(
-    () => getFilterSummary(filters, catalogs.stores),
-    [catalogs.stores, filters],
+    () => getFilterSummary(effectiveFilters, catalogs.stores),
+    [catalogs.stores, effectiveFilters],
   );
-  const batchesById = useMemo(
-    () => new Map(batches.map((batch) => [batch.id, batch])),
-    [batches],
+  const romaneioGroups = useMemo<RomaneioGroup[]>(
+    () =>
+      groupRomaneioPackagesByStoreAndMarketplace(
+        filteredPackages,
+        catalogs.stores,
+        filterSummary.data,
+      ),
+    [catalogs.stores, filterSummary.data, filteredPackages],
   );
-  const romaneioGroups = useMemo<RomaneioGroup[]>(() => {
-    const grouped = new Map<string, RomaneioGroup>();
-
-    for (const item of filteredPackages) {
-      const batch = batchesById.get(item.lote_id);
-      const batchCode =
-        batch?.codigo_lote ||
-        item.codigo_lote ||
-        `LOTE-${(item.lote_id || item.id).slice(0, 8).toUpperCase()}`;
-      const loteId = item.lote_id || item.id;
-      const marketplaceId = item.marketplace_id ?? batch?.marketplace_id ?? null;
-      const groupId = getRomaneioGroupId({
-        loteId,
-        lojaId: item.loja_id,
-        marketplaceId,
-        marketplaceName: item.marketplace,
-      });
-      const current = grouped.get(groupId);
-
-      if (current) {
-        current.pacotes.push(item);
-        continue;
-      }
-
-      grouped.set(groupId, {
-        id: groupId,
-        codigo_lote: batchCode,
-        loja_id: item.loja_id,
-        loja_nome: getStoreName(item.loja_id, catalogs.stores),
-        marketplace_id: marketplaceId,
-        marketplace: item.marketplace,
-        tipo_operacao: item.tipo_operacao,
-        melhor_envio: item.melhor_envio,
-        transportadora: item.transportadora,
-        data: batch?.finalizado_em ?? item.data_hora_bipagem,
-        pacotes: [item],
-      });
-    }
-
-    return Array.from(grouped.values()).sort(
-      (first, second) =>
-        first.loja_nome.localeCompare(second.loja_nome, "pt-BR") ||
-        first.marketplace.localeCompare(second.marketplace, "pt-BR") ||
-        second.data.localeCompare(first.data) ||
-        first.codigo_lote.localeCompare(second.codigo_lote, "pt-BR"),
-    );
-  }, [batchesById, catalogs.stores, filteredPackages]);
   const visibleRecipients = recipients;
   const recipientsLoadingView = recipientsLoading;
   const allRecipientIds = useMemo(
@@ -296,20 +286,17 @@ export function RelatoriosView() {
             mode === "romaneio"
               ? "Romaneio de Pacotes"
               : "Relatório de Despacho",
-          filtros: filters,
+          filtros: effectiveFilters,
           filtrosResumo: filterSummary,
           relatorio: {
             modo: mode,
             totalPacotes: filteredPackages.length,
             resumo: summary,
             romaneios: romaneioGroups.map((group) => ({
-              codigo_lote: group.codigo_lote,
+              id: group.id,
               loja_nome: group.loja_nome,
               marketplace: group.marketplace,
-              tipo_operacao: group.tipo_operacao,
-              melhor_envio: group.melhor_envio,
-              transportadora: group.transportadora,
-              data: group.data,
+              periodo: group.periodo,
               pacotes: group.pacotes.map((item) => ({
                 codigo_rastreio: item.codigo_rastreio,
               })),
@@ -356,7 +343,7 @@ export function RelatoriosView() {
         marketplaces={catalogs.marketplaces}
         carriers={catalogs.carriers}
         chipControls
-        showBatchCodeSearch
+        showBatchCodeSearch={mode !== "romaneio"}
         onChange={setFilters}
       />
 
@@ -574,7 +561,7 @@ export function RelatoriosView() {
             {romaneioGroups.length ? (
               <RomaneioDocument
                 groups={romaneioGroups}
-                totalLabel="Cada lote, loja e marketplace em uma folha separada"
+                totalLabel="Cada combinação de loja e marketplace em uma folha separada"
               />
             ) : (
               <EmptyState>Nenhum pacote para gerar romaneio.</EmptyState>

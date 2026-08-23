@@ -1,19 +1,7 @@
-import type { DispatchPackage, OperationType } from "@/app/_lib/mock-data";
-import { formatPackageDate } from "@/app/_lib/mock-data";
+import type { DispatchPackage } from "@/app/_lib/mock-data";
+import type { RomaneioGroup } from "@/app/_lib/romaneio";
 
-export type RomaneioGroup = {
-  id: string;
-  codigo_lote: string;
-  loja_id: string;
-  loja_nome: string;
-  marketplace_id: string | null;
-  marketplace: string;
-  tipo_operacao: OperationType;
-  melhor_envio: boolean;
-  transportadora: string | null;
-  data: string;
-  pacotes: DispatchPackage[];
-};
+export type { RomaneioGroup } from "@/app/_lib/romaneio";
 
 const LONG_TRACKING_CODE_LENGTH = 18;
 
@@ -35,23 +23,13 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
       data-marketplace-id={group.marketplace_id ?? undefined}
     >
       <div className="border-b-2 border-slate-900 pb-4 print:pb-3">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
-              Sistema de despacho
-            </p>
-            <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl print:text-xl">
-              Romaneio de pacotes
-            </h1>
-          </div>
-          <div className="min-w-36 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2 text-right print:bg-white">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Lote
-            </p>
-            <p className="font-mono text-sm font-bold sm:text-base">
-              {group.codigo_lote}
-            </p>
-          </div>
+        <div>
+          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500">
+            Sistema de despacho
+          </p>
+          <h1 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl print:text-xl">
+            Romaneio de pacotes
+          </h1>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] print:grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)]">
@@ -67,7 +45,7 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
             <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
               Marketplace
             </p>
-            <p className="mt-1 text-lg font-extrabold leading-tight text-teal-950 sm:text-xl print:text-lg">
+            <p className="mt-1 break-words text-lg font-extrabold leading-tight text-teal-950 sm:text-xl print:text-lg">
               {group.marketplace}
             </p>
           </div>
@@ -76,10 +54,10 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
         <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 print:grid-cols-2">
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 print:border-slate-300 print:bg-white">
             <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-              Data e hora
+              Período
             </p>
             <p className="mt-0.5 text-sm font-bold">
-              {formatPackageDate(group.data)}
+              {group.periodo}
             </p>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 print:border-slate-300 print:bg-white">

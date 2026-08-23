@@ -157,8 +157,9 @@ Depois das migrations anteriores, aplique
 `supabase/migrations/202608230001_independent_bipagem_sessions.sql` para que
 cada aparelho ou perfil de navegador mantenha o próprio lote aberto. Dois
 aparelhos podem bipar simultaneamente a mesma loja e marketplace sem misturar
-as listas; cada lote também gera seu próprio romaneio. Um rastreio que já esteja
-em outro lote aberto da mesma loja é rejeitado como duplicado.
+as listas. Os lotes continuam separados para histórico e auditoria, enquanto o
+romaneio do período consolida os pacotes por loja e marketplace. Um rastreio que
+já esteja em outro lote aberto da mesma loja é rejeitado como duplicado.
 
 Aplique esta migration antes do frontend, em uma janela sem bipagens ativas:
 
@@ -166,7 +167,8 @@ Aplique esta migration antes do frontend, em uma janela sem bipagens ativas:
 2. aplique `202608230001_independent_bipagem_sessions.sql` no Supabase;
 3. publique a aplicação e force a atualização das abas antigas;
 4. faça um teste com dois aparelhos usando o mesmo login, loja e marketplace;
-5. confirme que foram criados dois lotes e duas folhas de romaneio distintas.
+5. confirme que foram criados dois lotes independentes e que os pacotes aparecem
+   juntos no romaneio da combinação loja + marketplace.
 
 A estação representa o aparelho ou perfil do navegador, não uma aba. Duas abas
 do mesmo perfil compartilham o lote para permitir recarregar a página sem perder

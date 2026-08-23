@@ -15,10 +15,25 @@ const globalStylesSource = read("app/globals.css");
 const fullscreenDialogSource = read(
   "app/bipagem/use-accessible-fullscreen-dialog.ts",
 );
+const reportsPageSource = read("app/relatorios/page.tsx");
+const reportsViewSource = read("app/relatorios/relatorios-view.tsx");
+const legacyRomaneioSource = read(
+  "app/romaneio/[loteId]/romaneio-lote-view.tsx",
+);
 
 test("a câmera é carregada sob demanda e prefere a lente traseira", () => {
   assert.match(scannerSource, /await import\(\s*["']@zxing\/browser["']\s*\)/);
+  assert.match(scannerSource, /await import\(\s*["']@zxing\/library["']\s*\)/);
   assert.doesNotMatch(scannerSource, /from ["']@zxing\/browser["']/);
+  assert.doesNotMatch(scannerSource, /from ["']@zxing\/library["']/);
+  assert.match(
+    scannerSource,
+    /DecodeHintType\.RETURN_CODABAR_START_END, true/,
+  );
+  assert.match(
+    scannerSource,
+    /new BrowserMultiFormatReader\(readerHints,/,
+  );
   assert.match(scannerSource, /facingMode:\s*\{ ideal: ["']environment["'] \}/);
   assert.match(scannerSource, /navigator\.mediaDevices\.getUserMedia/);
   assert.match(scannerSource, /reader\.decodeFromStream/);
@@ -57,6 +72,25 @@ test("a câmera é carregada sob demanda e prefere a lente traseira", () => {
     scannerSource,
     /document\.hidden[\s\S]{0,140}status === "starting"/,
   );
+});
+
+test("leitor fisico recebe foco antes do proximo tick", () => {
+  const focusStart = bipagemSource.indexOf("function focusCodeField");
+  const nextFunction = bipagemSource.indexOf(
+    "function openMobileManualEntry",
+    focusStart,
+  );
+  const focusSource = bipagemSource.slice(focusStart, nextFunction);
+
+  const immediateFocus = focusSource.indexOf("currentCodeField?.focus");
+  const fallbackTimer = focusSource.indexOf("window.setTimeout");
+  assert.ok(immediateFocus > 0);
+  assert.ok(fallbackTimer > immediateFocus);
+  assert.match(
+    focusSource,
+    /window\.setTimeout\([\s\S]*codeRef\.current\?\.focus/,
+  );
+  assert.doesNotMatch(focusSource, /codeRef\.current !== currentCodeField/);
 });
 
 test("formulário manual e câmera compartilham a mesma rotina segura", () => {
@@ -396,5 +430,40 @@ test("mobile oferece histórico e romaneios sem interromper o lote atual", () =>
   assert.match(bipagemSource, /aria-labelledby="mobile-batch-history-title"/);
   assert.match(bipagemSource, /openBatchFromMobileHistory\(batch\.id\)/);
   assert.match(bipagemSource, /closeBatchFromMobileHistory/);
-  assert.match(bipagemSource, /openBatchRomaneio\(batch\.id\)/);
+  assert.match(
+    bipagemSource,
+    /function openStoreRomaneio\(batch:[\s\S]*modo: "romaneio"[\s\S]*lojaId: batch\.loja_id[\s\S]*marketplace: batch\.marketplace[\s\S]*data: getSaoPauloDateString/,
+  );
+  assert.match(bipagemSource, /openStoreRomaneio\(batch\)/);
+  assert.match(bipagemSource, /openStoreRomaneio\(selectedBatch\)/);
+  assert.match(
+    bipagemSource,
+    /window\.open\(\s*`\/relatorios\?\$\{params\.toString\(\)\}`/,
+  );
+  assert.doesNotMatch(bipagemSource, /openBatchRomaneio/);
+});
+
+test("romaneio aberto pelo histórico consolida loja, marketplace e dia", () => {
+  assert.match(reportsPageSource, /searchParams: Promise<RelatoriosSearchParams>/);
+  assert.match(reportsPageSource, /requestedMode === "romaneio"/);
+  assert.match(reportsPageSource, /initialStoreId=\{requestedStoreId/);
+  assert.match(
+    reportsPageSource,
+    /initialMarketplace=\{requestedMarketplace/,
+  );
+  assert.match(reportsPageSource, /initialDate=\{initialDate\}/);
+  assert.match(
+    reportsViewSource,
+    /mode === "romaneio" \? \{ \.\.\.filters, codigoLote: "" \} : filters/,
+  );
+  assert.match(
+    reportsViewSource,
+    /showBatchCodeSearch=\{mode !== "romaneio"\}/,
+  );
+  assert.match(
+    reportsViewSource,
+    /groupRomaneioPackagesByStoreAndMarketplace\(/,
+  );
+  assert.match(legacyRomaneioSource, /marketplace: batch\.marketplace/);
+  assert.match(legacyRomaneioSource, /window\.location\.replace\(destinationUrl\)/);
 });

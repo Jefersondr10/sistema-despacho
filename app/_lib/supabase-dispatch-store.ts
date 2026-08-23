@@ -129,12 +129,8 @@ export function useSupabaseDispatchData(
         "pacotes",
         "relatorios",
       ].includes(profile);
-      const loadAllPackages = ["full", "bipagem", "romaneio"].includes(
-        profile,
-      );
-      const loadBatches = ["full", "bipagem", "relatorios", "romaneio"].includes(
-        profile,
-      );
+      const loadAllPackages = ["full", "bipagem"].includes(profile);
+      const loadBatches = ["full", "bipagem", "romaneio"].includes(profile);
       const loadMovements = ["full", "dashboard"].includes(profile);
       const loadCancellations = ["full", "bipagem", "cancelados"].includes(
         profile,
@@ -159,7 +155,6 @@ export function useSupabaseDispatchData(
           ? getPacotesComRelacionamentos(
               {
                 incluirCancelados: true,
-                sessao_id: profile === "romaneio" ? sessionId : undefined,
               },
               databaseContext,
             )

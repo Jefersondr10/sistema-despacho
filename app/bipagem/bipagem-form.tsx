@@ -28,6 +28,7 @@ import type {
 import {
   formatPackageDate,
   getOperationLabel,
+  getSaoPauloDateString,
   normalizeTrackingCode,
 } from "@/app/_lib/mock-data";
 import { useAuth } from "@/app/_lib/auth-context";
@@ -606,8 +607,24 @@ export function BipagemForm() {
     return batch.codigo_lote || `LOTE-${batch.id.slice(0, 8).toUpperCase()}`;
   }
 
-  function openBatchRomaneio(batchId: string) {
-    window.open(`/romaneio/${batchId}`, "_blank", "noopener,noreferrer");
+  function openStoreRomaneio(batch: {
+    loja_id: string;
+    marketplace: string;
+    finalizado_em: string | null;
+    criado_em: string;
+  }) {
+    const params = new URLSearchParams({
+      modo: "romaneio",
+      lojaId: batch.loja_id,
+      marketplace: batch.marketplace,
+      data: getSaoPauloDateString(batch.finalizado_em ?? batch.criado_em),
+    });
+
+    window.open(
+      `/relatorios?${params.toString()}`,
+      "_blank",
+      "noopener,noreferrer",
+    );
   }
 
   function openBatchHistory(batchId: string) {
@@ -648,7 +665,13 @@ export function BipagemForm() {
     if (!force && !shouldAutoFocusCodeField()) {
       return;
     }
-    window.setTimeout(() => codeRef.current?.focus({ preventScroll: true }), 0);
+
+    const currentCodeField = codeRef.current;
+    currentCodeField?.focus({ preventScroll: true });
+    window.setTimeout(
+      () => codeRef.current?.focus({ preventScroll: true }),
+      0,
+    );
   }
 
   function openMobileManualEntry() {
@@ -2523,10 +2546,10 @@ export function BipagemForm() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => openBatchRomaneio(batch.id)}
+                          onClick={() => openStoreRomaneio(batch)}
                           className="inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800"
                         >
-                          Romaneio
+                          Romaneio da loja
                         </button>
                       </div>
                     </div>
@@ -3031,10 +3054,10 @@ export function BipagemForm() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => openBatchRomaneio(selectedBatch.id)}
+                    onClick={() => openStoreRomaneio(selectedBatch)}
                     className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white"
                   >
-                    Abrir romaneio
+                    Abrir romaneio da loja
                   </button>
                 </article>
 
@@ -3111,10 +3134,10 @@ export function BipagemForm() {
                       </button>
                       <button
                         type="button"
-                        onClick={() => openBatchRomaneio(batch.id)}
+                        onClick={() => openStoreRomaneio(batch)}
                         className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-3 text-sm font-bold text-white"
                       >
-                        Romaneio
+                        Romaneio da loja
                       </button>
                     </div>
                   </article>
@@ -3336,10 +3359,10 @@ export function BipagemForm() {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => openBatchRomaneio(selectedBatch.id)}
+                  onClick={() => openStoreRomaneio(selectedBatch)}
                   className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
-                  Imprimir Romaneio
+                  Imprimir romaneio da loja
                 </button>
                 <button
                   type="button"

@@ -33,6 +33,16 @@ test("preserva a estrutura do QR para separar rastreio de CEP", () => {
   assert.equal(detection.gate.latchedCode, "DESTINO01001-010OBJETOAA123456785BR");
 });
 
+test("preserva o A inicial recebido pelo decoder da camera", () => {
+  const detection = registerCameraDetection(
+    createCameraScanGate(),
+    "A57712345675",
+  );
+
+  assert.equal(detection.acceptedCode, "A57712345675");
+  assert.equal(detection.gate.latchedCode, "A57712345675");
+});
+
 test("o mesmo código só é aceito novamente depois de sair do quadro", () => {
   let gate = registerCameraDetection(
     createCameraScanGate(),

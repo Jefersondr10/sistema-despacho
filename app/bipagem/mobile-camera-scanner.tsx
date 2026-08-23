@@ -218,12 +218,16 @@ export function MobileCameraScanner({
       const { BarcodeFormat, BrowserMultiFormatReader } = await import(
         "@zxing/browser"
       );
+      const { DecodeHintType } = await import("@zxing/library");
 
       if (!mountedRef.current || token !== startTokenRef.current) {
         return;
       }
 
-      const reader = new BrowserMultiFormatReader(undefined, {
+      const readerHints = new Map([
+        [DecodeHintType.RETURN_CODABAR_START_END, true],
+      ]);
+      const reader = new BrowserMultiFormatReader(readerHints, {
         delayBetweenScanAttempts: 180,
         delayBetweenScanSuccess: 450,
         tryPlayVideoTimeout: 5000,
