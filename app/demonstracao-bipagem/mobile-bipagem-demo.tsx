@@ -239,7 +239,7 @@ export function MobileBipagemDemo() {
 
     if (!parsedCode.accepted) {
       const outcome: CameraScanOutcome = {
-        tone: parsedCode.reason === "empty" ? "warning" : "danger",
+        tone: "warning",
         message: parsedCode.message,
         accepted: false,
       };
@@ -292,7 +292,7 @@ export function MobileBipagemDemo() {
       });
 
       const outcome: CameraScanOutcome = {
-        tone: duplicated ? "warning" : "success",
+        tone: duplicated ? "danger" : "success",
         message: duplicated
           ? `Duplicidade criada para ${code}. Corrija antes de finalizar.`
           : `Código ${code} adicionado somente à demonstração.`,

@@ -48,14 +48,15 @@ test("aceita formatos amplos usados por marketplaces e transportadoras", () => {
   accepted("MEL123456789012");
   accepted("1Z999AA10123456784");
   accepted("12345678901234567890", { carrier: "loggi" });
-  assert.equal(
-    accepted("35190830290856000160550010000000011000000010", {
-      carrier: "loggi",
-    }).kind,
-    "nfe-access-key",
-  );
   accepted("123456789011", { carrier: "jadlog" });
   rejected("123456789011", { carrier: "correios" });
+});
+
+test("rejeita chave de nota fiscal mesmo quando a transportadora e Loggi", () => {
+  const nfeKey = "35190830290856000160550010000000011000000010";
+
+  assert.equal(rejected(nfeKey).reason, "invoice-key");
+  assert.equal(rejected(nfeKey, { carrier: "loggi" }).reason, "invoice-key");
 });
 
 test("rejeita documentos, telefones, produto e numero ambiguo", () => {
@@ -130,18 +131,19 @@ test("extrai o rastreio de URL, JSON e Data Matrix sem escolher o CEP", () => {
   );
 });
 
-test("na etiqueta composta do exemplo salva apenas o S10 e nunca o texto inteiro", () => {
+test("rejeita a chave de nota composta sem extrair um falso S10 do meio", () => {
+  // A sequencia AD...BR parece um S10 por coincidencia, mas esta colada aos
+  // demais campos da nota e nao e um rastreio independente da etiqueta.
   const payload =
     "76962176000007120505000000651AD771103325BR250" +
     "0000000000067059090072180003117PORTOCINZA000" +
     "00069993950585-00.000000-00.000000}47710669417}";
 
-  assert.deepEqual(accepted(payload), {
-    accepted: true,
-    code: "AD771103325BR",
-    extracted: true,
-    kind: "correios-s10",
-  });
+  assert.equal(rejected(payload).reason, "unsupported");
+  assert.equal(
+    accepted("NOTA 123 OBJETO AD771103325BR").code,
+    "AD771103325BR",
+  );
 });
 
 test("nao aceita texto curto ou um QR que contenha somente endereco e CEP", () => {
@@ -173,7 +175,7 @@ test("um tracking_number explicito vence a chave de NF-e do mesmo QR", () => {
     accepted(
       JSON.stringify({
         tracking_number: "TBA123456789012",
-        nfe: "1".repeat(44),
+        nfe: "35190830290856000160550010000000011000000010",
       }),
     ).code,
     "TBA123456789012",

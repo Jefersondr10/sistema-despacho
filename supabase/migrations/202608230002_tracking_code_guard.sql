@@ -13,12 +13,22 @@ security invoker
 set search_path = public
 as $$
 declare
+  v_codigo_original text := public.normalizar_codigo_pacote(new.codigo);
   v_codigo_normalizado text := public.normalizar_codigo_pacote(new.codigo_normalizado);
+  v_codigo_digitos text := regexp_replace(v_codigo_normalizado, '[^0-9]', '', 'g');
 begin
   if
     coalesce(char_length(v_codigo_normalizado), 0) not between 6 and 60
+    or v_codigo_original is distinct from v_codigo_normalizado
     or v_codigo_normalizado !~ '^[A-Z0-9._/-]+$'
-    or v_codigo_normalizado ~ '^[0-9]{8}$'
+    or (
+      v_codigo_normalizado ~ '^[0-9.-]+$'
+      and char_length(v_codigo_digitos) = 8
+    )
+    or (
+      v_codigo_normalizado ~ '^[0-9./-]+$'
+      and char_length(v_codigo_digitos) = 44
+    )
     or v_codigo_normalizado ~ '^000201'
     or v_codigo_normalizado ~ 'BRGOVBCBPIX'
   then

@@ -20,7 +20,16 @@ test("Supabase bloqueia novas gravacoes de CEP, PIX e payload composto", () => {
     /coalesce\(char_length\(v_codigo_normalizado\), 0\) not between 6 and 60/,
   );
   assert.ok(
-    migrationSource.includes("v_codigo_normalizado ~ '^[0-9]{8}$'"),
+    migrationSource.includes("v_codigo_normalizado ~ '^[0-9.-]+$'"),
+  );
+  assert.match(migrationSource, /char_length\(v_codigo_digitos\) = 8/);
+  assert.ok(
+    migrationSource.includes("v_codigo_normalizado ~ '^[0-9./-]+$'"),
+  );
+  assert.match(migrationSource, /char_length\(v_codigo_digitos\) = 44/);
+  assert.match(
+    migrationSource,
+    /v_codigo_original is distinct from v_codigo_normalizado/,
   );
   assert.match(migrationSource, /v_codigo_normalizado ~ '\^000201'/);
   assert.match(migrationSource, /v_codigo_normalizado ~ 'BRGOVBCBPIX'/);

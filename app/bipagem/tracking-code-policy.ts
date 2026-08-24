@@ -20,7 +20,6 @@ export type TrackingCodeContext = {
 export type TrackingCodeKind =
   | "correios-s10"
   | "azul-awb"
-  | "nfe-access-key"
   | "carrier-code";
 
 export type TrackingCodeResult =
@@ -38,6 +37,7 @@ export type TrackingCodeResult =
         | "personal-document"
         | "phone"
         | "product-code"
+        | "invoice-key"
         | "ambiguous"
         | "unsupported";
       message: string;
@@ -191,16 +191,6 @@ function allowsPlainNumericCarrierCode(
   return false;
 }
 
-function allowsNfeAccessKey(
-  origin: CandidateOrigin,
-  context: TrackingCodeContext,
-) {
-  return (
-    origin === "preferred" ||
-    /(?:^|-)loggi(?:-|$)/.test(normalizeContextValue(context.carrier))
-  );
-}
-
 function isRejectedNumericIdentifier(code: string) {
   return (
     isValidCpf(code) ||
@@ -241,10 +231,7 @@ function classifyCandidate(
   }
 
   if (NFE_ACCESS_KEY_PATTERN.test(compactCode)) {
-    return isValidNfeAccessKey(compactCode) &&
-      allowsNfeAccessKey(origin, context)
-      ? { code: compactCode, kind: "nfe-access-key" }
-      : null;
+    return null;
   }
 
   if (KNOWN_CARRIER_CODE_PATTERN.test(compactCode)) {
@@ -285,7 +272,6 @@ function classifyCandidate(
 function baseScore(kind: TrackingCodeKind) {
   if (kind === "correios-s10") return 1_000;
   if (kind === "azul-awb") return 950;
-  if (kind === "nfe-access-key") return 900;
   return 600;
 }
 
@@ -367,6 +353,18 @@ export function parseTrackingCode(
     };
   }
 
+  if (
+    isValidNfeAccessKey(canonicalWhole) &&
+    /^[\d\s./-]+$/.test(decoded)
+  ) {
+    return {
+      accepted: false,
+      reason: "invoice-key",
+      message:
+        "Este código é uma chave de nota fiscal, não o rastreio da remessa.",
+    };
+  }
+
   const candidates = new Map<string, Candidate>();
   let authoritativePlainCode: Candidate | null = null;
   const addCandidate = (value: string, origin: CandidateOrigin) => {
@@ -427,17 +425,16 @@ export function parseTrackingCode(
 
   // Formatos de alta confianca podem aparecer dentro de um Data Matrix maior.
   const upperPayload = decoded.toUpperCase();
-  upperPayload.match(/[A-Z]{2}\d{9}[A-Z]{2}/g)?.forEach((value) => {
-    addCandidate(value, "embedded");
-  });
-  upperPayload.match(/(?:^|\D)(577\d{8})(?!\d)/g)?.forEach((value) => {
-    const match = value.match(/577\d{8}/);
-    if (match) addCandidate(match[0], "embedded");
-  });
-  upperPayload.match(/(?:^|\D)(\d{44})(?!\d)/g)?.forEach((value) => {
-    const match = value.match(/\d{44}/);
-    if (match) addCandidate(match[0], "embedded");
-  });
+  for (const match of upperPayload.matchAll(
+    /(?:^|[^A-Z0-9])([A-Z]{2}\d{9}[A-Z]{2})(?![A-Z0-9])/g,
+  )) {
+    addCandidate(match[1], "embedded");
+  }
+  for (const match of upperPayload.matchAll(
+    /(?:^|[^A-Z0-9])(577\d{8})(?![A-Z0-9])/g,
+  )) {
+    addCandidate(match[1], "embedded");
+  }
   upperPayload.match(/\bTBA\d{10,18}\b/g)?.forEach((value) => {
     addCandidate(value, "embedded");
   });
@@ -490,6 +487,9 @@ export function parseTrackingCode(
 
   if (!selected) {
     const containsPostalCode = /(?:^|\D)\d{5}-?\d{3}(?!\d)/.test(decoded);
+    const containsNfeAccessKey = [...upperPayload.matchAll(
+      /(?:^|\D)(\d{44})(?!\d)/g,
+    )].some((match) => isValidNfeAccessKey(match[1]));
     const wholeIsPersonalDocument =
       isValidCpf(canonicalWhole) || isValidCnpj(canonicalWhole);
     const wholeIsPhone = isLikelyBrazilianPhone(canonicalWhole);
@@ -515,6 +515,14 @@ export function parseTrackingCode(
         accepted: false,
         reason: "product-code",
         message: "Este código parece ser o código de barras de um produto, não o rastreio da remessa.",
+      };
+    }
+    if (containsNfeAccessKey) {
+      return {
+        accepted: false,
+        reason: "invoice-key",
+        message:
+          "O código lido contém uma chave de nota fiscal, mas não um rastreio válido.",
       };
     }
     if (wholeIsAmbiguousNumber) {
