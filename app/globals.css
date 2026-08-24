@@ -273,11 +273,15 @@ textarea {
   }
 }
 
+.mobile-camera-preview {
+  height: clamp(10rem, min(32dvh, 62vw), 18rem);
+}
+
 @media (orientation: landscape) and (max-height: 500px) {
   .mobile-camera-preview {
-    height: 30dvh !important;
-    min-height: 5.5rem;
-    max-height: 7rem;
+    height: clamp(7rem, 36dvh, 9rem) !important;
+    min-height: 7rem;
+    max-height: 9rem;
   }
 
   .mobile-bipagem-main {

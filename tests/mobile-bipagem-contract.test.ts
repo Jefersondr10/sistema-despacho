@@ -325,7 +325,7 @@ test("celular não abre o teclado virtual nem repete a entrada manual na câmera
   assert.doesNotMatch(scannerSource, />\s*Digitar\s*</);
 });
 
-test("controles compactos deixam a lista como área principal", () => {
+test("câmera ampla facilita enquadrar QR sem perder os controles", () => {
   const cameraTitlePosition = scannerSource.indexOf("mobile-camera-title");
   const previewPosition = scannerSource.indexOf("<video");
   const manualInputPosition = bipagemSource.indexOf('id="tracking-code-input"');
@@ -333,7 +333,21 @@ test("controles compactos deixam a lista como área principal", () => {
 
   assert.ok(cameraTitlePosition > 0 && cameraTitlePosition < previewPosition);
   assert.ok(manualInputPosition > 0 && manualInputPosition < scannerPosition);
-  assert.match(scannerSource, /h-\[clamp\(7\.5rem,20dvh,10\.5rem\)\]/);
+  assert.match(
+    globalStylesSource,
+    /mobile-camera-preview\s*\{\s*height: clamp\(10rem, min\(32dvh, 62vw\), 18rem\);/,
+  );
+  assert.match(scannerSource, /className="h-full w-full object-contain"/);
+  assert.doesNotMatch(scannerSource, /className="h-full w-full object-cover"/);
+  assert.match(
+    scannerSource,
+    /left-1\/2 top-1\/2 aspect-square h-\[min\(76%,14rem\)\][^"\n]*-translate-x-1\/2[^"\n]*-translate-y-1\/2/,
+  );
+  assert.doesNotMatch(scannerSource, /top-1\/2 h-20/);
+  assert.match(
+    globalStylesSource,
+    /orientation: landscape[\s\S]*mobile-camera-preview\s*\{\s*height: clamp\(7rem, 36dvh, 9rem\) !important;\s*min-height: 7rem;\s*max-height: 9rem;/,
+  );
   assert.match(scannerSource, /aria-label="Parar câmera"/);
   assert.match(scannerSource, /title="Parar câmera"/);
   assert.match(scannerSource, /onClick=\{\(\) => stopCamera\("idle"\)\}/);
@@ -345,6 +359,7 @@ test("controles compactos deixam a lista como área principal", () => {
     scannerSource,
     /mobile-camera-preview[\s\S]*cameraRunning && statusText \? \([\s\S]*\{statusText\}/,
   );
+  assert.match(scannerSource, /line-clamp-2 text-xs font-bold leading-4/);
   assert.doesNotMatch(scannerSource, /Câmera pronta/);
   assert.doesNotMatch(scannerSource, /Aponte a câmera para a etiqueta de envio/);
   assert.doesNotMatch(scannerSource, /mobile-camera-last-code|Última:/);

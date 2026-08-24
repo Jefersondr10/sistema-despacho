@@ -261,6 +261,10 @@ test("modo paisagem preserva uma área útil para a lista", () => {
   );
   assert.match(
     globalStyles,
+    /orientation: landscape[\s\S]*mobile-camera-preview\s*\{\s*height: clamp\(7rem, 36dvh, 9rem\) !important;/,
+  );
+  assert.match(
+    globalStyles,
     /mobile-immersive-session[\s\S]*mobile-session-list/,
   );
   assert.match(

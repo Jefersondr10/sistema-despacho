@@ -541,14 +541,14 @@ export function MobileCameraScanner({
         </p>
       </div>
 
-      <div className="mobile-camera-preview relative h-[clamp(7.5rem,20dvh,10.5rem)] w-full overflow-hidden rounded-xl bg-slate-950">
+      <div className="mobile-camera-preview relative w-full overflow-hidden rounded-xl bg-slate-950">
         <video
           ref={videoRef}
           autoPlay
           muted
           playsInline
           aria-label="Visualização da câmera para leitura do código"
-          className="h-full w-full object-cover"
+          className="h-full w-full object-contain"
         />
         {!cameraRunning ? (
           <div className="absolute inset-0 grid place-items-center bg-slate-950 px-5 py-3 text-center">
@@ -607,7 +607,7 @@ export function MobileCameraScanner({
         ) : null}
         {cameraRunning || status === "starting" ? (
           <div
-            className="pointer-events-none absolute left-[8%] right-[8%] top-1/2 h-20 -translate-y-1/2 rounded-xl border-2 border-white/90 shadow-[0_0_0_999px_rgba(2,6,23,0.24)]"
+            className="pointer-events-none absolute left-1/2 top-1/2 aspect-square h-[min(76%,14rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl border-2 border-white/90 shadow-[0_0_0_999px_rgba(2,6,23,0.24)]"
             aria-hidden="true"
           >
             <span className="absolute inset-x-3 top-1/2 h-0.5 -translate-y-1/2 bg-rose-400 shadow-[0_0_12px_rgba(251,113,133,0.9)]" />
@@ -616,7 +616,7 @@ export function MobileCameraScanner({
         {cameraRunning && statusText ? (
           <div className="absolute inset-x-2 bottom-2 z-10 rounded-lg bg-slate-950/80 px-2.5 py-1.5 text-left text-white backdrop-blur">
             <p
-              className={`truncate text-xs font-bold ${
+              className={`line-clamp-2 text-xs font-bold leading-4 ${
                 actionableScanFeedback?.tone === "danger"
                   ? "text-rose-200"
                   : actionableScanFeedback?.tone === "warning"
