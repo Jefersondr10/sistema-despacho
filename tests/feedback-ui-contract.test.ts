@@ -7,18 +7,63 @@ function read(relativePath: string) {
 }
 
 const pageSource = read("app/feedback/page.tsx");
+const adminPageSource = read("app/admin/feedback/page.tsx");
 const viewSource = read("app/feedback/feedback-view.tsx");
 const navigationSource = read("app/_components/navigation.tsx");
+const adminAccessSource = read("app/_lib/feedback-admin-access.tsx");
+const authenticatedShellSource = read(
+  "app/_components/authenticated-app-shell.tsx",
+);
 
-test("feedback aparece no menu e usa página própria responsiva", () => {
+test("feedback do funcionário e gerência usam rotas próprias responsivas", () => {
   assert.match(navigationSource, /href: "\/feedback", label: "Feedback"/);
   assert.match(navigationSource, /icon: "feedback"/);
   assert.match(pageSource, /PageHeader/);
   assert.match(pageSource, /title="Feedback"/);
   assert.match(pageSource, /<FeedbackView/);
+  assert.doesNotMatch(pageSource, /mode="management"/);
+  assert.match(adminPageSource, /PageHeader/);
+  assert.match(adminPageSource, /title="Gerenciar feedbacks"/);
+  assert.match(adminPageSource, /<FeedbackView mode="management"/);
+  assert.match(navigationSource, /href: "\/admin\/feedback"/);
   assert.match(viewSource, /"use client"/);
   assert.match(viewSource, /grid-cols-2/);
   assert.match(viewSource, /xl:grid-cols-/);
+});
+
+test("provider administrativo tri-state é compartilhado pelo shell", () => {
+  for (const status of ["checking", "allowed", "denied", "error"]) {
+    assert.match(adminAccessSource, new RegExp(`\\| "${status}"|= "${status}"`));
+  }
+
+  assert.match(adminAccessSource, /createContext/);
+  assert.match(adminAccessSource, /useAuth\(\)/);
+  assert.match(adminAccessSource, /getFeedbackAdminStatus\(\{ userId, accessToken \}\)/);
+  assert.match(adminAccessSource, /retrySupabaseReadForJwtClockSkew/);
+  assert.match(adminAccessSource, /const requestId = \+\+requestIdRef\.current/);
+  assert.match(adminAccessSource, /const keepsCurrentScreen = resolvedUserIdRef\.current === userId/);
+  assert.match(adminAccessSource, /if \(!keepsCurrentScreen\) setStatus\("checking"\)/);
+  assert.match(adminAccessSource, /setStatus\(admin \? "allowed" : "denied"\)/);
+  assert.match(adminAccessSource, /if \(!keepsCurrentScreen\) setStatus\("error"\)/);
+  assert.match(adminAccessSource, /refresh: \(\) => Promise<void>/);
+  assert.match(
+    authenticatedShellSource,
+    /<AuthProvider>[\s\S]*<FeedbackAdminAccessProvider>[\s\S]*<AppShellContent>[\s\S]*<\/FeedbackAdminAccessProvider>[\s\S]*<\/AuthProvider>/,
+  );
+});
+
+test("link administrativo só aparece depois da autorização compartilhada", () => {
+  assert.match(
+    navigationSource,
+    /const \{ status: adminAccessStatus \} = useFeedbackAdminAccess\(\)/,
+  );
+  assert.match(
+    navigationSource,
+    /const isAdmin = adminAccessStatus === "allowed"/,
+  );
+  assert.match(navigationSource, /\{isAdmin \? \(/);
+  assert.match(navigationSource, /item=\{adminNavItem\}/);
+  assert.match(navigationSource, />\s*Administração\s*</);
 });
 
 test("formulário cobre tipos, áreas, limites Unicode e foco do primeiro erro", () => {
@@ -98,13 +143,28 @@ test("Meus feedbacks usa paginação do servidor, atualização e estados corret
   assert.match(viewSource, /feedback\.status === "arquivado"/);
 });
 
-test("gerenciamento só é exposto após confirmar administrador", () => {
-  assert.match(viewSource, /getFeedbackAdminStatus\(databaseContext\)/);
-  assert.match(viewSource, /if \(!isAdmin\) \{/);
+test("fluxo comum não mistura a gerência e modo administrativo exige acesso", () => {
+  assert.match(viewSource, /type FeedbackViewMode = "user" \| "management"/);
+  assert.match(viewSource, /mode = "user"/);
+  assert.match(viewSource, /const managementMode = mode === "management"/);
+  assert.match(
+    viewSource,
+    /useFeedbackAdminAccess\(\)/,
+  );
+  assert.match(viewSource, /const isAdmin = adminAccessStatus === "allowed"/);
+  assert.match(viewSource, /if \(managementMode\) \{/);
+  assert.match(viewSource, /aria-label="Administração de feedbacks"/);
+  assert.match(viewSource, /<ManagementPanel[\s\S]*isAdmin=\{isAdmin\}/);
   assert.match(viewSource, /Somente administradores podem gerenciar feedbacks/);
-  assert.match(viewSource, /tab === "manage" && !isAdmin/);
-  assert.match(viewSource, /\.\.\.\(isAdmin/);
-  assert.match(viewSource, /activeTab !== "manage" \|\| !isAdmin/);
+
+  const employeeTabs = viewSource.match(
+    /const tabs: Array<[\s\S]*?= \[[\s\S]*?\n  \];/,
+  )?.[0];
+  assert.ok(employeeTabs, "abas do fluxo comum não encontradas");
+  assert.match(employeeTabs, /id: "submit"/);
+  assert.match(employeeTabs, /id: "mine"/);
+  assert.doesNotMatch(employeeTabs, /id: "manage"/);
+  assert.doesNotMatch(viewSource, /id="feedback-panel-manage"/);
 });
 
 test("gerenciamento consulta filtros, busca e páginas globalmente no servidor", () => {
@@ -227,26 +287,23 @@ test("falha de e-mail mantém aviso e oferece retry no-op idempotente", () => {
   assert.match(viewSource, /setNotice\(\{[\s\S]*result\.notificationSent === false/);
 });
 
-test("perda ou falha do acesso administrativo fecha a área protegida", () => {
-  assert.match(viewSource, /if \(activeTab !== "manage"\) return;/);
-  assert.match(viewSource, /void loadAdminStatus\(\)/);
-  assert.match(
-    viewSource,
-    /activeTab !== "manage" \|\| adminStatusLoading \|\| isAdmin/,
-  );
-  assert.match(viewSource, /setActiveTab\("submit"\)/);
+test("perda ou falha do acesso administrativo fecha e limpa a área protegida", () => {
+  assert.match(viewSource, /if \(!managementMode \|\| isAdmin\) return;/);
+  assert.match(viewSource, /managementRequestRef\.current \+= 1/);
+  assert.match(viewSource, /summaryRequestRef\.current \+= 1/);
+  assert.match(viewSource, /setManagedFeedbacks\(\[\]\)/);
+  assert.match(viewSource, /setManagementTotal\(0\)/);
+  assert.match(viewSource, /setManagementSummary\(emptyManagementSummary\)/);
   assert.match(viewSource, /if \(isAdmin\) return;[\s\S]*setSelectedFeedback\(null\)/);
+  assert.match(viewSource, /adminAccessStatus === "error"/);
+  assert.match(viewSource, /onClick=\{\(\) => void refreshAdminAccess\(\)\}/);
+  assert.match(viewSource, />\s*Tentar novamente\s*</);
 });
 
-test("selos de contagem só aparecem depois de carregar totais reais", () => {
+test("contagem do funcionário só aparece depois de carregar o total real", () => {
   assert.match(viewSource, /const \[ownLoaded, setOwnLoaded\] = useState\(false\)/);
   assert.match(viewSource, /setOwnLoaded\(true\)/);
   assert.match(viewSource, /count: ownLoaded \? ownTotal : undefined/);
-  assert.match(
-    viewSource,
-    /managementSummaryLoaded[\s\S]*\? managementSummary\.total[\s\S]*: undefined/,
-  );
-  assert.match(viewSource, /setManagementSummaryLoaded\(true\)/);
 });
 
 test("editor mobile é fullscreen, prende foco e protege alterações não salvas", () => {
@@ -262,7 +319,7 @@ test("editor mobile é fullscreen, prende foco e protege alterações não salva
   assert.match(viewSource, /dirtyRef\.current/);
 });
 
-test("abas permanecem montadas e suportam navegação completa por teclado", () => {
+test("abas do funcionário permanecem montadas e suportam teclado", () => {
   assert.match(viewSource, /role="tablist"/);
   assert.match(viewSource, /role="tab"/);
   assert.match(viewSource, /tabIndex=\{active \? 0 : -1\}/);
@@ -273,12 +330,12 @@ test("abas permanecem montadas e suportam navegação completa por teclado", () 
   assert.match(viewSource, /event\.key === "End"/);
   assert.match(viewSource, /tabRefs\.current\[nextIndex\]\?\.focus\(\)/);
 
-  for (const tab of ["submit", "mine", "manage"]) {
+  for (const tab of ["submit", "mine"]) {
     assert.match(viewSource, new RegExp(`id="feedback-panel-${tab}"`));
     assert.match(viewSource, new RegExp(`aria-labelledby="feedback-tab-${tab}"`));
   }
 
   assert.match(viewSource, /hidden=\{activeTab !== "submit"\}/);
   assert.match(viewSource, /hidden=\{activeTab !== "mine"\}/);
-  assert.match(viewSource, /hidden=\{activeTab !== "manage"\}/);
+  assert.doesNotMatch(viewSource, /id="feedback-panel-manage"/);
 });

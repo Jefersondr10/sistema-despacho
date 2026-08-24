@@ -1,6 +1,13 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
+import {
+  FormEvent,
+  type Ref,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
   ConfirmDialog,
@@ -36,6 +43,8 @@ import {
   mapMarketplaceRowToMarketplace,
   mapTransportadoraRowToCarrier,
   type RelatorioDestinatarioRow,
+  updateLoja,
+  updateMarketplace,
 } from "@/lib/database";
 import {
   isSupabaseConfigured,
@@ -88,6 +97,10 @@ function isInactive(item: CatalogItem) {
   return item.status === "Inativa" || item.status === "Inativo";
 }
 
+function normalizeCatalogDisplayName(value: string) {
+  return value.trim().normalize("NFKC").toLocaleLowerCase("pt-BR");
+}
+
 function mapReportEmailToCatalogItem(
   item: RelatorioDestinatarioRow,
 ): CatalogItem {
@@ -136,6 +149,8 @@ function CatalogItemActions({
   inactive,
   disabled,
   saving,
+  editButtonRef,
+  onEdit,
   onActivate,
   onDeactivate,
   onDelete,
@@ -143,12 +158,25 @@ function CatalogItemActions({
   inactive: boolean;
   disabled?: boolean;
   saving?: boolean;
+  editButtonRef?: Ref<HTMLButtonElement>;
+  onEdit?: () => void;
   onActivate: () => void;
   onDeactivate: () => void;
   onDelete: () => void;
 }) {
   return (
     <div className="flex flex-wrap gap-2 sm:justify-end">
+      {onEdit ? (
+        <button
+          ref={editButtonRef}
+          type="button"
+          disabled={disabled || saving}
+          onClick={onEdit}
+          className="inline-flex min-h-8 items-center justify-center rounded-lg border border-teal-200 bg-teal-50 px-3 text-xs font-semibold text-teal-800 transition hover:border-teal-300 hover:bg-teal-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+        >
+          Editar nome
+        </button>
+      ) : null}
       {inactive ? (
         <button
           type="button"
@@ -187,6 +215,7 @@ function CatalogListItem({
   inactive,
   disabled,
   saving,
+  onRename,
   onActivate,
   onDeactivate,
   onDelete,
@@ -197,35 +226,112 @@ function CatalogListItem({
   inactive: boolean;
   disabled?: boolean;
   saving?: boolean;
+  onRename?: (name: string) => Promise<boolean>;
   onActivate: () => void;
   onDeactivate: () => void;
   onDelete: () => void;
 }) {
+  const [editing, setEditing] = useState(false);
+  const [draftName, setDraftName] = useState(name);
+  const editButtonRef = useRef<HTMLButtonElement>(null);
+
+  function closeRenameEditor() {
+    setEditing(false);
+    window.requestAnimationFrame(() => editButtonRef.current?.focus());
+  }
+
+  async function submitRename(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!onRename) return;
+
+    const saved = await onRename(draftName);
+    if (saved) {
+      closeRenameEditor();
+    }
+  }
+
+  function cancelRename() {
+    setDraftName(name);
+    closeRenameEditor();
+  }
+
   return (
     <div className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200/80 bg-slate-50/45 px-3.5 py-3 transition hover:border-teal-200 hover:bg-white sm:flex-row sm:items-center sm:justify-between">
-      <div className="min-w-0 flex-1">
-        <p className="break-words text-sm font-semibold leading-5 text-slate-950">
-          {name}
-        </p>
-        {email ? (
-          <p className="mt-1 break-all text-sm leading-5 text-slate-500">
-            {email}
-          </p>
-        ) : null}
-        {status ? (
-          <div className="mt-1 flex">
-            <StatusBadge status={status} />
+      {editing && onRename ? (
+        <form
+          onSubmit={submitRename}
+          className="grid min-w-0 flex-1 gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center"
+        >
+          <label className="grid min-w-0 gap-1">
+            <span className="sr-only">Novo nome para {name}</span>
+            <input
+              autoFocus
+              value={draftName}
+              maxLength={120}
+              disabled={disabled || saving}
+              onChange={(event) => setDraftName(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault();
+                  cancelRename();
+                }
+              }}
+              className="min-h-10 min-w-0 rounded-lg border border-teal-300 bg-white px-3 text-sm text-slate-950 outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100"
+              aria-label={`Novo nome para ${name}`}
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={disabled || saving}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-teal-700 px-3 text-xs font-bold text-white transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {saving ? "Salvando..." : "Salvar"}
+          </button>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={cancelRename}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            Cancelar
+          </button>
+        </form>
+      ) : (
+        <>
+          <div className="min-w-0 flex-1">
+            <p className="break-words text-sm font-semibold leading-5 text-slate-950">
+              {name}
+            </p>
+            {email ? (
+              <p className="mt-1 break-all text-sm leading-5 text-slate-500">
+                {email}
+              </p>
+            ) : null}
+            {status ? (
+              <div className="mt-1 flex">
+                <StatusBadge status={status} />
+              </div>
+            ) : null}
           </div>
-        ) : null}
-      </div>
-      <CatalogItemActions
-        inactive={inactive}
-        disabled={disabled}
-        saving={saving}
-        onActivate={onActivate}
-        onDeactivate={onDeactivate}
-        onDelete={onDelete}
-      />
+          <CatalogItemActions
+            inactive={inactive}
+            disabled={disabled}
+            saving={saving}
+            editButtonRef={editButtonRef}
+            onEdit={
+              onRename
+                ? () => {
+                    setDraftName(name);
+                    setEditing(true);
+                  }
+                : undefined
+            }
+            onActivate={onActivate}
+            onDeactivate={onDeactivate}
+            onDelete={onDelete}
+          />
+        </>
+      )}
     </div>
   );
 }
@@ -238,6 +344,7 @@ function CatalogSection({
   disabled,
   saving,
   onAdd,
+  onRename,
   onActivate,
   onDeactivate,
   onDelete,
@@ -249,6 +356,7 @@ function CatalogSection({
   disabled?: boolean;
   saving?: boolean;
   onAdd: (name: string) => Promise<boolean>;
+  onRename?: (item: CatalogItem, name: string) => Promise<boolean>;
   onActivate: (item: CatalogItem) => void;
   onDeactivate: (item: CatalogItem) => void;
   onDelete: (item: CatalogItem) => void;
@@ -277,6 +385,7 @@ function CatalogSection({
         >
           <input
             value={name}
+            maxLength={120}
             onChange={(event) => setName(event.target.value)}
             disabled={disabled || saving}
             className="min-h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
@@ -304,6 +413,11 @@ function CatalogSection({
                     inactive={inactive}
                     disabled={disabled}
                     saving={saving}
+                    onRename={
+                      onRename
+                        ? (nextName) => onRename(item, nextName)
+                        : undefined
+                    }
                     onActivate={() => onActivate(item)}
                     onDeactivate={() => onDeactivate(item)}
                     onDelete={() => onDelete(item)}
@@ -551,6 +665,67 @@ export function CadastrosView() {
     }
   }
 
+  async function handleRename(
+    kind: Extract<CatalogKind, "stores" | "marketplaces">,
+    item: CatalogItem,
+    name: string,
+  ) {
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setNotice({ tone: "warning", text: "Informe um nome valido para salvar." });
+      return false;
+    }
+
+    if (cleanName === item.name.trim()) {
+      setNotice({ tone: "neutral", text: "O nome nao foi alterado." });
+      return true;
+    }
+
+    const items = kind === "stores" ? catalogs.stores : catalogs.marketplaces;
+    const duplicate = items.some(
+      (candidate) =>
+        candidate.id !== item.id &&
+        normalizeCatalogDisplayName(candidate.name) ===
+          normalizeCatalogDisplayName(cleanName),
+    );
+    if (duplicate) {
+      setNotice({
+        tone: "warning",
+        text:
+          kind === "stores"
+            ? "Ja existe outra loja com esse nome."
+            : "Ja existe outro marketplace com esse nome.",
+      });
+      return false;
+    }
+
+    if (!userId) {
+      setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      if (kind === "stores") {
+        await updateLoja(item.id, { nome: cleanName }, { userId });
+      } else {
+        await updateMarketplace(item.id, { nome: cleanName }, { userId });
+      }
+
+      setNotice({ tone: "success", text: "Nome atualizado com sucesso." });
+      await loadCatalogs();
+      return true;
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        text: `Erro ao atualizar nome: ${formatDatabaseError(error)}`,
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleCreateReportEmail(nome: string, email: string) {
     if (!userId) {
       setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
@@ -673,6 +848,7 @@ export function CadastrosView() {
           disabled={viewLoading}
           saving={saving}
           onAdd={(name) => handleCreate("stores", name)}
+          onRename={(item, name) => handleRename("stores", item, name)}
           onActivate={(item) => setPendingAction({ kind: "stores", item, action: "activate" })}
           onDeactivate={(item) => setPendingAction({ kind: "stores", item, action: "deactivate" })}
           onDelete={(item) => setPendingAction({ kind: "stores", item, action: "delete-first" })}
@@ -685,6 +861,7 @@ export function CadastrosView() {
           disabled={viewLoading}
           saving={saving}
           onAdd={(name) => handleCreate("marketplaces", name)}
+          onRename={(item, name) => handleRename("marketplaces", item, name)}
           onActivate={(item) => setPendingAction({ kind: "marketplaces", item, action: "activate" })}
           onDeactivate={(item) => setPendingAction({ kind: "marketplaces", item, action: "deactivate" })}
           onDelete={(item) => setPendingAction({ kind: "marketplaces", item, action: "delete-first" })}
