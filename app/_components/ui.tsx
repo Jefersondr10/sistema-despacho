@@ -68,10 +68,12 @@ export function PageHeader({
   title,
   description,
   action,
+  eyebrow = "Central de despacho",
 }: {
   title: string;
   description?: string;
   action?: ReactNode;
+  eyebrow?: string;
 }) {
   return (
     <div className="relative overflow-hidden rounded-[1.75rem] border border-white/90 bg-gradient-to-br from-white via-white/95 to-teal-50/35 px-5 py-5 shadow-[0_18px_50px_-38px_rgba(15,23,42,0.5)] ring-1 ring-slate-200/70 sm:px-7 sm:py-6 md:flex md:items-end md:justify-between md:gap-6">
@@ -79,7 +81,7 @@ export function PageHeader({
       <div className="absolute -right-20 -top-24 size-56 rounded-full bg-teal-100/35 blur-3xl" aria-hidden="true" />
       <div className="min-w-0">
         <p className="relative inline-flex items-center gap-2 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-teal-700 before:block before:size-1.5 before:rounded-full before:bg-teal-500 before:shadow-[0_0_0_4px_rgba(20,184,166,0.1)]">
-          Central de despacho
+          {eyebrow}
         </p>
         <h1 className="relative mt-2 break-words text-[clamp(1.75rem,4vw,2.45rem)] font-bold leading-[1.1] tracking-[-0.045em] text-slate-950">
           {title}

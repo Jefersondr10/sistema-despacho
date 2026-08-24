@@ -5,6 +5,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Navigation } from "@/app/_components/navigation";
 import { AuthProvider, useAuth } from "@/app/_lib/auth-context";
+import { FeedbackAdminAccessProvider } from "@/app/_lib/feedback-admin-access";
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -257,7 +258,9 @@ function AppShellContent({ children }: { children: ReactNode }) {
 export function AuthenticatedAppShell({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <AppShellContent>{children}</AppShellContent>
+      <FeedbackAdminAccessProvider>
+        <AppShellContent>{children}</AppShellContent>
+      </FeedbackAdminAccessProvider>
     </AuthProvider>
   );
 }

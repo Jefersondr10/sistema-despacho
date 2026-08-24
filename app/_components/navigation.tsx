@@ -4,7 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-const navItems = [
+import { useFeedbackAdminAccess } from "@/app/_lib/feedback-admin-access";
+
+const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/bipagem", label: "Bipar Pacotes", icon: "scan" },
   { href: "/pacotes", label: "Pacotes", icon: "package" },
@@ -14,7 +16,16 @@ const navItems = [
   { href: "/feedback", label: "Feedback", icon: "feedback" },
 ] as const;
 
-type NavigationIcon = (typeof navItems)[number]["icon"];
+const adminNavItem = {
+  href: "/admin/feedback",
+  label: "Gerenciar feedbacks",
+  icon: "admin",
+} as const;
+
+type NavigationItem =
+  | (typeof mainNavItems)[number]
+  | typeof adminNavItem;
+type NavigationIcon = NavigationItem["icon"];
 
 function NavIcon({ icon }: { icon: NavigationIcon }) {
   const paths: Record<NavigationIcon, ReactNode> = {
@@ -67,6 +78,12 @@ function NavIcon({ icon }: { icon: NavigationIcon }) {
         <path d="M8 10h8M8 14h5" />
       </>
     ),
+    admin: (
+      <>
+        <path d="M12 3 20 6v5c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-3Z" />
+        <path d="M9 12h6M12 9v6" />
+      </>
+    ),
   };
 
   return (
@@ -85,8 +102,54 @@ function NavIcon({ icon }: { icon: NavigationIcon }) {
   );
 }
 
+function NavigationLink({
+  item,
+  compact,
+  pathname,
+}: {
+  item: NavigationItem;
+  compact: boolean;
+  pathname: string;
+}) {
+  const isActive =
+    pathname === item.href ||
+    (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
+
+  return (
+    <Link
+      href={item.href}
+      aria-current={isActive ? "page" : undefined}
+      className={`group relative flex min-h-[3.25rem] items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm font-semibold tracking-[-0.01em] transition-all duration-200 ${
+        isActive
+          ? "border-teal-200/80 bg-gradient-to-r from-teal-50 to-cyan-50/50 text-teal-950 shadow-[0_8px_24px_-16px_rgba(13,148,136,0.65)]"
+          : "border-transparent text-slate-600 hover:border-slate-200/90 hover:bg-white/90 hover:text-slate-950 hover:shadow-[0_8px_24px_-18px_rgba(15,23,42,0.45)]"
+      } ${compact ? "min-w-max snap-start" : "w-full"}`}
+    >
+      <span
+        className={`grid size-9 shrink-0 place-items-center rounded-xl transition-all duration-200 ${
+          isActive
+            ? "bg-teal-700 text-white shadow-md shadow-teal-900/15"
+            : "border border-slate-200/80 bg-slate-50 text-slate-500 group-hover:border-teal-100 group-hover:bg-teal-50 group-hover:text-teal-700"
+        }`}
+        aria-hidden="true"
+      >
+        <NavIcon icon={item.icon} />
+      </span>
+      <span className="min-w-0 whitespace-nowrap">{item.label}</span>
+      {!compact && isActive ? (
+        <span
+          className="ml-auto size-1.5 shrink-0 rounded-full bg-teal-600 shadow-[0_0_0_4px_rgba(20,184,166,0.12)]"
+          aria-hidden="true"
+        />
+      ) : null}
+    </Link>
+  );
+}
+
 export function Navigation({ compact = false }: { compact?: boolean }) {
   const pathname = usePathname();
+  const { status: adminAccessStatus } = useFeedbackAdminAccess();
+  const isAdmin = adminAccessStatus === "allowed";
 
   return (
     <nav
@@ -97,42 +160,33 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
       }
       aria-label="Navegação principal"
     >
-      {navItems.map((item) => {
-        const isActive =
-          pathname === item.href ||
-          (item.href !== "/dashboard" && pathname.startsWith(`${item.href}/`));
-
-        return (
-          <Link
-            key={item.href}
-            href={item.href}
-            aria-current={isActive ? "page" : undefined}
-            className={`group relative flex min-h-[3.25rem] items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm font-semibold tracking-[-0.01em] transition-all duration-200 ${
-              isActive
-                ? "border-teal-200/80 bg-gradient-to-r from-teal-50 to-cyan-50/50 text-teal-950 shadow-[0_8px_24px_-16px_rgba(13,148,136,0.65)]"
-                : "border-transparent text-slate-600 hover:border-slate-200/90 hover:bg-white/90 hover:text-slate-950 hover:shadow-[0_8px_24px_-18px_rgba(15,23,42,0.45)]"
-            } ${compact ? "min-w-max snap-start" : "w-full"}`}
-          >
+      {mainNavItems.map((item) => (
+        <NavigationLink
+          key={item.href}
+          item={item}
+          compact={compact}
+          pathname={pathname}
+        />
+      ))}
+      {isAdmin ? (
+        <>
+          {compact ? (
             <span
-              className={`grid size-9 shrink-0 place-items-center rounded-xl transition-all duration-200 ${
-                isActive
-                  ? "bg-teal-700 text-white shadow-md shadow-teal-900/15"
-                  : "border border-slate-200/80 bg-slate-50 text-slate-500 group-hover:border-teal-100 group-hover:bg-teal-50 group-hover:text-teal-700"
-              }`}
+              className="my-2 h-8 w-px shrink-0 self-center bg-slate-300"
               aria-hidden="true"
-            >
-              <NavIcon icon={item.icon} />
-            </span>
-            <span className="min-w-0 whitespace-nowrap">{item.label}</span>
-            {!compact && isActive ? (
-              <span
-                className="ml-auto size-1.5 shrink-0 rounded-full bg-teal-600 shadow-[0_0_0_4px_rgba(20,184,166,0.12)]"
-                aria-hidden="true"
-              />
-            ) : null}
-          </Link>
-        );
-      })}
+            />
+          ) : (
+            <p className="mt-3 border-t border-slate-200/80 px-3 pt-4 text-[10px] font-bold uppercase tracking-[0.17em] text-slate-400">
+              Administração
+            </p>
+          )}
+          <NavigationLink
+            item={adminNavItem}
+            compact={compact}
+            pathname={pathname}
+          />
+        </>
+      ) : null}
     </nav>
   );
 }

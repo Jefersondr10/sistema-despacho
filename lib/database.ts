@@ -445,9 +445,21 @@ function getCatalogInput(input: CatalogInput): CreateCatalogInput {
   return typeof input === "string" ? { nome: input } : input;
 }
 
+function normalizeCatalogName(value: string) {
+  const nome = value.trim();
+  if (!nome) {
+    throw new Error("Informe um nome valido.");
+  }
+  if (Array.from(nome).length > 120) {
+    throw new Error("O nome deve ter no maximo 120 caracteres.");
+  }
+
+  return nome;
+}
+
 function getCatalogPayload(input: CatalogInput) {
   const normalized = getCatalogInput(input);
-  const nome = normalized.nome.trim();
+  const nome = normalizeCatalogName(normalized.nome);
 
   return {
     nome,
@@ -1133,7 +1145,9 @@ export async function updateLoja(
 ) {
   const { supabase, userId } = await getDatabaseContext(context);
   const payload = {
-    ...(values.nome ? { nome: values.nome.trim() } : {}),
+    ...(values.nome !== undefined
+      ? { nome: normalizeCatalogName(values.nome) }
+      : {}),
     ...(values.slug ? { slug: values.slug } : {}),
   };
   const { data, error } = await supabase
@@ -1265,7 +1279,9 @@ export async function updateMarketplace(
   const { data, error } = await supabase
     .from("marketplaces")
     .update({
-      ...(values.nome ? { nome: values.nome.trim() } : {}),
+      ...(values.nome !== undefined
+        ? { nome: normalizeCatalogName(values.nome) }
+        : {}),
       ...(values.slug ? { slug: values.slug } : {}),
     })
     .eq("id", id)
@@ -1397,7 +1413,9 @@ export async function updateTransportadora(
   const { data, error } = await supabase
     .from("transportadoras")
     .update({
-      ...(values.nome ? { nome: values.nome.trim() } : {}),
+      ...(values.nome !== undefined
+        ? { nome: normalizeCatalogName(values.nome) }
+        : {}),
       ...(values.slug ? { slug: values.slug } : {}),
     })
     .eq("id", id)

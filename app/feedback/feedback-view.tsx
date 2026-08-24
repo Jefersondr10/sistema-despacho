@@ -13,10 +13,10 @@ import {
 
 import { EmptyState, FeedbackMessage } from "@/app/_components/ui";
 import { useAuth } from "@/app/_lib/auth-context";
+import { useFeedbackAdminAccess } from "@/app/_lib/feedback-admin-access";
 import { useAccessibleFullscreenDialog } from "@/app/bipagem/use-accessible-fullscreen-dialog";
 import {
   formatDatabaseError,
-  getFeedbackAdminStatus,
   getFeedbackManagementSummary,
   getFeedbacksForManagement,
   getOwnFeedbackPage,
@@ -28,6 +28,7 @@ import {
 } from "@/lib/database";
 
 type ActiveTab = "submit" | "mine" | "manage";
+type FeedbackViewMode = "user" | "management";
 type NoticeTone = "success" | "warning" | "danger" | "neutral";
 type Notice = { tone: NoticeTone; text: string };
 
@@ -1466,23 +1467,31 @@ function ManagementPanel({
   );
 }
 
-export function FeedbackView() {
+export function FeedbackView({
+  mode = "user",
+}: {
+  mode?: FeedbackViewMode;
+}) {
+  const managementMode = mode === "management";
   const { session, user } = useAuth();
-  const adminStatusRequestRef = useRef(0);
+  const {
+    status: adminAccessStatus,
+    error: adminStatusError,
+    refresh: refreshAdminAccess,
+  } = useFeedbackAdminAccess();
   const ownRequestRef = useRef(0);
   const managementRequestRef = useRef(0);
   const summaryRequestRef = useRef(0);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("submit");
+  const [activeTab, setActiveTab] = useState<ActiveTab>(
+    managementMode ? "manage" : "submit",
+  );
   const [ownFeedbacks, setOwnFeedbacks] = useState<FeedbackRow[]>([]);
   const [ownLoading, setOwnLoading] = useState(true);
   const [ownError, setOwnError] = useState("");
   const [ownPage, setOwnPage] = useState(1);
   const [ownTotal, setOwnTotal] = useState(0);
   const [ownLoaded, setOwnLoaded] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminStatusLoading, setAdminStatusLoading] = useState(true);
-  const [adminStatusError, setAdminStatusError] = useState("");
   const [managedFeedbacks, setManagedFeedbacks] = useState<FeedbackRow[]>([]);
   const [managementLoading, setManagementLoading] = useState(true);
   const [managementError, setManagementError] = useState("");
@@ -1493,14 +1502,14 @@ export function FeedbackView() {
   const [managementSummaryLoading, setManagementSummaryLoading] =
     useState(true);
   const [managementSummaryError, setManagementSummaryError] = useState("");
-  const [managementSummaryLoaded, setManagementSummaryLoaded] =
-    useState(false);
   const [statusFilter, setStatusFilter] = useState<FeedbackStatus | "">("");
   const [categoryFilter, setCategoryFilter] =
     useState<FeedbackCategory | "">("");
   const [areaFilter, setAreaFilter] = useState<FeedbackArea | "">("");
   const [managementSearchInput, setManagementSearchInput] = useState("");
   const [managementSearch, setManagementSearch] = useState("");
+  const isAdmin = adminAccessStatus === "allowed";
+  const adminStatusLoading = adminAccessStatus === "checking";
 
   const databaseContext = useMemo(
     () => ({
@@ -1509,27 +1518,6 @@ export function FeedbackView() {
     }),
     [session?.access_token, user?.id],
   );
-
-  const loadAdminStatus = useCallback(async () => {
-    if (!databaseContext.userId || !databaseContext.accessToken) return;
-
-    const requestId = ++adminStatusRequestRef.current;
-    const isCurrent = () => requestId === adminStatusRequestRef.current;
-    setAdminStatusLoading(true);
-    setAdminStatusError("");
-
-    try {
-      const admin = await getFeedbackAdminStatus(databaseContext);
-      if (!isCurrent()) return;
-      setIsAdmin(admin);
-    } catch (loadError) {
-      if (!isCurrent()) return;
-      setIsAdmin(false);
-      setAdminStatusError(formatDatabaseError(loadError));
-    } finally {
-      if (isCurrent()) setAdminStatusLoading(false);
-    }
-  }, [databaseContext]);
 
   const loadOwnPage = useCallback(
     async (targetPage = ownPage) => {
@@ -1574,7 +1562,6 @@ export function FeedbackView() {
       const summary = await getFeedbackManagementSummary(databaseContext);
       if (!isCurrent()) return;
       setManagementSummary(summary);
-      setManagementSummaryLoaded(true);
     } catch (loadError) {
       if (!isCurrent()) return;
       setManagementSummaryError(formatDatabaseError(loadError));
@@ -1626,7 +1613,7 @@ export function FeedbackView() {
     } catch (loadError) {
       if (!isCurrent()) return;
       setManagementError(formatDatabaseError(loadError));
-      void loadAdminStatus();
+      void refreshAdminAccess();
     } finally {
       if (isCurrent()) setManagementLoading(false);
     }
@@ -1637,32 +1624,21 @@ export function FeedbackView() {
     isAdmin,
     managementPage,
     managementSearch,
-    loadAdminStatus,
+    refreshAdminAccess,
     setManagementPage,
     statusFilter,
   ]);
 
   useEffect(() => {
-    let cancelled = false;
+    if (!managementMode) return;
 
-    queueMicrotask(() => {
-      if (!cancelled) void loadAdminStatus();
-    });
-
-    return () => {
-      cancelled = true;
-      adminStatusRequestRef.current += 1;
-    };
-  }, [loadAdminStatus]);
-
-  useEffect(() => {
     const timeout = window.setTimeout(() => {
       setManagementSearch(managementSearchInput.trim());
       setManagementPage(1);
     }, 300);
 
     return () => window.clearTimeout(timeout);
-  }, [managementSearchInput]);
+  }, [managementMode, managementSearchInput]);
 
   useEffect(() => {
     if (activeTab !== "mine") return;
@@ -1704,30 +1680,22 @@ export function FeedbackView() {
   }, [activeTab, isAdmin, loadManagementSummary]);
 
   useEffect(() => {
-    if (activeTab !== "manage") return;
+    if (!managementMode || isAdmin) return;
 
+    managementRequestRef.current += 1;
+    summaryRequestRef.current += 1;
     let cancelled = false;
     queueMicrotask(() => {
-      if (!cancelled) void loadAdminStatus();
+      if (cancelled) return;
+      setManagedFeedbacks([]);
+      setManagementTotal(0);
+      setManagementSummary(emptyManagementSummary);
     });
 
     return () => {
       cancelled = true;
     };
-  }, [activeTab, loadAdminStatus]);
-
-  useEffect(() => {
-    if (activeTab !== "manage" || adminStatusLoading || isAdmin) return;
-
-    let cancelled = false;
-    queueMicrotask(() => {
-      if (!cancelled) setActiveTab("submit");
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTab, adminStatusLoading, isAdmin]);
+  }, [isAdmin, managementMode]);
 
   function selectTab(tab: ActiveTab) {
     if (tab === "manage" && !isAdmin) return;
@@ -1757,7 +1725,6 @@ export function FeedbackView() {
   }
 
   function refreshManagement() {
-    void loadAdminStatus();
     void loadManagement();
     void loadManagementSummary();
   }
@@ -1784,17 +1751,6 @@ export function FeedbackView() {
       label: "Meus feedbacks",
       count: ownLoaded ? ownTotal : undefined,
     },
-    ...(isAdmin
-      ? [
-          {
-            id: "manage" as const,
-            label: "Gerenciar",
-            count: managementSummaryLoaded
-              ? managementSummary.total
-              : undefined,
-          },
-        ]
-      : []),
   ];
 
   function handleTabKeyDown(
@@ -1815,6 +1771,68 @@ export function FeedbackView() {
     const nextTab = tabs[nextIndex];
     selectTab(nextTab.id);
     window.requestAnimationFrame(() => tabRefs.current[nextIndex]?.focus());
+  }
+
+  if (managementMode) {
+    return (
+      <section
+        className="grid min-w-0 gap-5"
+        aria-label="Administração de feedbacks"
+      >
+        {adminStatusLoading ? (
+          <div
+            className="rounded-2xl border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm"
+            role="status"
+          >
+            Verificando acesso administrativo...
+          </div>
+        ) : null}
+
+        {adminAccessStatus === "error" ? (
+          <div className="grid gap-3">
+            <FeedbackMessage tone="warning">
+              Não foi possível verificar seu acesso administrativo
+              {adminStatusError ? `: ${adminStatusError}` : "."}
+            </FeedbackMessage>
+            <button
+              type="button"
+              onClick={() => void refreshAdminAccess()}
+              className="inline-flex min-h-11 w-fit items-center justify-center rounded-xl border border-slate-300 bg-white px-4 text-sm font-bold text-slate-700 transition hover:border-teal-300 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+            >
+              Tentar novamente
+            </button>
+          </div>
+        ) : null}
+
+        {!adminStatusLoading && adminAccessStatus !== "error" ? (
+          <ManagementPanel
+            isAdmin={isAdmin}
+            active
+            accessToken={session?.access_token ?? ""}
+            items={managedFeedbacks}
+            total={managementTotal}
+            page={managementPage}
+            pageSize={FEEDBACK_PAGE_SIZE}
+            summary={managementSummary}
+            loading={managementLoading}
+            summaryLoading={managementSummaryLoading}
+            error={managementError}
+            summaryError={managementSummaryError}
+            statusFilter={statusFilter}
+            categoryFilter={categoryFilter}
+            areaFilter={areaFilter}
+            searchInput={managementSearchInput}
+            onStatusFilterChange={updateStatusFilter}
+            onCategoryFilterChange={updateCategoryFilter}
+            onAreaFilterChange={updateAreaFilter}
+            onSearchInputChange={setManagementSearchInput}
+            onPageChange={setManagementPage}
+            onRefresh={refreshManagement}
+            onSaved={applyManagedFeedback}
+          />
+        ) : null}
+      </section>
+    );
   }
 
   return (
@@ -1861,19 +1879,6 @@ export function FeedbackView() {
         })}
       </div>
 
-      {adminStatusLoading ? (
-        <p className="text-xs font-semibold text-slate-500" role="status">
-          Verificando acesso administrativo...
-        </p>
-      ) : null}
-
-      {adminStatusError ? (
-        <FeedbackMessage tone="warning">
-          Não foi possível verificar o acesso administrativo. As funções comuns
-          continuam disponíveis.
-        </FeedbackMessage>
-      ) : null}
-
       <div
         id="feedback-panel-submit"
         role="tabpanel"
@@ -1903,39 +1908,6 @@ export function FeedbackView() {
         />
       </div>
 
-      <div
-        id="feedback-panel-manage"
-        role="tabpanel"
-        aria-labelledby="feedback-tab-manage"
-        hidden={activeTab !== "manage"}
-        className="min-w-0"
-      >
-        <ManagementPanel
-          isAdmin={isAdmin}
-          active={activeTab === "manage"}
-          accessToken={session?.access_token ?? ""}
-          items={managedFeedbacks}
-          total={managementTotal}
-          page={managementPage}
-          pageSize={FEEDBACK_PAGE_SIZE}
-          summary={managementSummary}
-          loading={managementLoading}
-          summaryLoading={managementSummaryLoading}
-          error={managementError}
-          summaryError={managementSummaryError}
-          statusFilter={statusFilter}
-          categoryFilter={categoryFilter}
-          areaFilter={areaFilter}
-          searchInput={managementSearchInput}
-          onStatusFilterChange={updateStatusFilter}
-          onCategoryFilterChange={updateCategoryFilter}
-          onAreaFilterChange={updateAreaFilter}
-          onSearchInputChange={setManagementSearchInput}
-          onPageChange={setManagementPage}
-          onRefresh={refreshManagement}
-          onSaved={applyManagedFeedback}
-        />
-      </div>
     </section>
   );
 }
