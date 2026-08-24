@@ -52,7 +52,10 @@ test("demonstração mantém leituras em memória e não chama dados operacionai
   assert.doesNotMatch(demoSource, /BipagemForm|fetch\s*\(/);
   assert.match(demoSource, /useState<DemoPackage\[\]>/);
   assert.match(demoSource, /MobileCameraScanner/);
-  assert.match(demoSource, /parseTrackingCode\(rawCode\)/);
+  assert.match(
+    demoSource,
+    /parseTrackingCode\(rawCode,\s*\{[\s\S]*carrier:/,
+  );
   assert.match(demoSource, /Nenhum dado foi salvo/);
 });
 

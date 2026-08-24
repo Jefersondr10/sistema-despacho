@@ -3,16 +3,23 @@ const CORREIOS_S10_PATTERN = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const AZUL_AWB_PATTERN = /^577\d{8}$/;
 const NFE_ACCESS_KEY_PATTERN = /^\d{44}$/;
 const TRACKING_KEY_PATTERN =
-  /(?:tracking(?:_number|_id)?|rastreio|c[oó]digo|code|awb|shipment|remessa|etiqueta|package|objeto|^id$|^number$|^n[uú]mero$)/i;
+  /(?:tracking(?:[_\s-]*(?:number|id|code))?|rastreio|c[oó]digo[_\s-]*(?:de[_\s-]*)?rastreio|awb|shipment(?:[_\s-]*(?:number|id))?|remessa|etiqueta|package(?:[_\s-]*(?:number|id))?|objeto)/i;
 const PIX_PAYLOAD_PATTERN = /(?:^000201|BRGOVBCBPIX)/;
 const ADDRESS_TEXT_PATTERN =
   /\b(?:CEP|RUA|AVENIDA|AV\.?|ALAMEDA|RODOVIA|ENDEREC[OÓ]|DESTINAT[AÁ]RIO|DESTINO|BAIRRO|CIDADE|CONDOM[IÍ]NIO)\b/i;
+const NON_TRACKING_TEXT_PATTERN =
+  /(?:^|[^A-Z])(?:CEP|RUA|AVENIDA|ALAMEDA|RODOVIA|ENDEREC[OÓ]|DESTINAT[AÁ]RIO|DESTINO|BAIRRO|CIDADE|CONDOM[IÍ]NIO|PEDIDO|ORDER|CPF|CNPJ|TELEFONE|FONE|WHATSAPP|CLIENTE|SKU|EAN|GTIN|PRODUTO|NOTA(?:\s*FISCAL)?)(?=$|[^A-Z])/i;
+const KNOWN_CARRIER_CODE_PATTERN =
+  /^(?:TBA\d{10,18}|BRSPX[A-Z0-9]{8,24}|MEL[A-Z0-9]{8,24}|1Z[A-Z0-9]{16})$/;
 const MAX_TRACKING_LENGTH = 60;
+
+export type TrackingCodeContext = {
+  carrier?: string | null;
+};
 
 export type TrackingCodeKind =
   | "correios-s10"
   | "azul-awb"
-  | "nfe-access-key"
   | "carrier-code";
 
 export type TrackingCodeResult =
@@ -24,7 +31,15 @@ export type TrackingCodeResult =
     }
   | {
       accepted: false;
-      reason: "empty" | "postal-code" | "unsupported";
+      reason:
+        | "empty"
+        | "postal-code"
+        | "personal-document"
+        | "phone"
+        | "product-code"
+        | "invoice-key"
+        | "ambiguous"
+        | "unsupported";
       message: string;
     };
 
@@ -82,9 +97,113 @@ function isValidNfeAccessKey(code: string) {
   return Number(code[43]) === checkDigit;
 }
 
+function hasRepeatedDigits(code: string) {
+  return /^(\d)\1+$/.test(code);
+}
+
+function isValidCpf(code: string) {
+  if (!/^\d{11}$/.test(code) || hasRepeatedDigits(code)) return false;
+
+  const calculateDigit = (length: number) => {
+    let sum = 0;
+    for (let index = 0; index < length; index += 1) {
+      sum += Number(code[index]) * (length + 1 - index);
+    }
+    const result = (sum * 10) % 11;
+    return result === 10 ? 0 : result;
+  };
+
+  return Number(code[9]) === calculateDigit(9) && Number(code[10]) === calculateDigit(10);
+}
+
+function isValidCnpj(code: string) {
+  if (!/^\d{14}$/.test(code) || hasRepeatedDigits(code)) return false;
+
+  const calculateDigit = (length: 12 | 13) => {
+    const weights =
+      length === 12
+        ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce(
+      (total, weight, index) => total + Number(code[index]) * weight,
+      0,
+    );
+    const remainder = sum % 11;
+    return remainder < 2 ? 0 : 11 - remainder;
+  };
+
+  return Number(code[12]) === calculateDigit(12) && Number(code[13]) === calculateDigit(13);
+}
+
+function isLikelyBrazilianPhone(code: string) {
+  const localCode = /^55\d{10,11}$/.test(code) ? code.slice(2) : code;
+  if (!/^\d{10,11}$/.test(localCode)) return false;
+
+  const areaCode = Number(localCode.slice(0, 2));
+  if (areaCode < 11 || areaCode > 99) return false;
+
+  return localCode.length === 11
+    ? localCode[2] === "9"
+    : /^[2-9]/.test(localCode[2]);
+}
+
+function isValidGtin(code: string) {
+  if (![8, 12, 13, 14].includes(code.length) || !/^\d+$/.test(code)) {
+    return false;
+  }
+
+  const data = code.slice(0, -1);
+  let sum = 0;
+  let weight = 3;
+  for (let index = data.length - 1; index >= 0; index -= 1) {
+    sum += Number(data[index]) * weight;
+    weight = weight === 3 ? 1 : 3;
+  }
+  const checkDigit = (10 - (sum % 10)) % 10;
+  return Number(code.at(-1)) === checkDigit;
+}
+
+function normalizeContextValue(value: string | null | undefined) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+function allowsPlainNumericCarrierCode(
+  code: string,
+  context: TrackingCodeContext,
+) {
+  const carrier = normalizeContextValue(context.carrier);
+
+  if (/(?:^|-)loggi(?:-|$)/.test(carrier)) {
+    return code.length >= 20 && code.length <= 30;
+  }
+  if (/(?:^|-)jadlog(?:-|$)/.test(carrier)) {
+    return code.length >= 9 && code.length <= 14;
+  }
+  if (/(?:^|-)total(?:-)?express(?:-|$)/.test(carrier)) {
+    return code.length >= 9 && code.length <= 20;
+  }
+
+  return false;
+}
+
+function isRejectedNumericIdentifier(code: string) {
+  return (
+    isValidCpf(code) ||
+    isValidCnpj(code) ||
+    isLikelyBrazilianPhone(code) ||
+    isValidGtin(code)
+  );
+}
+
 function classifyCandidate(
   value: string,
   origin: CandidateOrigin,
+  context: TrackingCodeContext,
 ): Omit<Candidate, "score"> | null {
   const normalizedCode = normalizeCandidateValue(value);
   const compactCode = canonicalizeCandidate(normalizedCode);
@@ -93,6 +212,7 @@ function classifyCandidate(
     !compactCode ||
     normalizedCode.length > MAX_TRACKING_LENGTH ||
     /^\d{8}$/.test(compactCode) ||
+    NON_TRACKING_TEXT_PATTERN.test(normalizedCode) ||
     !/^[A-Z0-9._/-]+$/.test(normalizedCode)
   ) {
     return null;
@@ -111,32 +231,37 @@ function classifyCandidate(
   }
 
   if (NFE_ACCESS_KEY_PATTERN.test(compactCode)) {
-    return isValidNfeAccessKey(compactCode)
-      ? { code: compactCode, kind: "nfe-access-key" }
-      : null;
+    return null;
+  }
+
+  if (KNOWN_CARRIER_CODE_PATTERN.test(compactCode)) {
+    return { code: compactCode, kind: "carrier-code" };
   }
 
   const hasLetter = /[A-Z]/.test(compactCode);
   const hasDigit = /\d/.test(compactCode);
 
   if (hasLetter && hasDigit) {
-    const minimumLength = origin === "embedded" ? 10 : 6;
+    if (origin === "embedded") return null;
+    const minimumLength = 6;
     return compactCode.length >= minimumLength
       ? { code: normalizedCode, kind: "carrier-code" }
       : null;
   }
 
   if (/^\d+$/.test(compactCode)) {
-    if (origin === "plain" || origin === "preferred") {
-      return compactCode.length >= 9
-        ? { code: normalizedCode, kind: "carrier-code" }
-        : null;
+    if (
+      origin !== "preferred" &&
+      isRejectedNumericIdentifier(compactCode)
+    ) {
+      return null;
     }
 
-    // Em QR/Data Matrix compostos, numeros curtos podem ser CEP, pedido,
-    // documento ou endereco. Loggi publica suporte a numeros com 20+ digitos
-    // e a chaves de NF-e; esses formatos continuam aceitos com seguranca.
-    return compactCode.length >= 20
+    const hasReliableOrigin =
+      origin === "preferred" ||
+      (origin === "plain" &&
+        allowsPlainNumericCarrierCode(compactCode, context));
+    return hasReliableOrigin && compactCode.length >= 9 && compactCode.length <= 30
       ? { code: normalizedCode, kind: "carrier-code" }
       : null;
   }
@@ -147,7 +272,6 @@ function classifyCandidate(
 function baseScore(kind: TrackingCodeKind) {
   if (kind === "correios-s10") return 1_000;
   if (kind === "azul-awb") return 950;
-  if (kind === "nfe-access-key") return 900;
   return 600;
 }
 
@@ -160,24 +284,25 @@ function originScore(origin: CandidateOrigin) {
 function collectStructuredValues(
   value: unknown,
   addCandidate: (value: string, origin: CandidateOrigin) => void,
-  key = "",
+  keyPath = "",
 ) {
   if (typeof value === "string" || typeof value === "number") {
     addCandidate(
       String(value),
-      TRACKING_KEY_PATTERN.test(key) ? "preferred" : "embedded",
+      TRACKING_KEY_PATTERN.test(keyPath) ? "preferred" : "embedded",
     );
     return;
   }
 
   if (Array.isArray(value)) {
-    value.forEach((item) => collectStructuredValues(item, addCandidate, key));
+    value.forEach((item) => collectStructuredValues(item, addCandidate, keyPath));
     return;
   }
 
   if (typeof value === "object" && value) {
     Object.entries(value).forEach(([entryKey, entryValue]) => {
-      collectStructuredValues(entryValue, addCandidate, entryKey);
+      const nextPath = keyPath ? `${keyPath}.${entryKey}` : entryKey;
+      collectStructuredValues(entryValue, addCandidate, nextPath);
     });
   }
 }
@@ -190,7 +315,10 @@ function decodePayload(value: string) {
   }
 }
 
-export function parseTrackingCode(rawValue: string): TrackingCodeResult {
+export function parseTrackingCode(
+  rawValue: string,
+  context: TrackingCodeContext = {},
+): TrackingCodeResult {
   const trimmed = String(rawValue ?? "").trim();
 
   if (!trimmed) {
@@ -204,7 +332,10 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
   const decoded = decodePayload(trimmed);
   const compactWhole = normalizeCandidateValue(decoded);
   const canonicalWhole = canonicalizeCandidate(compactWhole);
-  if (POSTAL_CODE_PATTERN.test(compactWhole)) {
+  if (
+    POSTAL_CODE_PATTERN.test(compactWhole) ||
+    (/^\d{8}$/.test(canonicalWhole) && /^[\d\s-]+$/.test(decoded))
+  ) {
     return {
       accepted: false,
       reason: "postal-code",
@@ -222,10 +353,22 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
     };
   }
 
+  if (
+    isValidNfeAccessKey(canonicalWhole) &&
+    /^[\d\s./-]+$/.test(decoded)
+  ) {
+    return {
+      accepted: false,
+      reason: "invoice-key",
+      message:
+        "Este código é uma chave de nota fiscal, não o rastreio da remessa.",
+    };
+  }
+
   const candidates = new Map<string, Candidate>();
   let authoritativePlainCode: Candidate | null = null;
   const addCandidate = (value: string, origin: CandidateOrigin) => {
-    const classified = classifyCandidate(value, origin);
+    const classified = classifyCandidate(value, origin, context);
     if (!classified) return;
 
     const score =
@@ -273,6 +416,7 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
     !/[\r\n]/.test(decoded) &&
     formattedTokens.length <= 8 &&
     !ADDRESS_TEXT_PATTERN.test(decoded) &&
+    !NON_TRACKING_TEXT_PATTERN.test(decoded) &&
     compactWhole.length <= MAX_TRACKING_LENGTH &&
     /^[A-Z0-9._/\-\s]+$/i.test(decoded);
   if (looksLikeFormattedCode) {
@@ -281,16 +425,27 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
 
   // Formatos de alta confianca podem aparecer dentro de um Data Matrix maior.
   const upperPayload = decoded.toUpperCase();
-  upperPayload.match(/[A-Z]{2}\d{9}[A-Z]{2}/g)?.forEach((value) => {
+  for (const match of upperPayload.matchAll(
+    /(?:^|[^A-Z0-9])([A-Z]{2}\d{9}[A-Z]{2})(?![A-Z0-9])/g,
+  )) {
+    addCandidate(match[1], "embedded");
+  }
+  for (const match of upperPayload.matchAll(
+    /(?:^|[^A-Z0-9])(577\d{8})(?![A-Z0-9])/g,
+  )) {
+    addCandidate(match[1], "embedded");
+  }
+  upperPayload.match(/\bTBA\d{10,18}\b/g)?.forEach((value) => {
     addCandidate(value, "embedded");
   });
-  upperPayload.match(/(?:^|\D)(577\d{8})(?!\d)/g)?.forEach((value) => {
-    const match = value.match(/577\d{8}/);
-    if (match) addCandidate(match[0], "embedded");
+  upperPayload.match(/\bBRSPX[A-Z0-9]{8,24}\b/g)?.forEach((value) => {
+    addCandidate(value, "embedded");
   });
-  upperPayload.match(/(?:^|\D)(\d{44})(?!\d)/g)?.forEach((value) => {
-    const match = value.match(/\d{44}/);
-    if (match) addCandidate(match[0], "embedded");
+  upperPayload.match(/\bMEL[A-Z0-9]{8,24}\b/g)?.forEach((value) => {
+    addCandidate(value, "embedded");
+  });
+  upperPayload.match(/\b1Z[A-Z0-9]{16}\b/g)?.forEach((value) => {
+    addCandidate(value, "embedded");
   });
 
   try {
@@ -305,7 +460,6 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
     pathSegments.forEach((value, index) => {
       const previousSegment = pathSegments[index - 1] ?? "";
       const isLikelyTrackingSegment =
-        index === pathSegments.length - 1 ||
         TRACKING_KEY_PATTERN.test(previousSegment);
       addCandidate(value, isLikelyTrackingSegment ? "preferred" : "embedded");
     });
@@ -320,7 +474,7 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
   }
 
   const preferredPattern =
-    /(?:tracking(?:_number|_id)?|rastreio|c[oó]digo|code|awb|shipment|remessa|etiqueta|package)[\s:=/_-]+([A-Z0-9._/-]{6,60})/gi;
+    /(?:tracking(?:[_\s-]*(?:number|id|code))?|rastreio|c[oó]digo[_\s-]*(?:de[_\s-]*)?rastreio|awb|shipment(?:[_\s-]*(?:number|id))?|remessa|etiqueta|package(?:[_\s-]*(?:number|id))?|objeto)[\s:=/_-]+([A-Z0-9._/-]{6,60})/gi;
   for (const match of decoded.matchAll(preferredPattern)) {
     addCandidate(match[1], "preferred");
   }
@@ -333,6 +487,53 @@ export function parseTrackingCode(rawValue: string): TrackingCodeResult {
 
   if (!selected) {
     const containsPostalCode = /(?:^|\D)\d{5}-?\d{3}(?!\d)/.test(decoded);
+    const containsNfeAccessKey = [...upperPayload.matchAll(
+      /(?:^|\D)(\d{44})(?!\d)/g,
+    )].some((match) => isValidNfeAccessKey(match[1]));
+    const wholeIsPersonalDocument =
+      isValidCpf(canonicalWhole) || isValidCnpj(canonicalWhole);
+    const wholeIsPhone = isLikelyBrazilianPhone(canonicalWhole);
+    const wholeIsProductCode = isValidGtin(canonicalWhole);
+    const wholeIsAmbiguousNumber = /^\d{9,43}$/.test(canonicalWhole);
+
+    if (wholeIsPersonalDocument) {
+      return {
+        accepted: false,
+        reason: "personal-document",
+        message: "Este código parece ser CPF ou CNPJ, não um rastreio de remessa.",
+      };
+    }
+    if (wholeIsPhone) {
+      return {
+        accepted: false,
+        reason: "phone",
+        message: "Este código parece ser um telefone, não um rastreio de remessa.",
+      };
+    }
+    if (wholeIsProductCode) {
+      return {
+        accepted: false,
+        reason: "product-code",
+        message: "Este código parece ser o código de barras de um produto, não o rastreio da remessa.",
+      };
+    }
+    if (containsNfeAccessKey) {
+      return {
+        accepted: false,
+        reason: "invoice-key",
+        message:
+          "O código lido contém uma chave de nota fiscal, mas não um rastreio válido.",
+      };
+    }
+    if (wholeIsAmbiguousNumber) {
+      return {
+        accepted: false,
+        reason: "ambiguous",
+        message:
+          "Este número não foi reconhecido com segurança como rastreio. Leia o código da etiqueta da remessa.",
+      };
+    }
+
     return {
       accepted: false,
       reason: containsPostalCode ? "postal-code" : "unsupported",

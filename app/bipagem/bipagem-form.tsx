@@ -1024,9 +1024,11 @@ export function BipagemForm() {
       return outcome;
     }
 
-    const parsedCode = parseTrackingCode(rawValue);
+    const parsedCode = parseTrackingCode(rawValue, {
+      carrier: selectedCarrierItem?.service ?? transportadora,
+    });
     if (!parsedCode.accepted) {
-      const outcome = reportTrackingOutcome("danger", parsedCode.message);
+      const outcome = reportTrackingOutcome("warning", parsedCode.message);
       clearCodeField();
       focusCodeField();
       return outcome;
@@ -1115,7 +1117,7 @@ export function BipagemForm() {
         ]);
       }
       const outcome = reportTrackingOutcome(
-        duplicatedInSession || serverDetectedDuplicate ? "warning" : "success",
+        duplicatedInSession || serverDetectedDuplicate ? "danger" : "success",
         duplicatedInSession || serverDetectedDuplicate
           ? DUPLICATE_SESSION_WARNING
           : sessionOpen

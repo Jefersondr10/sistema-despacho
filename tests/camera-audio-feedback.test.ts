@@ -155,7 +155,7 @@ test("o som é disparado somente após o retorno do processamento da leitura", (
   );
 });
 
-test("aviso e erro disparam um clarão vermelho finito e acessível", () => {
+test("código inválido pisca amarelo e duplicado continua vermelho", () => {
   const scannerSource = readFileSync(
     new URL("../app/bipagem/mobile-camera-scanner.tsx", import.meta.url),
     "utf8",
@@ -167,14 +167,42 @@ test("aviso e erro disparam um clarão vermelho finito e acessível", () => {
     ),
     "utf8",
   );
+  const bipagemSource = readFileSync(
+    new URL("../app/bipagem/bipagem-form.tsx", import.meta.url),
+    "utf8",
+  );
+  const demoSource = readFileSync(
+    new URL(
+      "../app/demonstracao-bipagem/mobile-bipagem-demo.tsx",
+      import.meta.url,
+    ),
+    "utf8",
+  );
 
   assert.match(scannerSource, /triggerVisualAlert\(outcome\.tone\)/);
   assert.match(scannerSource, /triggerVisualAlert\("danger"\)/);
   assert.match(scannerSource, /if \(tone === "success"\)/);
   assert.match(scannerSource, /className=\{styles\.alertFlash\}/);
+  assert.match(scannerSource, /data-tone=\{visualAlert\.tone\}/);
   assert.match(scannerSource, /aria-hidden="true"/);
   assert.match(scannerStyles, /position:\s*fixed/);
-  assert.match(scannerStyles, /background:\s*rgb\(220 38 38 \/ 72%\)/);
+  assert.match(
+    scannerStyles,
+    /\[data-tone="warning"\][\s\S]*background:\s*rgb\(250 204 21 \/ 72%\)/,
+  );
+  assert.match(
+    scannerStyles,
+    /\[data-tone="danger"\][\s\S]*background:\s*rgb\(220 38 38 \/ 72%\)/,
+  );
+  assert.match(
+    bipagemSource,
+    /if \(!parsedCode\.accepted\)[\s\S]{0,220}reportTrackingOutcome\("warning"/,
+  );
+  assert.match(
+    bipagemSource,
+    /duplicatedInSession \|\| serverDetectedDuplicate \? "danger" : "success"/,
+  );
+  assert.match(demoSource, /tone:\s*duplicated \? "danger" : "success"/);
   assert.match(scannerStyles, /animation-iteration-count:\s*1/);
   assert.match(scannerStyles, /@media \(prefers-reduced-motion: reduce\)/);
   assert.match(scannerStyles, /animation:\s*none/);

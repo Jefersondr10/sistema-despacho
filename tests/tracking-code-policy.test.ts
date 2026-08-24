@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseTrackingCode } from "../app/bipagem/tracking-code-policy.ts";
+import {
+  parseTrackingCode,
+  type TrackingCodeContext,
+} from "../app/bipagem/tracking-code-policy.ts";
 
-function accepted(rawCode: string) {
-  const result = parseTrackingCode(rawCode);
+function accepted(rawCode: string, context: TrackingCodeContext = {}) {
+  const result = parseTrackingCode(rawCode, context);
   if (!result.accepted) assert.fail(result.message);
   return result;
 }
 
-function rejected(rawCode: string) {
-  const result = parseTrackingCode(rawCode);
+function rejected(rawCode: string, context: TrackingCodeContext = {}) {
+  const result = parseTrackingCode(rawCode, context);
   if (result.accepted) {
     assert.fail(`Codigo aceito indevidamente: ${result.code}`);
   }
@@ -20,6 +23,7 @@ function rejected(rawCode: string) {
 test("rejeita CEP isolado com ou sem hifen", () => {
   rejected("01001010");
   rejected("01001-010");
+  rejected("72243100");
   assert.equal(rejected("01001010").reason, "postal-code");
 });
 
@@ -42,11 +46,36 @@ test("aceita formatos amplos usados por marketplaces e transportadoras", () => {
   accepted("TBA123456789012");
   accepted("BRSPX1234567890");
   accepted("MEL123456789012");
-  accepted("12345678901234567890");
-  assert.equal(
-    accepted("35190830290856000160550010000000011000000010").kind,
-    "nfe-access-key",
-  );
+  accepted("1Z999AA10123456784");
+  accepted("12345678901234567890", { carrier: "loggi" });
+  accepted("123456789011", { carrier: "jadlog" });
+  rejected("123456789011", { carrier: "correios" });
+});
+
+test("rejeita chave de nota fiscal mesmo quando a transportadora e Loggi", () => {
+  const nfeKey = "35190830290856000160550010000000011000000010";
+
+  assert.equal(rejected(nfeKey).reason, "invoice-key");
+  assert.equal(rejected(nfeKey, { carrier: "loggi" }).reason, "invoice-key");
+});
+
+test("rejeita documentos, telefones, produto e numero ambiguo", () => {
+  assert.equal(rejected("52998224725").reason, "personal-document");
+  assert.equal(rejected("529.982.247-25").reason, "personal-document");
+  assert.equal(rejected("11222333000181").reason, "personal-document");
+  assert.equal(rejected("11.222.333/0001-81").reason, "personal-document");
+  assert.equal(rejected("11987654321").reason, "phone");
+  assert.equal(rejected("5511987654321").reason, "phone");
+  assert.equal(rejected("7894900011517").reason, "product-code");
+  assert.equal(rejected("123456789012").reason, "product-code");
+  assert.equal(rejected("123456789011").reason, "ambiguous");
+});
+
+test("rejeita pedido, identificador generico e URL que nao seja de rastreio", () => {
+  rejected("PEDIDO 123456789012");
+  rejected(JSON.stringify({ order_id: "123456789012" }));
+  rejected(JSON.stringify({ customer: { id: "ABC1234567" } }));
+  rejected("https://loja.example/pedido/123456789012");
 });
 
 test("codigo simples preserva A mesmo quando o restante parece outro formato", () => {
@@ -95,13 +124,25 @@ test("extrai o rastreio de URL, JSON e Data Matrix sem escolher o CEP", () => {
     accepted("https://transportadora.example/rastreio/123456789012").code,
     "123456789012",
   );
-  assert.equal(
-    accepted("https://transportadora.example/?id=123456789012").code,
-    "123456789012",
-  );
+  rejected("https://transportadora.example/?id=123456789012");
   assert.equal(
     accepted(JSON.stringify({ tracking: { number: "123456789012" } })).code,
     "123456789012",
+  );
+});
+
+test("rejeita a chave de nota composta sem extrair um falso S10 do meio", () => {
+  // A sequencia AD...BR parece um S10 por coincidencia, mas esta colada aos
+  // demais campos da nota e nao e um rastreio independente da etiqueta.
+  const payload =
+    "76962176000007120505000000651AD771103325BR250" +
+    "0000000000067059090072180003117PORTOCINZA000" +
+    "00069993950585-00.000000-00.000000}47710669417}";
+
+  assert.equal(rejected(payload).reason, "unsupported");
+  assert.equal(
+    accepted("NOTA 123 OBJETO AD771103325BR").code,
+    "AD771103325BR",
   );
 });
 
@@ -134,7 +175,7 @@ test("um tracking_number explicito vence a chave de NF-e do mesmo QR", () => {
     accepted(
       JSON.stringify({
         tracking_number: "TBA123456789012",
-        nfe: "1".repeat(44),
+        nfe: "35190830290856000160550010000000011000000010",
       }),
     ).code,
     "TBA123456789012",
