@@ -100,7 +100,10 @@ test("formulário manual e câmera compartilham a mesma rotina segura", () => {
   );
   assert.match(bipagemSource, /onDetected=\{processTrackingCode\}/);
   assert.match(bipagemSource, /processingTrackingRef\.current/);
-  assert.match(bipagemSource, /parseTrackingCode\(rawValue\)/);
+  assert.match(
+    bipagemSource,
+    /parseTrackingCode\(rawValue,\s*\{[\s\S]*carrier:/,
+  );
   assert.match(bipagemSource, /await cancelPackageByCode\(rawValue\)/);
   assert.match(scannerSource, /\.then\(\(outcome\) =>/);
   assert.match(scannerSource, /scanFeedback\?\.accepted/);

@@ -1024,7 +1024,9 @@ export function BipagemForm() {
       return outcome;
     }
 
-    const parsedCode = parseTrackingCode(rawValue);
+    const parsedCode = parseTrackingCode(rawValue, {
+      carrier: selectedCarrierItem?.service ?? transportadora,
+    });
     if (!parsedCode.accepted) {
       const outcome = reportTrackingOutcome("danger", parsedCode.message);
       clearCodeField();

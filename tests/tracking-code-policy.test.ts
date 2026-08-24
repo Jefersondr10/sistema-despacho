@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseTrackingCode } from "../app/bipagem/tracking-code-policy.ts";
+import {
+  parseTrackingCode,
+  type TrackingCodeContext,
+} from "../app/bipagem/tracking-code-policy.ts";
 
-function accepted(rawCode: string) {
-  const result = parseTrackingCode(rawCode);
+function accepted(rawCode: string, context: TrackingCodeContext = {}) {
+  const result = parseTrackingCode(rawCode, context);
   if (!result.accepted) assert.fail(result.message);
   return result;
 }
 
-function rejected(rawCode: string) {
-  const result = parseTrackingCode(rawCode);
+function rejected(rawCode: string, context: TrackingCodeContext = {}) {
+  const result = parseTrackingCode(rawCode, context);
   if (result.accepted) {
     assert.fail(`Codigo aceito indevidamente: ${result.code}`);
   }
@@ -20,6 +23,7 @@ function rejected(rawCode: string) {
 test("rejeita CEP isolado com ou sem hifen", () => {
   rejected("01001010");
   rejected("01001-010");
+  rejected("72243100");
   assert.equal(rejected("01001010").reason, "postal-code");
 });
 
@@ -42,11 +46,35 @@ test("aceita formatos amplos usados por marketplaces e transportadoras", () => {
   accepted("TBA123456789012");
   accepted("BRSPX1234567890");
   accepted("MEL123456789012");
-  accepted("12345678901234567890");
+  accepted("1Z999AA10123456784");
+  accepted("12345678901234567890", { carrier: "loggi" });
   assert.equal(
-    accepted("35190830290856000160550010000000011000000010").kind,
+    accepted("35190830290856000160550010000000011000000010", {
+      carrier: "loggi",
+    }).kind,
     "nfe-access-key",
   );
+  accepted("123456789011", { carrier: "jadlog" });
+  rejected("123456789011", { carrier: "correios" });
+});
+
+test("rejeita documentos, telefones, produto e numero ambiguo", () => {
+  assert.equal(rejected("52998224725").reason, "personal-document");
+  assert.equal(rejected("529.982.247-25").reason, "personal-document");
+  assert.equal(rejected("11222333000181").reason, "personal-document");
+  assert.equal(rejected("11.222.333/0001-81").reason, "personal-document");
+  assert.equal(rejected("11987654321").reason, "phone");
+  assert.equal(rejected("5511987654321").reason, "phone");
+  assert.equal(rejected("7894900011517").reason, "product-code");
+  assert.equal(rejected("123456789012").reason, "product-code");
+  assert.equal(rejected("123456789011").reason, "ambiguous");
+});
+
+test("rejeita pedido, identificador generico e URL que nao seja de rastreio", () => {
+  rejected("PEDIDO 123456789012");
+  rejected(JSON.stringify({ order_id: "123456789012" }));
+  rejected(JSON.stringify({ customer: { id: "ABC1234567" } }));
+  rejected("https://loja.example/pedido/123456789012");
 });
 
 test("codigo simples preserva A mesmo quando o restante parece outro formato", () => {
@@ -95,14 +123,25 @@ test("extrai o rastreio de URL, JSON e Data Matrix sem escolher o CEP", () => {
     accepted("https://transportadora.example/rastreio/123456789012").code,
     "123456789012",
   );
-  assert.equal(
-    accepted("https://transportadora.example/?id=123456789012").code,
-    "123456789012",
-  );
+  rejected("https://transportadora.example/?id=123456789012");
   assert.equal(
     accepted(JSON.stringify({ tracking: { number: "123456789012" } })).code,
     "123456789012",
   );
+});
+
+test("na etiqueta composta do exemplo salva apenas o S10 e nunca o texto inteiro", () => {
+  const payload =
+    "76962176000007120505000000651AD771103325BR250" +
+    "0000000000067059090072180003117PORTOCINZA000" +
+    "00069993950585-00.000000-00.000000}47710669417}";
+
+  assert.deepEqual(accepted(payload), {
+    accepted: true,
+    code: "AD771103325BR",
+    extracted: true,
+    kind: "correios-s10",
+  });
 });
 
 test("nao aceita texto curto ou um QR que contenha somente endereco e CEP", () => {

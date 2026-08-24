@@ -233,7 +233,9 @@ export function MobileBipagemDemo() {
   async function addLocalPackage(
     rawCode: string,
   ): Promise<CameraScanOutcome> {
-    const parsedCode = parseTrackingCode(rawCode);
+    const parsedCode = parseTrackingCode(rawCode, {
+      carrier: setup.melhorEnvio ? setup.carrier : null,
+    });
 
     if (!parsedCode.accepted) {
       const outcome: CameraScanOutcome = {
