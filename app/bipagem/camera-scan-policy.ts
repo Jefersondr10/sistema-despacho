@@ -57,7 +57,8 @@ export function registerCameraDetection(
   return {
     gate: { latchedCode: code, absentSince: null },
     // Preserva a estrutura do QR/Data Matrix para que a camada seguinte possa
-    // extrair o rastreio e rejeitar CEPs. A versão compacta fica só no gate.
+    // extrair o rastreio e apenas avisar quando a leitura parecer um CEP.
+    // A versão compacta fica só no gate.
     acceptedCode: decodedValue,
   };
 }

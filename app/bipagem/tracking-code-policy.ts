@@ -1,4 +1,3 @@
-const POSTAL_CODE_PATTERN = /^\d{5}-?\d{3}$/;
 const CORREIOS_S10_PATTERN = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const AZUL_AWB_PATTERN = /^577\d{8}$/;
 const NFE_ACCESS_KEY_PATTERN = /^\d{44}$/;
@@ -12,9 +11,28 @@ const NON_TRACKING_TEXT_PATTERN =
 const KNOWN_CARRIER_CODE_PATTERN =
   /^(?:TBA\d{10,18}|BRSPX[A-Z0-9]{8,24}|MEL[A-Z0-9]{8,24}|1Z[A-Z0-9]{16})$/;
 const MAX_TRACKING_LENGTH = 60;
+const POSTAL_CODE_WARNING =
+  "Atenção: este código tem formato de CEP, mas foi aceito. Confira se é o rastreio correto.";
+const UNRECOGNIZED_CODE_WARNING =
+  "Atenção: o código foi aceito, mas o formato não pôde ser confirmado. Confira a leitura.";
+const CHECK_DIGIT_WARNING =
+  "Atenção: o código foi aceito, mas o dígito verificador não pôde ser confirmado. Confira a leitura.";
+const NON_SHIPPING_PAYLOAD_WARNING =
+  "Atenção: o conteúdo foi aceito, mas pode não ser um rastreio de remessa. Confira a leitura.";
+const PERSONAL_DOCUMENT_WARNING =
+  "Atenção: o código foi aceito, mas parece ser CPF ou CNPJ. Confira se é o rastreio correto.";
+const PHONE_WARNING =
+  "Atenção: o código foi aceito, mas parece ser um telefone. Confira se é o rastreio correto.";
+const PRODUCT_CODE_WARNING =
+  "Atenção: o código foi aceito, mas parece ser um código de produto. Confira se é o rastreio correto.";
+const INVOICE_KEY_WARNING =
+  "Atenção: o código foi aceito, mas parece ser uma chave de nota fiscal. Confira se é o rastreio correto.";
+const AMBIGUOUS_NUMBER_WARNING =
+  "Atenção: o número foi aceito, mas não foi reconhecido com segurança como rastreio. Confira a leitura.";
 
 export type TrackingCodeContext = {
   carrier?: string | null;
+  marketplace?: string | null;
 };
 
 export type TrackingCodeKind =
@@ -28,18 +46,11 @@ export type TrackingCodeResult =
       code: string;
       extracted: boolean;
       kind: TrackingCodeKind;
+      warning?: string;
     }
   | {
       accepted: false;
-      reason:
-        | "empty"
-        | "postal-code"
-        | "personal-document"
-        | "phone"
-        | "product-code"
-        | "invoice-key"
-        | "ambiguous"
-        | "unsupported";
+      reason: "empty";
       message: string;
     };
 
@@ -49,6 +60,7 @@ type Candidate = {
   code: string;
   kind: TrackingCodeKind;
   score: number;
+  warning?: string;
 };
 
 function canonicalizeCandidate(value: string) {
@@ -60,6 +72,38 @@ function normalizeCandidateValue(value: string) {
     .normalize("NFKC")
     .toUpperCase()
     .replace(/\s+/g, "");
+}
+
+function normalizeMarketplaceName(value: string | null | undefined) {
+  return String(value ?? "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
+
+function isKnownMarketplaceTrackingCode(
+  code: string,
+  context: TrackingCodeContext,
+) {
+  const marketplace = normalizeMarketplaceName(context.marketplace);
+  const isMercadoLivre =
+    marketplace.includes("mercadolivre") ||
+    marketplace.includes("mercadolibre");
+
+  if (isMercadoLivre) {
+    return /^478\d{8}$/.test(code) || /^AP\d{9}BR$/.test(code);
+  }
+
+  if (marketplace.includes("amazon")) {
+    return /^TBR[A-Z0-9]{8,24}$/.test(code);
+  }
+
+  if (marketplace.includes("shopee")) {
+    return /^BR\d{10,20}$/.test(code);
+  }
+
+  return false;
 }
 
 function isValidCorreiosS10(code: string) {
@@ -211,27 +255,48 @@ function classifyCandidate(
   if (
     !compactCode ||
     normalizedCode.length > MAX_TRACKING_LENGTH ||
-    /^\d{8}$/.test(compactCode) ||
     NON_TRACKING_TEXT_PATTERN.test(normalizedCode) ||
     !/^[A-Z0-9._/-]+$/.test(normalizedCode)
   ) {
     return null;
   }
 
+  if (isKnownMarketplaceTrackingCode(compactCode, context)) {
+    return { code: compactCode, kind: "carrier-code" };
+  }
+
   if (CORREIOS_S10_PATTERN.test(compactCode)) {
     return isValidCorreiosS10(compactCode)
       ? { code: compactCode, kind: "correios-s10" }
-      : null;
+      : {
+          code: compactCode,
+          kind: "carrier-code",
+          warning: CHECK_DIGIT_WARNING,
+        };
   }
 
   if (AZUL_AWB_PATTERN.test(compactCode)) {
     return isValidAirWaybill(compactCode)
       ? { code: compactCode, kind: "azul-awb" }
-      : null;
+      : {
+          code: compactCode,
+          kind: "carrier-code",
+          warning: CHECK_DIGIT_WARNING,
+        };
   }
 
   if (NFE_ACCESS_KEY_PATTERN.test(compactCode)) {
-    return null;
+    return isValidNfeAccessKey(compactCode)
+      ? {
+          code: compactCode,
+          kind: "carrier-code",
+          warning: INVOICE_KEY_WARNING,
+        }
+      : {
+          code: compactCode,
+          kind: "carrier-code",
+          warning: CHECK_DIGIT_WARNING,
+        };
   }
 
   if (KNOWN_CARRIER_CODE_PATTERN.test(compactCode)) {
@@ -242,28 +307,76 @@ function classifyCandidate(
   const hasDigit = /\d/.test(compactCode);
 
   if (hasLetter && hasDigit) {
-    if (origin === "embedded") return null;
-    const minimumLength = 6;
-    return compactCode.length >= minimumLength
-      ? { code: normalizedCode, kind: "carrier-code" }
-      : null;
+    const minimumLength = origin === "embedded" ? 10 : 6;
+    if (compactCode.length >= minimumLength) {
+      return {
+        code: normalizedCode,
+        kind: "carrier-code",
+        ...(origin === "embedded"
+          ? { warning: UNRECOGNIZED_CODE_WARNING }
+          : {}),
+      };
+    }
+
+    return origin === "embedded"
+      ? null
+      : {
+          code: normalizedCode,
+          kind: "carrier-code",
+          warning: UNRECOGNIZED_CODE_WARNING,
+        };
   }
 
   if (/^\d+$/.test(compactCode)) {
-    if (
-      origin !== "preferred" &&
-      isRejectedNumericIdentifier(compactCode)
-    ) {
-      return null;
+    if (origin === "plain" || origin === "preferred") {
+      if (/^\d{8}$/.test(compactCode)) {
+        return {
+          code: compactCode,
+          kind: "carrier-code",
+          warning: POSTAL_CODE_WARNING,
+        };
+      }
+
+      if (origin !== "preferred" && isRejectedNumericIdentifier(compactCode)) {
+        const warning = isValidCpf(compactCode) || isValidCnpj(compactCode)
+          ? PERSONAL_DOCUMENT_WARNING
+          : isLikelyBrazilianPhone(compactCode)
+            ? PHONE_WARNING
+            : PRODUCT_CODE_WARNING;
+
+        return { code: normalizedCode, kind: "carrier-code", warning };
+      }
+
+      const hasReliableOrigin =
+        origin === "preferred" ||
+        (origin === "plain" &&
+          allowsPlainNumericCarrierCode(compactCode, context));
+      if (
+        hasReliableOrigin &&
+        compactCode.length >= 9 &&
+        compactCode.length <= 30
+      ) {
+        return { code: normalizedCode, kind: "carrier-code" };
+      }
+
+      return {
+        code: normalizedCode,
+        kind: "carrier-code",
+        warning: /^\d{9,43}$/.test(compactCode)
+          ? AMBIGUOUS_NUMBER_WARNING
+          : UNRECOGNIZED_CODE_WARNING,
+      };
     }
 
-    const hasReliableOrigin =
-      origin === "preferred" ||
-      (origin === "plain" &&
-        allowsPlainNumericCarrierCode(compactCode, context));
-    return hasReliableOrigin && compactCode.length >= 9 && compactCode.length <= 30
-      ? { code: normalizedCode, kind: "carrier-code" }
-      : null;
+    return null;
+  }
+
+  if (origin !== "embedded") {
+    return {
+      code: normalizedCode,
+      kind: "carrier-code",
+      warning: UNRECOGNIZED_CODE_WARNING,
+    };
   }
 
   return null;
@@ -332,38 +445,7 @@ export function parseTrackingCode(
   const decoded = decodePayload(trimmed);
   const compactWhole = normalizeCandidateValue(decoded);
   const canonicalWhole = canonicalizeCandidate(compactWhole);
-  if (
-    POSTAL_CODE_PATTERN.test(compactWhole) ||
-    (/^\d{8}$/.test(canonicalWhole) && /^[\d\s-]+$/.test(decoded))
-  ) {
-    return {
-      accepted: false,
-      reason: "postal-code",
-      message:
-        "Este código parece ser um CEP. Leia o rastreio da remessa; na Azul Cargo, use o AWB completo iniciado por 577.",
-    };
-  }
-
-  if (PIX_PAYLOAD_PATTERN.test(canonicalWhole)) {
-    return {
-      accepted: false,
-      reason: "unsupported",
-      message:
-        "Este QR não parece ser uma etiqueta de envio. Aponte para o rastreio da remessa.",
-    };
-  }
-
-  if (
-    isValidNfeAccessKey(canonicalWhole) &&
-    /^[\d\s./-]+$/.test(decoded)
-  ) {
-    return {
-      accepted: false,
-      reason: "invoice-key",
-      message:
-        "Este código é uma chave de nota fiscal, não o rastreio da remessa.",
-    };
-  }
+  const looksLikePixPayload = PIX_PAYLOAD_PATTERN.test(canonicalWhole);
 
   const candidates = new Map<string, Candidate>();
   let authoritativePlainCode: Candidate | null = null;
@@ -447,6 +529,11 @@ export function parseTrackingCode(
   upperPayload.match(/\b1Z[A-Z0-9]{16}\b/g)?.forEach((value) => {
     addCandidate(value, "embedded");
   });
+  upperPayload
+    .match(/\b(?:478\d{8}|AP\d{9}BR|TBR[A-Z0-9]{8,24}|BR\d{10,20})\b/g)
+    ?.forEach((value) => {
+      addCandidate(value, "embedded");
+    });
 
   try {
     const url = new URL(decoded);
@@ -474,7 +561,7 @@ export function parseTrackingCode(
   }
 
   const preferredPattern =
-    /(?:tracking(?:[_\s-]*(?:number|id|code))?|rastreio|c[oó]digo[_\s-]*(?:de[_\s-]*)?rastreio|awb|shipment(?:[_\s-]*(?:number|id))?|remessa|etiqueta|package(?:[_\s-]*(?:number|id))?|objeto)[\s:=/_-]+([A-Z0-9._/-]{6,60})/gi;
+    /(?:tracking(?:[_\s-]*(?:number|id|code))|tracking(?![_\s-]*(?:number|id|code))|rastreio|c[oó]digo[_\s-]*(?:de[_\s-]*)?rastreio|awb|shipment(?:[_\s-]*(?:number|id))?|remessa|etiqueta|package(?:[_\s-]*(?:number|id))?|objeto)[\s:=/_-]+([A-Z0-9._/-]{1,60})/gi;
   for (const match of decoded.matchAll(preferredPattern)) {
     addCandidate(match[1], "preferred");
   }
@@ -496,57 +583,47 @@ export function parseTrackingCode(
     const wholeIsProductCode = isValidGtin(canonicalWhole);
     const wholeIsAmbiguousNumber = /^\d{9,43}$/.test(canonicalWhole);
 
-    if (wholeIsPersonalDocument) {
-      return {
-        accepted: false,
-        reason: "personal-document",
-        message: "Este código parece ser CPF ou CNPJ, não um rastreio de remessa.",
-      };
-    }
-    if (wholeIsPhone) {
-      return {
-        accepted: false,
-        reason: "phone",
-        message: "Este código parece ser um telefone, não um rastreio de remessa.",
-      };
-    }
-    if (wholeIsProductCode) {
-      return {
-        accepted: false,
-        reason: "product-code",
-        message: "Este código parece ser o código de barras de um produto, não o rastreio da remessa.",
-      };
-    }
-    if (containsNfeAccessKey) {
-      return {
-        accepted: false,
-        reason: "invoice-key",
-        message:
-          "O código lido contém uma chave de nota fiscal, mas não um rastreio válido.",
-      };
-    }
-    if (wholeIsAmbiguousNumber) {
-      return {
-        accepted: false,
-        reason: "ambiguous",
-        message:
-          "Este número não foi reconhecido com segurança como rastreio. Leia o código da etiqueta da remessa.",
-      };
-    }
+    const warning = wholeIsPersonalDocument
+      ? PERSONAL_DOCUMENT_WARNING
+      : wholeIsPhone
+        ? PHONE_WARNING
+        : wholeIsProductCode
+          ? PRODUCT_CODE_WARNING
+          : containsNfeAccessKey
+            ? INVOICE_KEY_WARNING
+            : wholeIsAmbiguousNumber
+              ? AMBIGUOUS_NUMBER_WARNING
+              : containsPostalCode ||
+                  looksLikePixPayload ||
+                  NON_TRACKING_TEXT_PATTERN.test(decoded)
+                ? NON_SHIPPING_PAYLOAD_WARNING
+                : UNRECOGNIZED_CODE_WARNING;
 
     return {
-      accepted: false,
-      reason: containsPostalCode ? "postal-code" : "unsupported",
-      message: containsPostalCode
-        ? "O QR lido contém um CEP, mas nenhum rastreio válido. Aponte para o código da remessa."
-        : "O código lido não foi reconhecido como rastreio. Leia o QR ou código de barras da remessa, não o CEP.",
+      accepted: true,
+      code: compactWhole || normalizeCandidateValue(trimmed),
+      extracted: false,
+      kind: "carrier-code",
+      warning,
     };
+  }
+
+  const selectedCanonical = canonicalizeCandidate(selected.code);
+  let warning = selected.warning;
+
+  if (isKnownMarketplaceTrackingCode(selectedCanonical, context)) {
+    warning = undefined;
+  } else if (/^\d{8}$/.test(selectedCanonical)) {
+    warning = POSTAL_CODE_WARNING;
+  } else if (looksLikePixPayload) {
+    warning = NON_SHIPPING_PAYLOAD_WARNING;
   }
 
   return {
     accepted: true,
     code: selected.code,
-    extracted: selected.code !== compactWhole,
+    extracted: selectedCanonical !== canonicalWhole,
     kind: selected.kind,
+    ...(warning ? { warning } : {}),
   };
 }

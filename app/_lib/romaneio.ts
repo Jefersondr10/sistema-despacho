@@ -32,7 +32,6 @@ function getMarketplaceIdentity(item: DispatchPackage): MarketplaceIdentity {
     name: marketplaceName,
   };
 }
-
 export function groupRomaneioPackagesByStoreAndMarketplace(
   packages: DispatchPackage[],
   stores: Store[],

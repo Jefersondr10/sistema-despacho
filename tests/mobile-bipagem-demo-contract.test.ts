@@ -54,7 +54,15 @@ test("demonstração mantém leituras em memória e não chama dados operacionai
   assert.match(demoSource, /MobileCameraScanner/);
   assert.match(
     demoSource,
-    /parseTrackingCode\(rawCode,\s*\{[\s\S]*carrier:/,
+    /parseTrackingCode\(rawCode,\s*\{[\s\S]*carrier:[\s\S]*marketplace: setup\.marketplace/,
+  );
+  assert.match(
+    demoSource,
+    /tone: duplicated \? "danger" : "success"[\s\S]*if \(!duplicated && parsedCode\.warning\)[\s\S]*outcome\.tone = "warning"/,
+  );
+  assert.match(
+    demoSource,
+    /outcome\.accepted[\s\S]*outcome\.tone === "success"[\s\S]*setManualEntryOpen\(false\)/,
   );
   assert.match(demoSource, /Nenhum dado foi salvo/);
 });

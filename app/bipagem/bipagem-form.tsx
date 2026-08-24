@@ -609,6 +609,7 @@ export function BipagemForm() {
 
   function openStoreRomaneio(batch: {
     loja_id: string;
+    marketplace_id?: string | null;
     marketplace: string;
     finalizado_em: string | null;
     criado_em: string;
@@ -619,6 +620,9 @@ export function BipagemForm() {
       marketplace: batch.marketplace,
       data: getSaoPauloDateString(batch.finalizado_em ?? batch.criado_em),
     });
+    if (batch.marketplace_id) {
+      params.set("marketplaceId", batch.marketplace_id);
+    }
 
     window.open(
       `/relatorios?${params.toString()}`,
@@ -1026,6 +1030,7 @@ export function BipagemForm() {
 
     const parsedCode = parseTrackingCode(rawValue, {
       carrier: selectedCarrierItem?.service ?? transportadora,
+      marketplace: selectedMarketplace,
     });
     if (!parsedCode.accepted) {
       const outcome = reportTrackingOutcome("warning", parsedCode.message);
@@ -1116,13 +1121,23 @@ export function BipagemForm() {
           ...current.filter((item) => item.id !== addedPackage.id),
         ]);
       }
+      const duplicateTone =
+        duplicatedInSession || serverDetectedDuplicate ? "danger" : "success";
+      const duplicateDetected = duplicateTone === "danger";
+      const addedMessage = sessionOpen
+        ? `Rastreio ${normalizedCode} adicionado ao lote.`
+        : `Lote iniciado. Rastreio ${normalizedCode} adicionado.`;
       const outcome = reportTrackingOutcome(
-        duplicatedInSession || serverDetectedDuplicate ? "danger" : "success",
-        duplicatedInSession || serverDetectedDuplicate
+        duplicateDetected
+          ? "danger"
+          : parsedCode.warning
+            ? "warning"
+            : "success",
+        duplicateDetected
           ? DUPLICATE_SESSION_WARNING
-          : sessionOpen
-            ? `Rastreio ${normalizedCode} adicionado ao lote.`
-            : `Lote iniciado. Rastreio ${normalizedCode} adicionado.`,
+          : parsedCode.warning
+            ? `${addedMessage} ${parsedCode.warning}`
+            : addedMessage,
         true,
         normalizedCode,
       );
@@ -2551,7 +2566,7 @@ export function BipagemForm() {
                           onClick={() => openStoreRomaneio(batch)}
                           className="inline-flex min-h-9 items-center justify-center rounded-md bg-slate-950 px-3 text-xs font-semibold text-white transition hover:bg-slate-800"
                         >
-                          Romaneio da loja
+                          Romaneio da loja e marketplace
                         </button>
                       </div>
                     </div>
@@ -3059,7 +3074,7 @@ export function BipagemForm() {
                     onClick={() => openStoreRomaneio(selectedBatch)}
                     className="mt-4 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-bold text-white"
                   >
-                    Abrir romaneio da loja
+                    Abrir romaneio da loja e marketplace
                   </button>
                 </article>
 
@@ -3139,7 +3154,7 @@ export function BipagemForm() {
                         onClick={() => openStoreRomaneio(batch)}
                         className="inline-flex min-h-12 items-center justify-center rounded-xl bg-slate-950 px-3 text-sm font-bold text-white"
                       >
-                        Romaneio da loja
+                        Romaneio da loja e marketplace
                       </button>
                     </div>
                   </article>
@@ -3364,7 +3379,7 @@ export function BipagemForm() {
                   onClick={() => openStoreRomaneio(selectedBatch)}
                   className="inline-flex min-h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
                 >
-                  Imprimir romaneio da loja
+                  Imprimir romaneio da loja e marketplace
                 </button>
                 <button
                   type="button"

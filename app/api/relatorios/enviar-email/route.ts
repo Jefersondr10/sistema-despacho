@@ -21,6 +21,7 @@ type EmailContent = {
 };
 
 class EmailConfigError extends Error {}
+class ReportPayloadError extends Error {}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -235,33 +236,36 @@ function getRomaneioGroups(relatorio: Record<string, unknown>) {
     ? relatorio.romaneios.filter(isRecord)
     : [];
 
-  return groups.map((group) => ({
-    id: getOptionalString(group.id),
-    loja_nome: getOptionalString(group.loja_nome) || "Loja não informada",
-    marketplace: formatRomaneioMarketplaces(
-      unique(
-        [
-          ...getStringArray(group.marketplaces),
-          getOptionalString(group.marketplace),
-        ]
-          .map((marketplace) => marketplace.trim())
-          .filter(Boolean),
-      ).sort((first, second) => first.localeCompare(second, "pt-BR")),
-    ),
-    periodo: getOptionalString(group.periodo) || "Não informado",
-    pacotes: Array.isArray(group.pacotes)
-      ? group.pacotes.filter(isRecord).map((item) => ({
-          codigo_rastreio:
-            getOptionalString(item.codigo_rastreio) || "Sem código",
-        }))
-      : [],
-  }));
-}
+  return groups.map((group) => {
+    const legacyMarketplaces = unique(
+      getStringArray(group.marketplaces)
+        .map((marketplace) => marketplace.trim())
+        .filter(Boolean),
+    );
+    const explicitMarketplace = getOptionalString(group.marketplace).trim();
 
-function formatRomaneioMarketplaces(marketplaces: string[]) {
-  return marketplaces.length
-    ? marketplaces.join(" · ")
-    : "Não informado";
+    if (legacyMarketplaces.length > 1) {
+      throw new ReportPayloadError(
+        "Este romaneio foi aberto em uma versão antiga. Recarregue a página para separar os marketplaces antes de enviar.",
+      );
+    }
+
+    const marketplace =
+      explicitMarketplace || legacyMarketplaces[0] || "Não informado";
+
+    return {
+      id: getOptionalString(group.id),
+      loja_nome: getOptionalString(group.loja_nome) || "Loja não informada",
+      marketplace,
+      periodo: getOptionalString(group.periodo) || "Não informado",
+      pacotes: Array.isArray(group.pacotes)
+        ? group.pacotes.filter(isRecord).map((item) => ({
+            codigo_rastreio:
+              getOptionalString(item.codigo_rastreio) || "Sem código",
+          }))
+        : [],
+    };
+  });
 }
 
 function buildRomaneioEmail(
@@ -309,7 +313,7 @@ function buildRomaneioEmail(
                   `,
                 )
                 .join("")
-            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote neste romaneio.</td></tr>`;
+            : `<tr><td colspan="${trackingColumnCount}" style="padding: 16px; border-top: 1px solid #e2e8f0; color: #64748b; font-size: 12px; text-align: center;">Nenhum pacote nesta loja.</td></tr>`;
 
           return `
             <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 0 0 24px; background-color: #ffffff; border: 1px solid #cbd5e1; border-collapse: separate; border-spacing: 0;">
@@ -829,7 +833,19 @@ export async function POST(request: Request) {
     return item ? [item.email] : [];
   });
   const destinatarios = unique([...destinatariosCadastrados, ...emailsManuais]);
-  const emailContent = buildReportEmail(payload);
+  let emailContent: EmailContent;
+  try {
+    emailContent = buildReportEmail(payload);
+  } catch (error) {
+    if (error instanceof ReportPayloadError) {
+      return NextResponse.json(
+        { ok: false, message: error.message },
+        { status: 409 },
+      );
+    }
+
+    throw error;
+  }
   const filtros = {
     filtros: isRecord(payload.filtros) ? payload.filtros : {},
     filtrosResumo: isRecord(payload.filtrosResumo) ? payload.filtrosResumo : {},

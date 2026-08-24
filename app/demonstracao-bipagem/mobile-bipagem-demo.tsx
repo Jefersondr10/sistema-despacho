@@ -235,6 +235,7 @@ export function MobileBipagemDemo() {
   ): Promise<CameraScanOutcome> {
     const parsedCode = parseTrackingCode(rawCode, {
       carrier: setup.melhorEnvio ? setup.carrier : null,
+      marketplace: setup.marketplace,
     });
 
     if (!parsedCode.accepted) {
@@ -291,14 +292,19 @@ export function MobileBipagemDemo() {
         listRef.current?.scrollTo({ top: 0, behavior: "smooth" });
       });
 
+      const addedMessage = `Código ${code} adicionado somente à demonstração.`;
       const outcome: CameraScanOutcome = {
         tone: duplicated ? "danger" : "success",
         message: duplicated
           ? `Duplicidade criada para ${code}. Corrija antes de finalizar.`
-          : `Código ${code} adicionado somente à demonstração.`,
+          : addedMessage,
         accepted: true,
         code,
       };
+      if (!duplicated && parsedCode.warning) {
+        outcome.tone = "warning";
+        outcome.message = `${addedMessage} ${parsedCode.warning}`;
+      }
       setNotice(outcome);
       return outcome;
     } finally {
@@ -313,7 +319,11 @@ export function MobileBipagemDemo() {
     event.preventDefault();
     const outcome = await addLocalPackage(manualInputRef.current?.value ?? "");
 
-    if (outcome.accepted && manualInputRef.current) {
+    if (
+      outcome.accepted &&
+      outcome.tone === "success" &&
+      manualInputRef.current
+    ) {
       manualInputRef.current.value = "";
       setManualEntryOpen(false);
     }

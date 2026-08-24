@@ -36,7 +36,7 @@ function summarizeSelection({
           options.some((option) => option.value === value),
         );
 
-  if (selected.length === 0 || selectedValues.length === options.length) {
+  if (selected.length === 0) {
     return allLabel;
   }
 
@@ -149,12 +149,25 @@ export function PackageFilters({
   const storeOptions = stores
     .filter((store) => store.status !== "Inativa")
     .map((store) => ({ label: store.name, value: store.id }));
-  const marketplaceOptions = marketplaces
+  const activeMarketplaceOptions = marketplaces
     .filter((marketplace) => marketplace.status !== "Inativo")
     .map((marketplace) => ({
       label: marketplace.name,
       value: marketplace.name,
     }));
+  const marketplaceOptions = [
+    ...activeMarketplaceOptions,
+    ...filters.marketplace
+      .filter(
+        (value, index, values) =>
+          values.indexOf(value) === index &&
+          !activeMarketplaceOptions.some((option) => option.value === value),
+      )
+      .map((value) => ({
+        label: value.trim() || "Não informado",
+        value,
+      })),
+  ];
   const carrierOptions = [
     { label: "Sem transportadora", value: "sem-transportadora" },
     ...carriers
@@ -200,11 +213,19 @@ export function PackageFilters({
     const normalizedNext =
       next.length === 0 || next.length === allValues.length ? [] : next;
 
-    onChange({ ...filters, [name]: normalizedNext });
+    onChange({
+      ...filters,
+      [name]: normalizedNext,
+      ...(name === "marketplace" ? { marketplaceId: undefined } : {}),
+    });
   }
 
   function selectAll(name: MultiFilterName) {
-    onChange({ ...filters, [name]: [] });
+    onChange({
+      ...filters,
+      [name]: [],
+      ...(name === "marketplace" ? { marketplaceId: undefined } : {}),
+    });
   }
 
   function resetFilters() {

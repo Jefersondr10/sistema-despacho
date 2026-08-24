@@ -102,7 +102,15 @@ test("formulário manual e câmera compartilham a mesma rotina segura", () => {
   assert.match(bipagemSource, /processingTrackingRef\.current/);
   assert.match(
     bipagemSource,
-    /parseTrackingCode\(rawValue,\s*\{[\s\S]*carrier:/,
+    /parseTrackingCode\(rawValue,\s*\{[\s\S]*carrier:[\s\S]*marketplace: selectedMarketplace/,
+  );
+  assert.match(
+    bipagemSource,
+    /duplicateDetected[\s\S]*\? "danger"[\s\S]*parsedCode\.warning[\s\S]*\? "warning"[\s\S]*: "success"/,
+  );
+  assert.match(
+    bipagemSource,
+    /parsedCode\.warning[\s\S]*\$\{addedMessage\} \$\{parsedCode\.warning\}/,
   );
   assert.match(bipagemSource, /await cancelPackageByCode\(rawValue\)/);
   assert.match(scannerSource, /\.then\(\(outcome\) =>/);
@@ -437,6 +445,11 @@ test("mobile oferece histórico e romaneios sem interromper o lote atual", () =>
     bipagemSource,
     /function openStoreRomaneio\(batch:[\s\S]*modo: "romaneio"[\s\S]*lojaId: batch\.loja_id[\s\S]*marketplace: batch\.marketplace[\s\S]*data: getSaoPauloDateString/,
   );
+  assert.match(bipagemSource, /marketplace: batch\.marketplace/);
+  assert.match(
+    bipagemSource,
+    /params\.set\("marketplaceId", batch\.marketplace_id\)/,
+  );
   assert.match(bipagemSource, /openStoreRomaneio\(batch\)/);
   assert.match(bipagemSource, /openStoreRomaneio\(selectedBatch\)/);
   assert.match(
@@ -454,6 +467,14 @@ test("romaneio aberto pelo histórico consolida loja, marketplace e dia", () => 
     reportsPageSource,
     /initialMarketplace=\{requestedMarketplace/,
   );
+  assert.match(
+    reportsPageSource,
+    /initialMarketplaceId=\{requestedMarketplaceId/,
+  );
+  assert.match(
+    reportsPageSource,
+    /marketplaceParam === undefined \? undefined : marketplaceParam\.trim\(\)/,
+  );
   assert.match(reportsPageSource, /initialDate=\{initialDate\}/);
   assert.match(
     reportsViewSource,
@@ -465,8 +486,17 @@ test("romaneio aberto pelo histórico consolida loja, marketplace e dia", () => 
   );
   assert.match(
     reportsViewSource,
+    /marketplace: initialMarketplace !== undefined[\s\S]*\[initialMarketplace\]/,
+  );
+  assert.match(reportsViewSource, /marketplaceId: initialMarketplaceId/);
+  assert.match(
+    reportsViewSource,
     /groupRomaneioPackagesByStoreAndMarketplace\(/,
   );
   assert.match(legacyRomaneioSource, /marketplace: batch\.marketplace/);
+  assert.match(
+    legacyRomaneioSource,
+    /params\.set\("marketplaceId", batch\.marketplace_id\)/,
+  );
   assert.match(legacyRomaneioSource, /window\.location\.replace\(destinationUrl\)/);
 });

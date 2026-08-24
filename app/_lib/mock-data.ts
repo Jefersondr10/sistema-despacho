@@ -113,6 +113,7 @@ export type PackageFilterValues = {
   selectedDate: string;
   startDate: string;
   endDate: string;
+  marketplaceId?: string;
   marketplace: string[];
   melhorEnvio: MelhorEnvioFilter;
   transportadora: string[];
@@ -190,6 +191,7 @@ export function createDefaultPackageFilters(): PackageFilterValues {
     selectedDate: currentDate,
     startDate: currentDate,
     endDate: currentDate,
+    marketplaceId: undefined,
     marketplace: [],
     melhorEnvio: "todos",
     transportadora: [],
@@ -206,6 +208,10 @@ export function getStoreName(lojaId: string, catalogStores: Store[] = []) {
 
 export function normalizeTrackingCode(code: string) {
   return code.replace(/\s+/g, "").toUpperCase();
+}
+
+export function normalizeMarketplaceIdentity(marketplace: string) {
+  return marketplace.trim().normalize("NFKC").toLocaleLowerCase("pt-BR");
 }
 
 export function getOperationLabel(operation: OperationType | OperationFilter) {
@@ -368,6 +374,10 @@ export function filterPackages(
 ) {
   const query = normalizeTrackingCode(filters.query ?? "");
   const codigoLote = normalizeTrackingCode(filters.codigoLote ?? "");
+  const selectedMarketplaceId = filters.marketplaceId?.trim();
+  const selectedMarketplaces = filters.marketplace.map(
+    normalizeMarketplaceIdentity,
+  );
   const { startDate, endDate } = getDateRangeFromFilters(filters, referenceIso);
 
   return packages.filter((item) => {
@@ -376,8 +386,12 @@ export function filterPackages(
       filters.dateMode === "all" ||
       (packageDate >= startDate && packageDate <= endDate);
     const matchesMarketplace =
-      filters.marketplace.length === 0 ||
-      filters.marketplace.includes(item.marketplace);
+      selectedMarketplaceId
+        ? item.marketplace_id === selectedMarketplaceId
+        : selectedMarketplaces.length === 0 ||
+          selectedMarketplaces.includes(
+            normalizeMarketplaceIdentity(item.marketplace),
+          );
     const matchesMelhorEnvio =
       filters.melhorEnvio === "todos" ||
       (filters.melhorEnvio === "sim" && item.melhor_envio) ||

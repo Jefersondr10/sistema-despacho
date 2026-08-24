@@ -11,6 +11,7 @@ import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
 function getStoreRomaneioUrl(batch: {
   loja_id: string;
+  marketplace_id?: string | null;
   marketplace: string;
   finalizado_em: string | null;
   criado_em: string;
@@ -21,6 +22,9 @@ function getStoreRomaneioUrl(batch: {
     marketplace: batch.marketplace,
     data: getSaoPauloDateString(batch.finalizado_em ?? batch.criado_em),
   });
+  if (batch.marketplace_id) {
+    params.set("marketplaceId", batch.marketplace_id);
+  }
 
   return `/relatorios?${params.toString()}`;
 }
@@ -41,14 +45,14 @@ export function RomaneioLoteView({ loteId }: { loteId: string }) {
     <section className="mx-auto grid w-full max-w-[720px] gap-3">
       <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
         <h1 className="text-xl font-semibold text-slate-950">
-          Romaneio por loja
+          Romaneio por loja e marketplace
         </h1>
         <p className="mt-1 text-sm leading-6 text-slate-500">
           {batch
             ? `Abrindo os pacotes da loja ${getStoreName(
                 batch.loja_id,
                 catalogs.stores,
-              )} no dia deste lote.`
+              )}, marketplace ${batch.marketplace}, no dia deste lote.`
             : "Localizando a loja vinculada ao lote antigo."}
         </p>
       </div>
@@ -70,7 +74,7 @@ export function RomaneioLoteView({ loteId }: { loteId: string }) {
           href={destinationUrl}
           className="inline-flex min-h-11 items-center justify-center rounded-xl bg-slate-950 px-4 text-sm font-semibold text-white transition hover:bg-slate-800"
         >
-          Continuar para o romaneio da loja
+          Continuar para o romaneio da loja e marketplace
         </a>
       ) : null}
     </section>

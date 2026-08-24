@@ -28,7 +28,7 @@ test("romaneio escolhe quatro ou cinco colunas e imprime em A4", () => {
   );
 });
 
-test("loja, marketplace e periodo ficam em destaque sem lote", () => {
+test("loja, marketplace e período ficam em destaque sem lote", () => {
   assert.match(componentSource, />\s*Loja\s*</);
   assert.match(componentSource, />\s*Marketplace\s*</);
   assert.match(componentSource, />\s*Período\s*</);
@@ -37,6 +37,7 @@ test("loja, marketplace e periodo ficam em destaque sem lote", () => {
     /romaneio-store-name[^"\n]*place-items-center[^"\n]*text-center/,
   );
   assert.match(componentSource, /group\.marketplace/);
+  assert.doesNotMatch(componentSource, /group\.marketplaces/);
   assert.match(componentSource, /group\.periodo/);
   assert.doesNotMatch(componentSource, /codigo_lote|>\s*Lote\s*</i);
 });
@@ -62,6 +63,15 @@ test("romaneio do email segue o mesmo resumo e preserva as assinaturas", () => {
   assert.doesNotMatch(romaneioEmailSource, /codigo_lote|\blotes?\b/i);
   assert.doesNotMatch(romaneioEmailSource, /group\.data\b/);
   assert.match(romaneioEmailSource, /group\.marketplace\b/);
+  assert.doesNotMatch(romaneioEmailSource, /group\.marketplaces\b/);
   assert.match(romaneioEmailSource, /Transportadora: _+/);
   assert.match(romaneioEmailSource, /Responsável pela expedição: _+/);
+});
+
+test("email rejeita aba antiga que ainda mistura marketplaces", () => {
+  assert.match(emailSource, /legacyMarketplaces\.length > 1/);
+  assert.match(emailSource, /throw new ReportPayloadError/);
+  assert.match(emailSource, /Recarregue a página para separar os marketplaces/);
+  assert.match(emailSource, /error instanceof ReportPayloadError/);
+  assert.match(emailSource, /status: 409/);
 });

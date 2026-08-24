@@ -43,7 +43,9 @@ type Notice = {
 };
 
 function summarizeList(values: string[], allLabel: string) {
-  return values.length ? values.join(", ") : allLabel;
+  return values.length
+    ? values.map((value) => value.trim() || "Não informado").join(", ")
+    : allLabel;
 }
 
 function getFilterSummary(
@@ -96,11 +98,13 @@ export function RelatoriosView({
   initialMode = "resumido",
   initialStoreId,
   initialMarketplace,
+  initialMarketplaceId,
   initialDate,
 }: {
   initialMode?: ReportMode;
   initialStoreId?: string;
   initialMarketplace?: string;
+  initialMarketplaceId?: string;
   initialDate?: string;
 }) {
   const { session, user } = useAuth();
@@ -108,13 +112,16 @@ export function RelatoriosView({
   const { catalogs, packages, loading, error } =
     useSupabaseDispatchData("relatorios");
   const [mode, setMode] = useState<ReportMode>(initialMode);
-  const [filters, setFilters] = useState(() => {
+  const [filters, setFilters] = useState<
+    ReturnType<typeof createDefaultPackageFilters>
+  >(() => {
     const defaults = createDefaultPackageFilters();
 
     return {
       ...defaults,
       lojaId: initialStoreId ? [initialStoreId] : defaults.lojaId,
-      marketplace: initialMarketplace
+      marketplaceId: initialMarketplaceId,
+      marketplace: initialMarketplace !== undefined
         ? [initialMarketplace]
         : defaults.marketplace,
       ...(initialDate
@@ -294,7 +301,9 @@ export function RelatoriosView({
             resumo: summary,
             romaneios: romaneioGroups.map((group) => ({
               id: group.id,
+              loja_id: group.loja_id,
               loja_nome: group.loja_nome,
+              marketplace_id: group.marketplace_id,
               marketplace: group.marketplace,
               periodo: group.periodo,
               pacotes: group.pacotes.map((item) => ({
