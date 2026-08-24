@@ -45,6 +45,7 @@ import {
   type RelatorioDestinatarioRow,
   updateLoja,
   updateMarketplace,
+  updateTransportadora,
 } from "@/lib/database";
 import {
   isSupabaseConfigured,
@@ -666,7 +667,7 @@ export function CadastrosView() {
   }
 
   async function handleRename(
-    kind: Extract<CatalogKind, "stores" | "marketplaces">,
+    kind: CatalogKind,
     item: CatalogItem,
     name: string,
   ) {
@@ -681,7 +682,7 @@ export function CadastrosView() {
       return true;
     }
 
-    const items = kind === "stores" ? catalogs.stores : catalogs.marketplaces;
+    const items = catalogs[kind];
     const duplicate = items.some(
       (candidate) =>
         candidate.id !== item.id &&
@@ -694,7 +695,9 @@ export function CadastrosView() {
         text:
           kind === "stores"
             ? "Ja existe outra loja com esse nome."
-            : "Ja existe outro marketplace com esse nome.",
+            : kind === "marketplaces"
+              ? "Ja existe outro marketplace com esse nome."
+              : "Ja existe outra transportadora com esse nome.",
       });
       return false;
     }
@@ -708,8 +711,10 @@ export function CadastrosView() {
     try {
       if (kind === "stores") {
         await updateLoja(item.id, { nome: cleanName }, { userId });
-      } else {
+      } else if (kind === "marketplaces") {
         await updateMarketplace(item.id, { nome: cleanName }, { userId });
+      } else {
+        await updateTransportadora(item.id, { nome: cleanName }, { userId });
       }
 
       setNotice({ tone: "success", text: "Nome atualizado com sucesso." });
@@ -874,6 +879,7 @@ export function CadastrosView() {
           disabled={viewLoading}
           saving={saving}
           onAdd={(name) => handleCreate("carriers", name)}
+          onRename={(item, name) => handleRename("carriers", item, name)}
           onActivate={(item) => setPendingAction({ kind: "carriers", item, action: "activate" })}
           onDeactivate={(item) => setPendingAction({ kind: "carriers", item, action: "deactivate" })}
           onDelete={(item) => setPendingAction({ kind: "carriers", item, action: "delete-first" })}

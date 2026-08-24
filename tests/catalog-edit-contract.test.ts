@@ -54,8 +54,13 @@ const updateMarketplaceSource = sectionBetween(
   "export async function updateMarketplace(",
   "export async function ativarMarketplace(",
 );
+const updateTransportadoraSource = sectionBetween(
+  databaseSource,
+  "export async function updateTransportadora(",
+  "export async function ativarTransportadora(",
+);
 
-test("edicao de nome aparece somente para lojas e marketplaces", () => {
+test("edicao de nome aparece para lojas, marketplaces e transportadoras", () => {
   const stores = catalogSection(viewSource, "Lojas");
   const marketplaces = catalogSection(viewSource, "Marketplaces");
   const carriers = catalogSection(viewSource, "Transportadoras");
@@ -68,7 +73,10 @@ test("edicao de nome aparece somente para lojas e marketplaces", () => {
     marketplaces,
     /onRename=\{\(item, name\) => handleRename\("marketplaces", item, name\)\}/,
   );
-  assert.doesNotMatch(carriers, /onRename=/);
+  assert.match(
+    carriers,
+    /onRename=\{\(item, name\) => handleRename\("carriers", item, name\)\}/,
+  );
 
   assert.match(viewSource, /onEdit\?: \(\) => void/);
   assert.match(
@@ -123,7 +131,7 @@ test("rename aplica trim, permite corrigir capitalização e bloqueia duplicados
   );
   assert.match(
     renameSource,
-    /const items = kind === "stores" \? catalogs\.stores : catalogs\.marketplaces/,
+    /const items = catalogs\[kind\]/,
   );
   assert.match(
     renameSource,
@@ -144,6 +152,10 @@ test("UI envia somente o nome limpo e preserva o editor quando falha", () => {
   assert.match(
     renameSource,
     /updateMarketplace\(item\.id, \{ nome: cleanName \}, \{ userId \}\)/,
+  );
+  assert.match(
+    renameSource,
+    /updateTransportadora\(item\.id, \{ nome: cleanName \}, \{ userId \}\)/,
   );
   assert.doesNotMatch(renameSource, /slug\s*:/);
   assert.match(
@@ -170,6 +182,7 @@ test("helpers validam o nome e restringem update ao id da conta autenticada", ()
   for (const [label, source, table] of [
     ["loja", updateLojaSource, "lojas"],
     ["marketplace", updateMarketplaceSource, "marketplaces"],
+    ["transportadora", updateTransportadoraSource, "transportadoras"],
   ] as const) {
     assert.match(
       source,
