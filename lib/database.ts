@@ -1,6 +1,7 @@
 import type {
   SupabaseClient,
 } from "@supabase/supabase-js";
+import { isJwtIssuedAtFutureError } from "@/lib/supabase-jwt-retry";
 import type {
   Carrier,
   DispatchBatch,
@@ -518,6 +519,10 @@ function getSessaoPayload(input: CreateSessaoInput) {
 }
 
 export function formatDatabaseError(error: unknown) {
+  if (isJwtIssuedAtFutureError(error)) {
+    return "O Supabase demorou para validar sua sessao. Aguarde alguns segundos e tente novamente.";
+  }
+
   if (error instanceof Error) {
     return error.message;
   }
