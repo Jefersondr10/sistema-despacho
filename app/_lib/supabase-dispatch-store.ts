@@ -35,6 +35,7 @@ import {
   isSupabaseConfigured,
   SUPABASE_NOT_CONFIGURED_MESSAGE,
 } from "@/lib/supabaseClient";
+import { retrySupabaseReadForJwtClockSkew } from "@/lib/supabase-jwt-retry";
 
 type CatalogState = {
   stores: Store[];
@@ -135,6 +136,38 @@ export function useSupabaseDispatchData(
       const loadCancellations = ["full", "bipagem", "cancelados"].includes(
         profile,
       );
+      const loadRows = () =>
+        Promise.all([
+          getLojas({ incluirInativos: true }, databaseContext),
+          getMarketplaces({ incluirInativos: true }, databaseContext),
+          getTransportadoras({ incluirInativos: true }, databaseContext),
+          loadActivePackages
+            ? getPacotesComRelacionamentos(undefined, databaseContext)
+            : Promise.resolve([]),
+          loadAllPackages
+            ? getPacotesComRelacionamentos(
+                {
+                  incluirCancelados: true,
+                },
+                databaseContext,
+              )
+            : Promise.resolve([]),
+          loadBatches
+            ? getSessoesBipagemComRelacionamentos(
+                {
+                  id: profile === "romaneio" ? sessionId : undefined,
+                  incluirTotais: false,
+                },
+                databaseContext,
+              )
+            : Promise.resolve([]),
+          loadMovements
+            ? getMovimentacoes(undefined, databaseContext)
+            : Promise.resolve([]),
+          loadCancellations
+            ? getPacotesCanceladosComRelacionamentos(undefined, databaseContext)
+            : Promise.resolve([]),
+        ]);
       const [
         lojasRows,
         marketplacesRows,
@@ -144,37 +177,9 @@ export function useSupabaseDispatchData(
         sessaoRows,
         movementRows,
         cancellationRows,
-      ] = await Promise.all([
-        getLojas({ incluirInativos: true }, databaseContext),
-        getMarketplaces({ incluirInativos: true }, databaseContext),
-        getTransportadoras({ incluirInativos: true }, databaseContext),
-        loadActivePackages
-          ? getPacotesComRelacionamentos(undefined, databaseContext)
-          : Promise.resolve([]),
-        loadAllPackages
-          ? getPacotesComRelacionamentos(
-              {
-                incluirCancelados: true,
-              },
-              databaseContext,
-            )
-          : Promise.resolve([]),
-        loadBatches
-          ? getSessoesBipagemComRelacionamentos(
-              {
-                id: profile === "romaneio" ? sessionId : undefined,
-                incluirTotais: false,
-              },
-              databaseContext,
-            )
-          : Promise.resolve([]),
-        loadMovements
-          ? getMovimentacoes(undefined, databaseContext)
-          : Promise.resolve([]),
-        loadCancellations
-          ? getPacotesCanceladosComRelacionamentos(undefined, databaseContext)
-          : Promise.resolve([]),
-      ]);
+      ] = await retrySupabaseReadForJwtClockSkew(loadRows, {
+        shouldContinue: isCurrentRequest,
+      });
 
       const allPackages = allPacoteRows.map(mapPacoteRowToDispatchPackage);
       const packages = pacoteRows.map(mapPacoteRowToDispatchPackage);
@@ -243,6 +248,7 @@ export function useSupabaseDispatchData(
 
     return () => {
       cancelled = true;
+      reloadRequestIdRef.current += 1;
     };
   }, [reload]);
 
