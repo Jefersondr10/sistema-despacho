@@ -42,6 +42,7 @@ import {
   finalizarSessaoBipagemAberta,
   formatDatabaseError,
   getPacoteAtivoPorCodigo,
+  getPacoteAtivoGlobalPorCodigo,
   getPacotesFinalizadosPorCodigo,
   getSessaoBipagemAbertaComItens,
   type ItemSessaoBipagemRow,
@@ -1046,9 +1047,8 @@ export function BipagemForm() {
     let duplicatedSavedPackage = null;
     setCheckingPackage(true);
     try {
-      duplicatedSavedPackage = await getPacoteAtivoPorCodigo(
+      duplicatedSavedPackage = await getPacoteAtivoGlobalPorCodigo(
         normalizedCode,
-        { loja_id: selectedLojaId },
         databaseContext,
       );
     } catch (error) {
@@ -1065,7 +1065,7 @@ export function BipagemForm() {
     if (duplicatedSavedPackage) {
       const outcome = reportTrackingOutcome(
         "danger",
-        "Pacote duplicado: este código já foi bipado em outro lote.",
+        "Pacote duplicado: este código já foi bipado nesta conta, mesmo em outra loja ou marketplace.",
       );
       clearCodeField();
       focusCodeField();

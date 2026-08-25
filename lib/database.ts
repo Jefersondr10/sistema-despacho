@@ -2245,6 +2245,63 @@ export async function getPacoteAtivoPorCodigo(
   return data ?? null;
 }
 
+export async function getPacoteAtivoGlobalPorCodigo(
+  codigo: string,
+  context?: DatabaseContext,
+) {
+  const normalizedCode = normalizeDatabaseTrackingCode(codigo);
+  if (!normalizedCode) {
+    return null;
+  }
+
+  const { supabase, userId } = await getDatabaseContext(context);
+  const { data: matches, error: lookupError } = await supabase.rpc(
+    "buscar_pacote_ativo_global_normalizado",
+    { p_codigo: normalizedCode },
+  );
+
+  let pacoteId = (matches as Array<{ id: string }> | null)?.[0]?.id;
+
+  if (lookupError && isMissingRpcFunctionError(lookupError)) {
+    // Compatibilidade durante o rollout da RPC global. A consulta continua
+    // estreita e limitada à conta autenticada, sem baixar o histórico inteiro.
+    const { data: legacyMatch, error: legacyLookupError } = await supabase
+      .from("pacotes")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("codigo", normalizedCode)
+      .neq("status", "cancelado")
+      .limit(1)
+      .maybeSingle<{ id: string }>();
+
+    if (legacyLookupError) {
+      throw legacyLookupError;
+    }
+
+    pacoteId = legacyMatch?.id;
+  } else if (lookupError) {
+    throw lookupError;
+  }
+
+  if (!pacoteId) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("pacotes")
+    .select(pacoteComRelacionamentosSelect)
+    .eq("user_id", userId)
+    .eq("id", pacoteId)
+    .neq("status", "cancelado")
+    .maybeSingle<PacoteComRelacionamentosRow>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? null;
+}
+
 export async function getPacotesFinalizadosPorCodigo(
   codigo: string,
   context?: DatabaseContext,

@@ -140,9 +140,10 @@ create index if not exists idx_pacotes_sessao_id
 
 drop index if exists idx_pacotes_codigo_normalizado;
 drop index if exists idx_pacotes_codigo_normalizado_ativos;
+drop index if exists idx_pacotes_loja_codigo_normalizado_ativos;
 
-create unique index if not exists idx_pacotes_loja_codigo_normalizado_ativos
-  on pacotes (loja_id, upper(regexp_replace(codigo, '\s+', '', 'g')))
+create unique index if not exists idx_pacotes_codigo_normalizado_ativos
+  on pacotes (upper(regexp_replace(codigo, '\s+', '', 'g')))
   where status <> 'cancelado';
 
 create index if not exists idx_movimentacoes_loja_id

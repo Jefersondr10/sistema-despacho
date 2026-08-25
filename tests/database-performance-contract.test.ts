@@ -29,14 +29,48 @@ test("contexto autenticado reutiliza userId sem validar a sessao por helper", ()
 });
 
 test("busca normalizada nao recarrega o historico completo de pacotes", () => {
-  const lookupSource = databaseSource.match(
-    /export async function getPacoteAtivoPorCodigo[\s\S]*?(?=export async function buscarPacoteAtivoPorCodigoNormalizado)/,
+  const scopedLookupSource = databaseSource.match(
+    /export async function getPacoteAtivoPorCodigo[\s\S]*?(?=export async function getPacoteAtivoGlobalPorCodigo)/,
+  )?.[0];
+  const globalLookupSource = databaseSource.match(
+    /export async function getPacoteAtivoGlobalPorCodigo[\s\S]*?(?=export async function getPacotesFinalizadosPorCodigo)/,
   )?.[0];
 
-  assert.ok(lookupSource, "funcao de busca nao encontrada");
-  assert.match(lookupSource, /\.rpc\(\s*"buscar_pacote_ativo_normalizado"/);
-  assert.doesNotMatch(lookupSource, /getPacotesComRelacionamentos/);
-  assert.doesNotMatch(lookupSource, /\.find\(/);
+  assert.ok(scopedLookupSource, "busca por loja nao encontrada");
+  assert.ok(globalLookupSource, "busca global da conta nao encontrada");
+  assert.match(
+    scopedLookupSource,
+    /\.rpc\(\s*"buscar_pacote_ativo_normalizado"/,
+  );
+  assert.match(scopedLookupSource, /\.eq\("loja_id", lojaId\)/);
+  assert.match(
+    globalLookupSource,
+    /\.rpc\(\s*"buscar_pacote_ativo_global_normalizado"/,
+  );
+  assert.match(globalLookupSource, /\.eq\("user_id", userId\)/);
+  assert.doesNotMatch(globalLookupSource, /p_loja_id|\.eq\("loja_id"/);
+  assert.doesNotMatch(globalLookupSource, /getPacotesComRelacionamentos|\.find\(/);
+});
+
+test("bipagem verifica a conta inteira sem alterar a busca do cancelamento", () => {
+  const scanSource = bipagemSource.match(
+    /async function processTrackingCode[\s\S]*?(?=async function finishSession)/,
+  )?.[0];
+  const cancellationSource = bipagemSource.match(
+    /async function confirmSessionPackageCancellation[\s\S]*?(?=\n  const sessionHeader)/,
+  )?.[0];
+
+  assert.ok(scanSource, "fluxo de bipagem nao encontrado");
+  assert.ok(cancellationSource, "fluxo de cancelamento nao encontrado");
+  assert.match(scanSource, /getPacoteAtivoGlobalPorCodigo\(/);
+  assert.doesNotMatch(scanSource, /getPacoteAtivoPorCodigo\(/);
+  assert.match(
+    scanSource,
+    /já foi bipado nesta conta, mesmo em outra loja ou marketplace/,
+  );
+  assert.match(cancellationSource, /getPacoteAtivoPorCodigo\(/);
+  assert.match(cancellationSource, /\{ loja_id: targetPackage\.loja_id \}/);
+  assert.doesNotMatch(cancellationSource, /getPacoteAtivoGlobalPorCodigo\(/);
 });
 
 test("frontend usa RPCs v2 com fallback seguro durante o rollout", () => {
