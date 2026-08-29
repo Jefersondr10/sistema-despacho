@@ -1,0 +1,47 @@
+name: infra-gateway
+
+services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    environment:
+      BIPAGEM_DOMAIN: "${BIPAGEM_DOMAIN:?Configure BIPAGEM_DOMAIN}"
+    ports:
+      - "80:80"
+      - "443:443"
+    configs:
+      - source: caddyfile
+        target: /etc/caddy/Caddyfile
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+
+configs:
+  caddyfile:
+    content: |
+      {$BIPAGEM_DOMAIN} {
+        encode zstd gzip
+
+        header {
+          -Server
+          X-Content-Type-Options "nosniff"
+          Referrer-Policy "strict-origin-when-cross-origin"
+          Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        }
+
+        reverse_proxy bipagem-web:3000
+      }
+
+networks:
+  edge:
+    external: true
+    name: edge
+
+volumes:
+  caddy_data:
+  caddy_config:
