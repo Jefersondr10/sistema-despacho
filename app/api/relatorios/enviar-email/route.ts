@@ -14,14 +14,53 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const RESEND_EMAIL_TIMEOUT_MS = 10_000;
+const EMAIL_CONFIG_PUBLIC_MESSAGE =
+  "O envio por e-mail ainda não está configurado. Avise o administrador do sistema.";
+const EMAIL_DELIVERY_PUBLIC_MESSAGE =
+  "Não foi possível enviar o relatório por e-mail agora. Tente novamente em alguns minutos. Se o problema continuar, avise o administrador.";
+
 type EmailContent = {
   subject: string;
   html: string;
   text: string;
 };
 
-class EmailConfigError extends Error {}
+class EmailConfigError extends Error {
+  constructor() {
+    super(EMAIL_CONFIG_PUBLIC_MESSAGE);
+    this.name = "EmailConfigError";
+  }
+}
+
+class EmailDeliveryError extends Error {
+  constructor() {
+    super(EMAIL_DELIVERY_PUBLIC_MESSAGE);
+    this.name = "EmailDeliveryError";
+  }
+}
+
 class ReportPayloadError extends Error {}
+
+type SafeEmailFailureDetails =
+  | {
+      kind: "configuration";
+      apiKeyConfigured: boolean;
+      senderConfigured: boolean;
+    }
+  | { kind: "provider"; status: number }
+  | { kind: "timeout" | "network" };
+
+function logReportEmailFailure(details: SafeEmailFailureDetails) {
+  console.error("Falha no envio de relatório por e-mail.", details);
+}
+
+function isEmailTimeoutError(error: unknown) {
+  return (
+    error instanceof Error &&
+    (error.name === "TimeoutError" || error.name === "AbortError")
+  );
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -687,36 +726,48 @@ async function sendEmailWithResend({
   const replyTo = process.env.RELATORIOS_EMAIL_REPLY_TO?.trim();
 
   if (!apiKey || !from) {
-    throw new EmailConfigError(
-      "Envio de e-mail nao configurado. Defina RESEND_API_KEY e RELATORIOS_EMAIL_FROM no ambiente do backend.",
-    );
+    logReportEmailFailure({
+      kind: "configuration",
+      apiKeyConfigured: Boolean(apiKey),
+      senderConfigured: Boolean(from),
+    });
+    throw new EmailConfigError();
   }
 
-  const response = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Idempotency-Key": crypto.randomUUID(),
-    },
-    body: JSON.stringify({
-      from,
-      to,
-      subject,
-      html,
-      text,
-      ...(replyTo ? { reply_to: replyTo } : {}),
-    }),
-  });
+  let response: Response;
+
+  try {
+    response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "Idempotency-Key": crypto.randomUUID(),
+      },
+      body: JSON.stringify({
+        from,
+        to,
+        subject,
+        html,
+        text,
+        ...(replyTo ? { reply_to: replyTo } : {}),
+      }),
+      signal: AbortSignal.timeout(RESEND_EMAIL_TIMEOUT_MS),
+    });
+  } catch (error) {
+    logReportEmailFailure({
+      kind: isEmailTimeoutError(error) ? "timeout" : "network",
+    });
+    throw new EmailDeliveryError();
+  }
 
   if (!response.ok) {
-    const body = await response.text();
-    throw new Error(
-      `Falha no provedor de e-mail (${response.status}): ${body || response.statusText}`,
-    );
+    await response.body?.cancel().catch(() => undefined);
+    logReportEmailFailure({ kind: "provider", status: response.status });
+    throw new EmailDeliveryError();
   }
 
-  return response.json();
+  await response.body?.cancel().catch(() => undefined);
 }
 
 async function saveHistory({
@@ -897,7 +948,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { ok: false, message },
-      { status: error instanceof EmailConfigError ? 501 : 500 },
+      {
+        status:
+          error instanceof EmailConfigError
+            ? 503
+            : error instanceof EmailDeliveryError
+              ? 502
+              : 500,
+      },
     );
   }
 }
