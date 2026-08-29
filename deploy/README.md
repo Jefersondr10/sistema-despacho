@@ -29,9 +29,10 @@ domínio-base público, sem protocolo nem caminho. Os nomes padrão criam os
 endereços `bipagem.<domínio-base>` e `nfe.<domínio-base>`; eles podem ser
 alterados por `BIPAGEM_SUBDOMAIN` e `FISCAL_SUBDOMAIN`.
 
-`FEEDBACK_EMAIL_TO` aceita até 50 endereços separados por vírgula, ponto e
-vírgula ou espaço. Ao usar a variável diretamente em um comando do shell,
-coloque a lista entre aspas para que o ponto e vírgula não seja interpretado.
+Os destinatários dos novos feedbacks não ficam no arquivo de ambiente. Depois
+de aplicar a migration de destinatários e publicar a aplicação, cadastre-os em
+**Administração > Gerenciar feedbacks**. Somente administradores de feedback
+veem essa configuração; até 50 endereços podem ficar ativos ao mesmo tempo.
 
 Durante a migração, mantenha `LEGACY_BIPAGEM_DOMAIN` e
 `LEGACY_FISCAL_DOMAIN` com os endereços `sslip.io` atuais. O mesmo bloco do

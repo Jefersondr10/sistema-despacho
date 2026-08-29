@@ -13,7 +13,6 @@ SUPABASE_SERVICE_ROLE_KEY=SUA_CHAVE_SERVICE_ROLE
 RESEND_API_KEY=SUA_CHAVE_RESEND
 RELATORIOS_EMAIL_FROM=Sistema Despacho <despacho@seu-dominio.com>
 RELATORIOS_EMAIL_REPLY_TO=
-FEEDBACK_EMAIL_TO=jefersondr10@gmail.com,operacao@sua-empresa.com
 ```
 
 A aplicação usa somente a chave publicável no navegador. A
@@ -52,13 +51,22 @@ Cada notificação usa um identificador persistente criado no banco. Repetir a
 mesma solicitação tenta novamente somente uma entrega pendente; solicitações já
 marcadas como notificadas não voltam a chamar o provedor de e-mail.
 
-As notificações de novos feedbacks sempre usam os destinatários fixos definidos
-em `FEEDBACK_EMAIL_TO`. Separe até 50 endereços por vírgula, ponto e vírgula ou
-espaço; endereços repetidos são removidos antes do envio. A API nunca aceita
-destinatário, remetente, assunto de e-mail ou HTML vindos do navegador.
+As notificações de novos feedbacks usam somente os destinatários ativos
+cadastrados por um administrador em **Administração > Gerenciar feedbacks**.
+O cadastro aceita até 50 endereços ativos, permite editar, desativar e excluir,
+e não usa nenhum e-mail pessoal fixo no ambiente do servidor. Se não houver
+destinatário ativo, o feedback continua salvo sem envio de notificação. A API
+nunca aceita destinatário, remetente, assunto de e-mail ou HTML vindos do
+navegador.
 `RELATORIOS_EMAIL_FROM` e
 `RESEND_API_KEY` também ficam exclusivamente no backend. O e-mail autenticado
 do autor é usado apenas como `reply_to`.
+
+Antes de publicar essa tela, aplique
+`supabase/migrations/202608290001_feedback_notification_recipients.sql`. A
+migration cria o cadastro vazio, as permissões administrativas e o snapshot
+dos destinatários por notificação; ela não copia endereços de variáveis antigas
+nem cadastra automaticamente o e-mail de um administrador.
 
 Administradores revisam pela rota `PATCH /api/feedback/[id]`, protegida pela RPC
 `review_feedback`. O PATCH envia também `expectedUpdatedAt`, permitindo que o

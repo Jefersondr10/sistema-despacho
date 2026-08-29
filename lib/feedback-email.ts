@@ -89,28 +89,28 @@ function isEmailAddress(value: string | null | undefined) {
   );
 }
 
-export function parseFeedbackRecipientEmails(
-  value: string | null | undefined,
-) {
+export function normalizeFeedbackRecipientEmails(value: unknown) {
+  if (!Array.isArray(value) || value.length > 50) {
+    return null;
+  }
+
   const recipients: string[] = [];
   const seen = new Set<string>();
 
-  for (const candidate of String(value ?? "")
-    .split(/[\s,;]+/)
-    .map((item) => item.trim())
-    .filter(Boolean)) {
-    if (!isEmailAddress(candidate)) {
-      return [];
+  for (const candidate of value) {
+    if (typeof candidate !== "string" || !isEmailAddress(candidate)) {
+      return null;
     }
 
-    const key = candidate.toLowerCase();
+    const normalized = candidate.trim();
+    const key = normalized.toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
-      recipients.push(candidate);
+      recipients.push(normalized);
     }
   }
 
-  return recipients.length <= 50 ? recipients : [];
+  return recipients;
 }
 
 function normalizeLabel(labels: Record<string, string>, value: string) {
@@ -279,17 +279,15 @@ async function sendWithResend(
 
 export async function sendFeedbackSubmissionEmail(
   input: FeedbackSubmissionEmailInput,
+  recipients: readonly string[],
   fetcher: FeedbackEmailFetcher = fetch,
 ): Promise<FeedbackEmailResult> {
-  const configuredRecipients = process.env.FEEDBACK_EMAIL_TO?.trim() ?? "";
-
-  if (!configuredRecipients) {
-    return { sent: false, reason: "not_configured" };
-  }
-
-  const to = parseFeedbackRecipientEmails(configuredRecipients);
-  if (!to.length) {
+  const to = normalizeFeedbackRecipientEmails(recipients);
+  if (!to) {
     return { sent: false, reason: "invalid_recipient" };
+  }
+  if (!to.length) {
+    return { sent: false, reason: "not_configured" };
   }
 
   const content = buildFeedbackSubmissionEmail(input);

@@ -417,7 +417,50 @@ export function normalizeFeedbackRow(
   };
 }
 
-export function normalizeSubmissionNotificationState(value: unknown) {
+export type FeedbackSubmissionDeliveryContext = {
+  notificationId: string;
+  notifiedAt: string | null;
+  recipientEmails: string[];
+};
+
+function normalizeRecipientEmailList(value: unknown) {
+  if (!Array.isArray(value) || value.length > 50) {
+    return null;
+  }
+
+  const emails: string[] = [];
+  const seen = new Set<string>();
+
+  for (const email of value) {
+    if (typeof email !== "string") {
+      return null;
+    }
+
+    const normalized = email.trim();
+    if (
+      normalized.length < 3 ||
+      normalized.length > 320 ||
+      /\s/.test(normalized) ||
+      normalized.indexOf("@") <= 0 ||
+      normalized.lastIndexOf("@") !== normalized.indexOf("@") ||
+      normalized.indexOf("@") >= normalized.length - 1
+    ) {
+      return null;
+    }
+
+    const key = normalized.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      emails.push(normalized);
+    }
+  }
+
+  return emails;
+}
+
+export function normalizeSubmissionDeliveryContext(
+  value: unknown,
+): FeedbackSubmissionDeliveryContext | null {
   const candidate = Array.isArray(value) ? value[0] : value;
 
   if (
@@ -428,9 +471,17 @@ export function normalizeSubmissionNotificationState(value: unknown) {
     return null;
   }
 
+  const recipientEmails = normalizeRecipientEmailList(
+    candidate.recipient_emails,
+  );
+  if (!recipientEmails) {
+    return null;
+  }
+
   return {
     notificationId: candidate.notification_id,
     notifiedAt: candidate.notified_at,
+    recipientEmails,
   };
 }
 

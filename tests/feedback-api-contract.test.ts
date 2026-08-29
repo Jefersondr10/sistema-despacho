@@ -9,7 +9,7 @@ import {
   mapFeedbackDatabaseError,
   normalizeFeedbackRow,
   normalizeResponseNotificationState,
-  normalizeSubmissionNotificationState,
+  normalizeSubmissionDeliveryContext,
   readFeedbackJsonBody,
   validateFeedbackReview,
   validateFeedbackSubmission,
@@ -19,7 +19,7 @@ import {
   buildFeedbackSubmissionEmail,
   createFeedbackResponseIdempotencyKey,
   createFeedbackSubmissionIdempotencyKey,
-  parseFeedbackRecipientEmails,
+  normalizeFeedbackRecipientEmails,
   sendFeedbackSubmissionEmail,
 } from "../lib/feedback-email.ts";
 
@@ -230,13 +230,21 @@ test("DTO publico e estados internos de entrega sao normalizados separadamente",
   const submissionState = {
     notification_id: submissionNotificationId,
     notified_at: null,
+    recipient_emails: ["gestor@example.com", "operacao@example.com"],
     internal_extra: "nunca-vazar",
   };
-  assert.deepEqual(normalizeSubmissionNotificationState([submissionState]), {
+  assert.deepEqual(normalizeSubmissionDeliveryContext([submissionState]), {
     notificationId: submissionNotificationId,
     notifiedAt: null,
+    recipientEmails: ["gestor@example.com", "operacao@example.com"],
   });
-  assert.equal(normalizeSubmissionNotificationState([]), null);
+  assert.equal(normalizeSubmissionDeliveryContext([]), null);
+  assert.equal(
+    normalizeSubmissionDeliveryContext([
+      { ...submissionState, recipient_emails: ["invalido"] },
+    ]),
+    null,
+  );
 
   const responseState = {
     notification_id: responseNotificationId,
@@ -349,12 +357,9 @@ test("Resend recebe varios destinatarios server-side, reply_to autenticado e cha
   const previousEnvironment = {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RELATORIOS_EMAIL_FROM: process.env.RELATORIOS_EMAIL_FROM,
-    FEEDBACK_EMAIL_TO: process.env.FEEDBACK_EMAIL_TO,
   };
   process.env.RESEND_API_KEY = "re_teste";
   process.env.RELATORIOS_EMAIL_FROM = "Sistema <sistema@example.com>";
-  process.env.FEEDBACK_EMAIL_TO =
-    "proprietario@example.com; operacao@example.com, PROPRIETARIO@example.com";
 
   let capturedUrl = "";
   let capturedInit: RequestInit | undefined;
@@ -376,6 +381,11 @@ test("Resend recebe varios destinatarios server-side, reply_to autenticado e cha
           email: publicFeedbackRow.sender_email,
         },
       },
+      [
+        "proprietario@example.com",
+        "operacao@example.com",
+        "PROPRIETARIO@example.com",
+      ],
       async (input, init) => {
         capturedUrl = String(input);
         capturedInit = init;
@@ -408,26 +418,35 @@ test("Resend recebe varios destinatarios server-side, reply_to autenticado e cha
   }
 });
 
-test("destinatarios de feedback aceitam separadores comuns e rejeitam listas invalidas", () => {
+test("destinatarios de feedback sao normalizados a partir do contexto persistido", () => {
   assert.deepEqual(
-    parseFeedbackRecipientEmails(
-      "um@example.com dois@example.com; tres@example.com,UM@example.com",
-    ),
+    normalizeFeedbackRecipientEmails([
+      "um@example.com",
+      "dois@example.com",
+      "tres@example.com",
+      "UM@example.com",
+    ]),
     ["um@example.com", "dois@example.com", "tres@example.com"],
   );
-  assert.deepEqual(
-    parseFeedbackRecipientEmails("valido@example.com; email-invalido"),
-    [],
+  assert.equal(
+    normalizeFeedbackRecipientEmails([
+      "valido@example.com",
+      "email-invalido",
+    ]),
+    null,
   );
 
   const fiftyRecipients = Array.from(
     { length: 50 },
     (_, index) => `gestor${index}@example.com`,
-  ).join(",");
-  assert.equal(parseFeedbackRecipientEmails(fiftyRecipients).length, 50);
-  assert.deepEqual(
-    parseFeedbackRecipientEmails(`${fiftyRecipients},extra@example.com`),
-    [],
+  );
+  assert.equal(normalizeFeedbackRecipientEmails(fiftyRecipients)?.length, 50);
+  assert.equal(
+    normalizeFeedbackRecipientEmails([
+      ...fiftyRecipients,
+      "extra@example.com",
+    ]),
+    null,
   );
 });
 
@@ -435,11 +454,9 @@ test("configuracao invalida de destinatarios nao chama o Resend", async () => {
   const previousEnvironment = {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RELATORIOS_EMAIL_FROM: process.env.RELATORIOS_EMAIL_FROM,
-    FEEDBACK_EMAIL_TO: process.env.FEEDBACK_EMAIL_TO,
   };
   process.env.RESEND_API_KEY = "re_teste";
   process.env.RELATORIOS_EMAIL_FROM = "Sistema <sistema@example.com>";
-  process.env.FEEDBACK_EMAIL_TO = "gestor@example.com; endereco-invalido";
   let called = false;
 
   try {
@@ -457,6 +474,7 @@ test("configuracao invalida de destinatarios nao chama o Resend", async () => {
         },
         authenticatedUser: { email: publicFeedbackRow.sender_email },
       },
+      ["gestor@example.com", "endereco-invalido"],
       async () => {
         called = true;
         return new Response(null, { status: 202 });
@@ -464,6 +482,44 @@ test("configuracao invalida de destinatarios nao chama o Resend", async () => {
     );
 
     assert.deepEqual(result, { sent: false, reason: "invalid_recipient" });
+    assert.equal(called, false);
+  } finally {
+    restoreEnvironment(previousEnvironment);
+  }
+});
+
+test("lista vazia nao chama o Resend e informa notificacao nao configurada", async () => {
+  const previousEnvironment = {
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RELATORIOS_EMAIL_FROM: process.env.RELATORIOS_EMAIL_FROM,
+  };
+  process.env.RESEND_API_KEY = "re_teste";
+  process.env.RELATORIOS_EMAIL_FROM = "Sistema <sistema@example.com>";
+  let called = false;
+
+  try {
+    const result = await sendFeedbackSubmissionEmail(
+      {
+        notificationId: submissionNotificationId,
+        feedback: {
+          id: publicFeedbackRow.id,
+          category: publicFeedbackRow.category,
+          area: publicFeedbackRow.area,
+          subject: publicFeedbackRow.subject,
+          message: publicFeedbackRow.message,
+          pagePath: publicFeedbackRow.page_path,
+          createdAt: publicFeedbackRow.created_at,
+        },
+        authenticatedUser: { email: publicFeedbackRow.sender_email },
+      },
+      [],
+      async () => {
+        called = true;
+        return new Response(null, { status: 202 });
+      },
+    );
+
+    assert.deepEqual(result, { sent: false, reason: "not_configured" });
     assert.equal(called, false);
   } finally {
     restoreEnvironment(previousEnvironment);
@@ -506,9 +562,18 @@ test("rotas separam autenticacao publica do estado interno de entrega", () => {
     assert.match(postRouteSource, new RegExp(`\\b${parameter}\\b`));
   }
   assert.match(postRouteSource, /getFeedbackDeliveryClient\(\)/);
-  assert.match(postRouteSource, /"get_feedback_submission_notification_state"/);
+  assert.match(
+    postRouteSource,
+    /"get_feedback_submission_delivery_context_v2"/,
+  );
   assert.match(postRouteSource, /p_user_id: authentication\.user\.id/);
-  assert.match(postRouteSource, /notificationId: deliveryState\.notificationId/);
+  assert.match(
+    postRouteSource,
+    /notificationId: deliveryContext\.notificationId/,
+  );
+  assert.match(postRouteSource, /deliveryContext\.recipientEmails/);
+  assert.doesNotMatch(postRouteSource, /recipientEmails\s*:/);
+  assert.doesNotMatch(postRouteSource, /deliveryContext\s*[,}]/);
   assert.match(postRouteSource, /"mark_feedback_submission_notified"/);
   assert.match(postRouteSource, /p_notification_id/);
   assert.match(postRouteSource, /marked === true/);
@@ -578,13 +643,12 @@ test("segredos de entrega ficam em helper server-only e documentacao server-side
   );
   assert.ok(packageJson.dependencies?.["server-only"]);
 
-  assert.match(emailSource, /process\.env\.FEEDBACK_EMAIL_TO/);
+  assert.doesNotMatch(emailSource, /process\.env\.FEEDBACK_EMAIL_TO/);
   assert.match(emailSource, /process\.env\.RELATORIOS_EMAIL_FROM/);
   assert.match(emailSource, /process\.env\.RESEND_API_KEY/);
   assert.match(emailSource, /AbortSignal\.timeout\(FEEDBACK_EMAIL_TIMEOUT_MS\)/);
   assert.doesNotMatch(emailSource, /response\.text\(\)|response\.json\(\)/);
   assert.doesNotMatch(emailSource, /statusLabels|feedback\.status/);
-  assert.match(envExample, /FEEDBACK_EMAIL_TO=jefersondr10@gmail\.com/);
   assert.match(envExample, /^SUPABASE_SERVICE_ROLE_KEY=$/m);
   assert.doesNotMatch(envExample, /NEXT_PUBLIC_SUPABASE_SERVICE_ROLE/);
   assert.match(readme, /POST \/api\/feedback/);

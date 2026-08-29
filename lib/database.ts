@@ -164,6 +164,21 @@ export type FeedbackManagementSummary = {
   arquivados: number;
 };
 
+export type FeedbackNotificationRecipient = {
+  id: string;
+  label: string | null;
+  email: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FeedbackNotificationRecipientInput = {
+  label?: string | null;
+  email: string;
+  active: boolean;
+};
+
 export type SessaoBipagemRow = {
   id: string;
   user_id: string;
@@ -1085,6 +1100,121 @@ export async function getFeedbackManagementSummary(
     resolvidos: getFeedbackCount(row.resolvido),
     arquivados: getFeedbackCount(row.arquivado),
   };
+}
+
+function normalizeFeedbackNotificationRecipient(
+  value: unknown,
+): FeedbackNotificationRecipient {
+  const row = value as Partial<FeedbackNotificationRecipient> | null;
+
+  if (
+    !row ||
+    typeof row.id !== "string" ||
+    typeof row.email !== "string" ||
+    typeof row.active !== "boolean" ||
+    typeof row.created_at !== "string" ||
+    typeof row.updated_at !== "string" ||
+    !(row.label === null || typeof row.label === "string")
+  ) {
+    throw new Error("Destinatario de feedback invalido.");
+  }
+
+  return {
+    id: row.id,
+    label: row.label,
+    email: row.email,
+    active: row.active,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+export async function listFeedbackNotificationRecipients(
+  context?: DatabaseContext,
+): Promise<FeedbackNotificationRecipient[]> {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "list_feedback_notification_recipients",
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return (Array.isArray(data) ? data : []).map(
+    normalizeFeedbackNotificationRecipient,
+  );
+}
+
+export async function createFeedbackNotificationRecipient(
+  input: FeedbackNotificationRecipientInput,
+  context?: DatabaseContext,
+) {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "create_feedback_notification_recipient",
+    {
+      p_email: input.email,
+      p_label: input.label?.trim() || null,
+      p_active: input.active,
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeFeedbackNotificationRecipient(data);
+}
+
+export async function updateFeedbackNotificationRecipient(
+  id: string,
+  input: FeedbackNotificationRecipientInput,
+  expectedUpdatedAt: string,
+  context?: DatabaseContext,
+) {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "update_feedback_notification_recipient",
+    {
+      p_id: id,
+      p_email: input.email,
+      p_label: input.label?.trim() || null,
+      p_active: input.active,
+      p_expected_updated_at: expectedUpdatedAt,
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  return normalizeFeedbackNotificationRecipient(data);
+}
+
+export async function deleteFeedbackNotificationRecipient(
+  id: string,
+  expectedUpdatedAt: string,
+  context?: DatabaseContext,
+) {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "delete_feedback_notification_recipient",
+    {
+      p_id: id,
+      p_expected_updated_at: expectedUpdatedAt,
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  if (data !== true) {
+    throw new Error("Nao foi possivel excluir o destinatario.");
+  }
+
+  return true;
 }
 
 export async function getLojas(

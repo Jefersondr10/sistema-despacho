@@ -8,7 +8,7 @@ import {
   feedbackErrorResponse,
   mapFeedbackDatabaseError,
   normalizeFeedbackRow,
-  normalizeSubmissionNotificationState,
+  normalizeSubmissionDeliveryContext,
   readFeedbackJsonBody,
   validateFeedbackSubmission,
   FeedbackRequestError,
@@ -65,26 +65,26 @@ export async function POST(request: Request) {
       );
     }
 
-    let deliveryState: ReturnType<
-      typeof normalizeSubmissionNotificationState
+    let deliveryContext: ReturnType<
+      typeof normalizeSubmissionDeliveryContext
     > = null;
     try {
-      const { data: state, error: stateError } = await deliveryClient.rpc(
-        "get_feedback_submission_notification_state",
+      const { data: context, error: contextError } = await deliveryClient.rpc(
+        "get_feedback_submission_delivery_context_v2",
         {
           p_feedback_id: feedback.id,
           p_user_id: authentication.user.id,
         },
       );
 
-      if (!stateError) {
-        deliveryState = normalizeSubmissionNotificationState(state);
+      if (!contextError) {
+        deliveryContext = normalizeSubmissionDeliveryContext(context);
       }
     } catch {
-      deliveryState = null;
+      deliveryContext = null;
     }
 
-    if (!deliveryState) {
+    if (!deliveryContext) {
       return NextResponse.json(
         {
           ok: true,
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (deliveryState.notifiedAt) {
+    if (deliveryContext.notifiedAt) {
       return NextResponse.json(
         {
           ok: true,
@@ -111,19 +111,22 @@ export async function POST(request: Request) {
 
     let notification: Awaited<ReturnType<typeof sendFeedbackSubmissionEmail>>;
     try {
-      notification = await sendFeedbackSubmissionEmail({
-        notificationId: deliveryState.notificationId,
-        feedback: {
-          id: feedback.id,
-          category: feedback.category,
-          area: feedback.area,
-          subject: feedback.subject,
-          message: feedback.message,
-          pagePath: feedback.page_path,
-          createdAt: feedback.created_at,
+      notification = await sendFeedbackSubmissionEmail(
+        {
+          notificationId: deliveryContext.notificationId,
+          feedback: {
+            id: feedback.id,
+            category: feedback.category,
+            area: feedback.area,
+            subject: feedback.subject,
+            message: feedback.message,
+            pagePath: feedback.page_path,
+            createdAt: feedback.created_at,
+          },
+          authenticatedUser: { email: authentication.user.email },
         },
-        authenticatedUser: { email: authentication.user.email },
-      });
+        deliveryContext.recipientEmails,
+      );
     } catch {
       notification = { sent: false, reason: "delivery_failed" };
     }
@@ -136,7 +139,7 @@ export async function POST(request: Request) {
             "mark_feedback_submission_notified",
             {
               p_feedback_id: feedback.id,
-              p_notification_id: deliveryState.notificationId,
+              p_notification_id: deliveryContext.notificationId,
             },
           );
         notificationPersistenceConfirmed = !markError && marked === true;
