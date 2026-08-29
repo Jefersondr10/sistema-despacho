@@ -1,0 +1,26 @@
+.git
+.gitignore
+.next
+node_modules
+
+# Never send local credentials to the Docker build context.
+.env
+.env.*
+!.env.example
+
+# Generated output and local tooling artifacts.
+coverage
+out
+build
+.vercel
+*.tsbuildinfo
+
+# Package-manager and development logs.
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Operating-system files.
+.DS_Store
+Thumbs.db
