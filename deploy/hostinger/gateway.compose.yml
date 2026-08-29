@@ -24,7 +24,7 @@ services:
 configs:
   caddyfile:
     content: |
-      {$BIPAGEM_DOMAIN} {
+      ${BIPAGEM_DOMAIN:?Configure BIPAGEM_DOMAIN} {
         encode zstd gzip
 
         header {
