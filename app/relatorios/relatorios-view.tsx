@@ -440,7 +440,7 @@ export function RelatoriosView({
 
           <label className="grid gap-1.5">
             <span className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
-              E-mail manual extra
+              E-mails manuais extras
             </span>
             <input
               type="text"
@@ -448,8 +448,11 @@ export function RelatoriosView({
               onChange={(event) => setManualEmail(event.target.value)}
               disabled={sendingEmail}
               className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 text-sm text-slate-950 outline-none transition placeholder:text-slate-400 focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
-              placeholder="exemplo@email.com"
+              placeholder="financeiro@email.com; gestor@email.com"
             />
+            <span className="text-xs text-slate-500">
+              Separe vários endereços por vírgula, ponto e vírgula ou espaço.
+            </span>
           </label>
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

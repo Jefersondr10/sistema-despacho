@@ -19,6 +19,7 @@ import {
   buildFeedbackSubmissionEmail,
   createFeedbackResponseIdempotencyKey,
   createFeedbackSubmissionIdempotencyKey,
+  parseFeedbackRecipientEmails,
   sendFeedbackSubmissionEmail,
 } from "../lib/feedback-email.ts";
 
@@ -344,7 +345,7 @@ test("templates escapam HTML e mantem assuntos de e-mail fixos", () => {
   assert.doesNotMatch(`${response.html}\n${response.text}`, /Status:/i);
 });
 
-test("Resend recebe apenas configuracao server-side, reply_to autenticado e chave estavel", async () => {
+test("Resend recebe varios destinatarios server-side, reply_to autenticado e chave estavel", async () => {
   const previousEnvironment = {
     RESEND_API_KEY: process.env.RESEND_API_KEY,
     RELATORIOS_EMAIL_FROM: process.env.RELATORIOS_EMAIL_FROM,
@@ -352,7 +353,8 @@ test("Resend recebe apenas configuracao server-side, reply_to autenticado e chav
   };
   process.env.RESEND_API_KEY = "re_teste";
   process.env.RELATORIOS_EMAIL_FROM = "Sistema <sistema@example.com>";
-  process.env.FEEDBACK_EMAIL_TO = "proprietario@example.com";
+  process.env.FEEDBACK_EMAIL_TO =
+    "proprietario@example.com; operacao@example.com, PROPRIETARIO@example.com";
 
   let capturedUrl = "";
   let capturedInit: RequestInit | undefined;
@@ -388,7 +390,10 @@ test("Resend recebe apenas configuracao server-side, reply_to autenticado e chav
       unknown
     >;
     const headers = capturedInit?.headers as Record<string, string>;
-    assert.deepEqual(body.to, ["proprietario@example.com"]);
+    assert.deepEqual(body.to, [
+      "proprietario@example.com",
+      "operacao@example.com",
+    ]);
     assert.equal(body.from, "Sistema <sistema@example.com>");
     assert.equal(body.reply_to, publicFeedbackRow.sender_email);
     assert.equal(body.subject, "Novo feedback no Sistema Despacho");
@@ -398,6 +403,68 @@ test("Resend recebe apenas configuracao server-side, reply_to autenticado e chav
     );
     assert.ok(headers["Idempotency-Key"].length <= 256);
     assert.ok(capturedInit?.signal);
+  } finally {
+    restoreEnvironment(previousEnvironment);
+  }
+});
+
+test("destinatarios de feedback aceitam separadores comuns e rejeitam listas invalidas", () => {
+  assert.deepEqual(
+    parseFeedbackRecipientEmails(
+      "um@example.com dois@example.com; tres@example.com,UM@example.com",
+    ),
+    ["um@example.com", "dois@example.com", "tres@example.com"],
+  );
+  assert.deepEqual(
+    parseFeedbackRecipientEmails("valido@example.com; email-invalido"),
+    [],
+  );
+
+  const fiftyRecipients = Array.from(
+    { length: 50 },
+    (_, index) => `gestor${index}@example.com`,
+  ).join(",");
+  assert.equal(parseFeedbackRecipientEmails(fiftyRecipients).length, 50);
+  assert.deepEqual(
+    parseFeedbackRecipientEmails(`${fiftyRecipients},extra@example.com`),
+    [],
+  );
+});
+
+test("configuracao invalida de destinatarios nao chama o Resend", async () => {
+  const previousEnvironment = {
+    RESEND_API_KEY: process.env.RESEND_API_KEY,
+    RELATORIOS_EMAIL_FROM: process.env.RELATORIOS_EMAIL_FROM,
+    FEEDBACK_EMAIL_TO: process.env.FEEDBACK_EMAIL_TO,
+  };
+  process.env.RESEND_API_KEY = "re_teste";
+  process.env.RELATORIOS_EMAIL_FROM = "Sistema <sistema@example.com>";
+  process.env.FEEDBACK_EMAIL_TO = "gestor@example.com; endereco-invalido";
+  let called = false;
+
+  try {
+    const result = await sendFeedbackSubmissionEmail(
+      {
+        notificationId: submissionNotificationId,
+        feedback: {
+          id: publicFeedbackRow.id,
+          category: publicFeedbackRow.category,
+          area: publicFeedbackRow.area,
+          subject: publicFeedbackRow.subject,
+          message: publicFeedbackRow.message,
+          pagePath: publicFeedbackRow.page_path,
+          createdAt: publicFeedbackRow.created_at,
+        },
+        authenticatedUser: { email: publicFeedbackRow.sender_email },
+      },
+      async () => {
+        called = true;
+        return new Response(null, { status: 202 });
+      },
+    );
+
+    assert.deepEqual(result, { sent: false, reason: "invalid_recipient" });
+    assert.equal(called, false);
   } finally {
     restoreEnvironment(previousEnvironment);
   }

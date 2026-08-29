@@ -29,6 +29,10 @@ domínio-base público, sem protocolo nem caminho. Os nomes padrão criam os
 endereços `bipagem.<domínio-base>` e `nfe.<domínio-base>`; eles podem ser
 alterados por `BIPAGEM_SUBDOMAIN` e `FISCAL_SUBDOMAIN`.
 
+`FEEDBACK_EMAIL_TO` aceita até 50 endereços separados por vírgula, ponto e
+vírgula ou espaço. Ao usar a variável diretamente em um comando do shell,
+coloque a lista entre aspas para que o ponto e vírgula não seja interpretado.
+
 Durante a migração, mantenha `LEGACY_BIPAGEM_DOMAIN` e
 `LEGACY_FISCAL_DOMAIN` com os endereços `sslip.io` atuais. O mesmo bloco do
 Caddy atende o endereço novo e o temporário, permitindo validar e reverter o

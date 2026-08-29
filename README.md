@@ -13,7 +13,7 @@ SUPABASE_SERVICE_ROLE_KEY=SUA_CHAVE_SERVICE_ROLE
 RESEND_API_KEY=SUA_CHAVE_RESEND
 RELATORIOS_EMAIL_FROM=Sistema Despacho <despacho@seu-dominio.com>
 RELATORIOS_EMAIL_REPLY_TO=
-FEEDBACK_EMAIL_TO=jefersondr10@gmail.com
+FEEDBACK_EMAIL_TO=jefersondr10@gmail.com,operacao@sua-empresa.com
 ```
 
 A aplicação usa somente a chave publicável no navegador. A
@@ -52,9 +52,11 @@ Cada notificação usa um identificador persistente criado no banco. Repetir a
 mesma solicitação tenta novamente somente uma entrega pendente; solicitações já
 marcadas como notificadas não voltam a chamar o provedor de e-mail.
 
-As notificações de novos feedbacks sempre usam o destinatário fixo definido em
-`FEEDBACK_EMAIL_TO`; a API nunca aceita destinatário, remetente, assunto de
-e-mail ou HTML vindos do navegador. `RELATORIOS_EMAIL_FROM` e
+As notificações de novos feedbacks sempre usam os destinatários fixos definidos
+em `FEEDBACK_EMAIL_TO`. Separe até 50 endereços por vírgula, ponto e vírgula ou
+espaço; endereços repetidos são removidos antes do envio. A API nunca aceita
+destinatário, remetente, assunto de e-mail ou HTML vindos do navegador.
+`RELATORIOS_EMAIL_FROM` e
 `RESEND_API_KEY` também ficam exclusivamente no backend. O e-mail autenticado
 do autor é usado apenas como `reply_to`.
 

@@ -40,7 +40,7 @@ export type FeedbackResponseEmailInput = {
 };
 
 type ResendEmail = {
-  to: string;
+  to: string[];
   subject: string;
   html: string;
   text: string;
@@ -87,6 +87,30 @@ function isEmailAddress(value: string | null | undefined) {
     normalized.lastIndexOf("@") === normalized.indexOf("@") &&
     normalized.indexOf("@") < normalized.length - 1
   );
+}
+
+export function parseFeedbackRecipientEmails(
+  value: string | null | undefined,
+) {
+  const recipients: string[] = [];
+  const seen = new Set<string>();
+
+  for (const candidate of String(value ?? "")
+    .split(/[\s,;]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)) {
+    if (!isEmailAddress(candidate)) {
+      return [];
+    }
+
+    const key = candidate.toLowerCase();
+    if (!seen.has(key)) {
+      seen.add(key);
+      recipients.push(candidate);
+    }
+  }
+
+  return recipients.length <= 50 ? recipients : [];
 }
 
 function normalizeLabel(labels: Record<string, string>, value: string) {
@@ -212,7 +236,11 @@ async function sendWithResend(
     return { sent: false, reason: "not_configured" };
   }
 
-  if (!isEmailAddress(email.to)) {
+  if (
+    !email.to.length ||
+    email.to.length > 50 ||
+    email.to.some((recipient) => !isEmailAddress(recipient))
+  ) {
     return { sent: false, reason: "invalid_recipient" };
   }
 
@@ -228,7 +256,7 @@ async function sendWithResend(
       },
       body: JSON.stringify({
         from,
-        to: [email.to],
+        to: email.to,
         subject: email.subject,
         html: email.html,
         text: email.text,
@@ -253,10 +281,15 @@ export async function sendFeedbackSubmissionEmail(
   input: FeedbackSubmissionEmailInput,
   fetcher: FeedbackEmailFetcher = fetch,
 ): Promise<FeedbackEmailResult> {
-  const to = process.env.FEEDBACK_EMAIL_TO?.trim() ?? "";
+  const configuredRecipients = process.env.FEEDBACK_EMAIL_TO?.trim() ?? "";
 
-  if (!to) {
+  if (!configuredRecipients) {
     return { sent: false, reason: "not_configured" };
+  }
+
+  const to = parseFeedbackRecipientEmails(configuredRecipients);
+  if (!to.length) {
+    return { sent: false, reason: "invalid_recipient" };
   }
 
   const content = buildFeedbackSubmissionEmail(input);
@@ -285,7 +318,7 @@ export async function sendFeedbackResponseEmail(
 
   return sendWithResend(
     {
-      to: input.feedback.senderEmail,
+      to: [input.feedback.senderEmail],
       ...content,
       idempotencyKey: createFeedbackResponseIdempotencyKey(
         input.notificationId,
