@@ -1,0 +1,29 @@
+name: gateway
+
+services:
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    environment:
+      BIPAGEM_DOMAIN: "${BIPAGEM_DOMAIN:?Configure BIPAGEM_DOMAIN}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+    security_opt:
+      - no-new-privileges:true
+    stop_grace_period: 30s
+
+networks:
+  edge:
+    external: true
+    name: edge
+
+volumes:
+  caddy_data:
+  caddy_config:

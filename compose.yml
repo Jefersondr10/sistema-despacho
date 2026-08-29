@@ -1,0 +1,36 @@
+name: bipagem
+
+services:
+  bipagem-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_SUPABASE_URL: "${NEXT_PUBLIC_SUPABASE_URL:?Configure NEXT_PUBLIC_SUPABASE_URL}"
+        NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Configure NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
+    restart: unless-stopped
+    init: true
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_SUPABASE_URL: "${NEXT_PUBLIC_SUPABASE_URL:?Configure NEXT_PUBLIC_SUPABASE_URL}"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:?Configure NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
+      SUPABASE_SERVICE_ROLE_KEY: "${SUPABASE_SERVICE_ROLE_KEY:?Configure SUPABASE_SERVICE_ROLE_KEY}"
+      RESEND_API_KEY: "${RESEND_API_KEY:?Configure RESEND_API_KEY}"
+      RELATORIOS_EMAIL_FROM: "${RELATORIOS_EMAIL_FROM:?Configure RELATORIOS_EMAIL_FROM}"
+      RELATORIOS_EMAIL_REPLY_TO: "${RELATORIOS_EMAIL_REPLY_TO:?Configure RELATORIOS_EMAIL_REPLY_TO}"
+      FEEDBACK_EMAIL_TO: "${FEEDBACK_EMAIL_TO:?Configure FEEDBACK_EMAIL_TO}"
+      ENABLE_MOBILE_BIPAGEM_DEMO: "${ENABLE_MOBILE_BIPAGEM_DEMO:-0}"
+    expose:
+      - "3000"
+    networks:
+      - edge
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    stop_grace_period: 30s
+
+networks:
+  edge:
+    external: true
+    name: edge
