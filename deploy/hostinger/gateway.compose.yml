@@ -6,6 +6,7 @@ services:
     restart: unless-stopped
     environment:
       BIPAGEM_DOMAIN: "${BIPAGEM_DOMAIN:?Configure BIPAGEM_DOMAIN}"
+      NOTAS_DOMAIN: "${NOTAS_DOMAIN:?Configure NOTAS_DOMAIN}"
     ports:
       - "80:80"
       - "443:443"
@@ -35,6 +36,19 @@ configs:
         }
 
         reverse_proxy bipagem-web:3000
+      }
+
+      ${NOTAS_DOMAIN:?Configure NOTAS_DOMAIN} {
+        encode zstd gzip
+
+        header {
+          -Server
+          X-Content-Type-Options "nosniff"
+          Referrer-Policy "strict-origin-when-cross-origin"
+          Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        }
+
+        reverse_proxy fiscal-web:8080
       }
 
 networks:
