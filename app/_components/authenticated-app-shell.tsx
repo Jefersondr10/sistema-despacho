@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -158,17 +159,21 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-dvh min-w-0 text-slate-950 xl:grid xl:grid-cols-[clamp(248px,19vw,288px)_minmax(0,1fr)]">
       <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-gradient-to-b from-white/95 via-white/88 to-slate-50/90 p-4 shadow-[10px_0_40px_rgba(15,23,42,0.045)] backdrop-blur-xl xl:flex xl:p-5">
-        <div className="flex items-center gap-3 rounded-2xl px-2 py-2.5">
+        <Link
+          href="/dashboard"
+          aria-label="Ir para o Dashboard"
+          className="group flex items-center gap-3 rounded-2xl px-2 py-2.5 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+        >
           <BrandMark />
           <div>
-            <p className="font-bold tracking-[-0.025em] text-slate-950">
+            <p className="font-bold tracking-[-0.025em] text-slate-950 transition-colors group-hover:text-teal-800">
               Sistema Despacho
             </p>
             <p className="mt-0.5 text-xs font-medium tracking-[-0.01em] text-slate-500">
               Controle de expedição
             </p>
           </div>
-        </div>
+        </Link>
         <div className="app-scroll-region mt-7 min-h-0 flex-1 overflow-y-auto pr-1">
           <p className="mb-3 px-3 text-[10px] font-bold uppercase tracking-[0.19em] text-slate-400">
             Menu principal
