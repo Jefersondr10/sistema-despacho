@@ -1,0 +1,62 @@
+name: Validar implantação Hostinger
+
+on:
+  pull_request:
+    paths:
+      - "Dockerfile"
+      - ".dockerignore"
+      - "next.config.ts"
+      - "deploy/hostinger/**"
+      - ".github/workflows/validar-hostinger.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://exemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: chave-publica-de-validacao
+      SUPABASE_SERVICE_ROLE_KEY: chave-servidor-de-validacao
+      RESEND_API_KEY: chave-resend-de-validacao
+      RELATORIOS_EMAIL_FROM: Sistema Despacho <despacho@example.com>
+      FEEDBACK_EMAIL_TO: jefersondr10@gmail.com
+      ENABLE_MOBILE_BIPAGEM_DEMO: "0"
+
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@v4
+
+      - name: Preparar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Instalar dependências
+        run: npm ci
+
+      - name: Executar testes
+        run: npm test
+
+      - name: Executar lint
+        run: npm run lint
+
+      - name: Gerar build Next.js
+        run: npm run build
+
+      - name: Validar Docker Compose
+        env:
+          BIPAGEM_DOMAIN: bipagem.example.com
+          CADDY_EMAIL: infraestrutura@example.com
+        run: docker compose -f deploy/hostinger/compose.yml config
+
+      - name: Gerar imagem Docker
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_SUPABASE_URL="$NEXT_PUBLIC_SUPABASE_URL" \
+            --build-arg NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" \
+            -t sistema-despacho:hostinger .
