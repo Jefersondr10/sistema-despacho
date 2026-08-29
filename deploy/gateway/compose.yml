@@ -1,4 +1,4 @@
-name: gateway
+name: infra-gateway
 
 services:
   caddy:
