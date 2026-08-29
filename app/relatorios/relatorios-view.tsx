@@ -21,6 +21,7 @@ import {
   getOperationLabel,
   getReportSummary,
   getStoreName,
+  hasEmptyMultiSelection,
 } from "@/app/_lib/mock-data";
 import {
   groupRomaneioPackagesByStoreAndMarketplace,
@@ -42,7 +43,16 @@ type Notice = {
   text: string;
 };
 
-function summarizeList(values: string[], allLabel: string) {
+function summarizeList(
+  values: string[],
+  allLabel: string,
+  emptyLabel: string,
+  explicitlyEmpty: boolean,
+) {
+  if (explicitlyEmpty) {
+    return emptyLabel;
+  }
+
   return values.length
     ? values.map((value) => value.trim() || "Não informado").join(", ")
     : allLabel;
@@ -53,26 +63,37 @@ function getFilterSummary(
   stores: Store[],
 ) {
   return {
-    loja: filters.lojaId.length
-      ? filters.lojaId.map((lojaId) => getStoreName(lojaId, stores)).join(", ")
-      : "Todas",
+    loja: hasEmptyMultiSelection(filters, "lojaId")
+      ? "Nenhuma"
+      : filters.lojaId.length
+        ? filters.lojaId
+            .map((lojaId) => getStoreName(lojaId, stores))
+            .join(", ")
+        : "Todas",
     data: describeDateFilter(filters),
-    marketplace: summarizeList(filters.marketplace, "Todos"),
+    marketplace: summarizeList(
+      filters.marketplace,
+      "Todos",
+      "Nenhum",
+      hasEmptyMultiSelection(filters, "marketplace"),
+    ),
     melhorEnvio:
       filters.melhorEnvio === "todos"
         ? "Todos"
         : filters.melhorEnvio === "sim"
           ? "Sim"
           : "Não",
-    transportadora: filters.transportadora.length
-      ? filters.transportadora
-          .map((transportadora) =>
-            transportadora === "sem-transportadora"
-              ? "Sem transportadora"
-              : transportadora,
-          )
-          .join(", ")
-      : "Todas",
+    transportadora: hasEmptyMultiSelection(filters, "transportadora")
+      ? "Nenhuma"
+      : filters.transportadora.length
+        ? filters.transportadora
+            .map((transportadora) =>
+              transportadora === "sem-transportadora"
+                ? "Sem transportadora"
+                : transportadora,
+            )
+            .join(", ")
+        : "Todas",
     tipoOperacao: getOperationLabel(filters.tipoOperacao),
     codigoLote: filters.codigoLote?.trim() || "Todos",
   };

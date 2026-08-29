@@ -1,19 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 
-import type {
-  Carrier,
-  DateFilterMode,
-  MelhorEnvioFilter,
-  Marketplace,
-  OperationFilter,
-  PackageFilterValues,
-  Store,
+import {
+  createDefaultPackageFilters,
+  hasEmptyMultiSelection,
+  type Carrier,
+  type DateFilterMode,
+  type MelhorEnvioFilter,
+  type Marketplace,
+  type OperationFilter,
+  type PackageFilterValues,
+  type Store,
 } from "@/app/_lib/mock-data";
-import { createDefaultPackageFilters } from "@/app/_lib/mock-data";
-
-type MultiFilterName = "lojaId" | "marketplace" | "transportadora";
+import {
+  resolveMultiSelectValues,
+  toggleAllMultiSelectValues,
+  toggleMultiSelectValue,
+  updateEmptyMultiSelections,
+  type MultiSelectFilterName,
+} from "@/app/_lib/multi-select-filter";
 
 type MultiSelectOption = {
   label: string;
@@ -21,23 +27,24 @@ type MultiSelectOption = {
 };
 
 function summarizeSelection({
-  selected,
+  selectedValues,
   options,
   allLabel,
+  emptyLabel,
+  allSelected,
 }: {
-  selected: string[];
+  selectedValues: string[];
   options: MultiSelectOption[];
   allLabel: string;
+  emptyLabel: string;
+  allSelected: boolean;
 }) {
-  const selectedValues =
-    selected.length === 0
-      ? options.map((option) => option.value)
-      : selected.filter((value) =>
-          options.some((option) => option.value === value),
-        );
-
-  if (selected.length === 0) {
+  if (allSelected) {
     return allLabel;
+  }
+
+  if (selectedValues.length === 0) {
+    return emptyLabel;
   }
 
   const selectedLabels = options
@@ -54,8 +61,10 @@ function summarizeSelection({
 function MultiSelectDropdown({
   label,
   allLabel,
+  emptyLabel,
   options,
   selected,
+  explicitlyEmpty,
   open,
   onOpenChange,
   onToggleValue,
@@ -63,18 +72,28 @@ function MultiSelectDropdown({
 }: {
   label: string;
   allLabel: string;
+  emptyLabel: string;
   options: MultiSelectOption[];
   selected: string[];
+  explicitlyEmpty: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onToggleValue: (value: string) => void;
   onSelectAll: () => void;
 }) {
-  const selectedValues =
-    selected.length === 0 ? options.map((option) => option.value) : selected;
-  const allSelected =
-    selected.length === 0 || selectedValues.length === options.length;
-  const summary = summarizeSelection({ selected, options, allLabel });
+  const dropdownId = useId();
+  const { selectedValues, allSelected } = resolveMultiSelectValues({
+    selected,
+    optionValues: options.map((option) => option.value),
+    explicitlyEmpty,
+  });
+  const summary = summarizeSelection({
+    selectedValues,
+    options,
+    allLabel,
+    emptyLabel,
+    allSelected,
+  });
 
   return (
     <div className="relative grid min-w-0 gap-2 text-sm font-medium text-slate-700">
@@ -84,6 +103,15 @@ function MultiSelectDropdown({
         onClick={() => onOpenChange(!open)}
         className="flex min-h-12 w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-slate-300 bg-white px-3 text-left text-sm font-semibold text-slate-950 shadow-sm transition hover:border-slate-400 focus:border-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-100 sm:px-4"
         aria-expanded={open}
+        aria-controls={dropdownId}
+        aria-haspopup="true"
+        aria-label={`${label}: ${summary}`}
+        onKeyDown={(event) => {
+          if (event.key === "Escape" && open) {
+            event.preventDefault();
+            onOpenChange(false);
+          }
+        }}
       >
         <span className="min-w-0 truncate">{summary}</span>
         <span className="text-xs text-slate-500" aria-hidden="true">
@@ -92,21 +120,27 @@ function MultiSelectDropdown({
       </button>
 
       {open ? (
-        <div className="app-scroll-region absolute left-0 right-0 top-full z-30 mt-2 max-h-[min(18rem,48dvh)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10">
-          <label className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
+        <div
+          id={dropdownId}
+          role="group"
+          aria-label={`Opções de ${label}`}
+          className="app-scroll-region absolute left-0 right-0 top-full z-30 mt-2 max-h-[min(18rem,48dvh)] overflow-y-auto rounded-xl border border-slate-200 bg-white p-2 shadow-xl shadow-slate-900/10"
+        >
+          <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm font-semibold text-slate-800 hover:bg-slate-50">
             <input
               type="checkbox"
               checked={allSelected}
+              disabled={options.length === 0}
               onChange={onSelectAll}
               className="size-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
             />
-            Selecionar tudo
+            {allSelected ? "Desmarcar tudo" : "Selecionar tudo"}
           </label>
           <div className="my-2 border-t border-slate-100" />
           {options.map((option) => (
             <label
               key={option.value}
-              className="flex min-h-10 cursor-pointer items-center gap-3 rounded-md px-3 text-sm text-slate-700 hover:bg-slate-50"
+              className="flex min-h-11 cursor-pointer items-center gap-3 rounded-md px-3 text-sm text-slate-700 hover:bg-slate-50"
             >
               <input
                 type="checkbox"
@@ -144,7 +178,8 @@ export function PackageFilters({
   searchLabel?: string;
   onChange: (filters: PackageFilterValues) => void;
 }) {
-  const [openDropdown, setOpenDropdown] = useState<MultiFilterName | null>(null);
+  const [openDropdown, setOpenDropdown] =
+    useState<MultiSelectFilterName | null>(null);
 
   const storeOptions = stores
     .filter((store) => store.status !== "Inativa")
@@ -190,7 +225,7 @@ export function PackageFilters({
     onChange({ ...filters, dateMode });
   }
 
-  function getOptions(name: MultiFilterName) {
+  function getOptions(name: MultiSelectFilterName) {
     if (name === "lojaId") {
       return storeOptions;
     }
@@ -202,28 +237,43 @@ export function PackageFilters({
     return carrierOptions;
   }
 
-  function updateMultiFilter(name: MultiFilterName, value: string) {
+  function updateMultiFilter(name: MultiSelectFilterName, value: string) {
     const options = getOptions(name);
     const allValues = options.map((option) => option.value);
-    const current = filters[name].length === 0 ? allValues : filters[name];
-    const next =
-      current.includes(value)
-        ? current.filter((item) => item !== value)
-        : [...current, value];
-    const normalizedNext =
-      next.length === 0 || next.length === allValues.length ? [] : next;
+    const next = toggleMultiSelectValue({
+      selected: filters[name],
+      optionValues: allValues,
+      explicitlyEmpty: hasEmptyMultiSelection(filters, name),
+      value,
+    });
 
     onChange({
       ...filters,
-      [name]: normalizedNext,
+      [name]: next.selected,
+      emptyMultiSelections: updateEmptyMultiSelections(
+        filters.emptyMultiSelections,
+        name,
+        next.explicitlyEmpty,
+      ),
       ...(name === "marketplace" ? { marketplaceId: undefined } : {}),
     });
   }
 
-  function selectAll(name: MultiFilterName) {
+  function selectAll(name: MultiSelectFilterName) {
+    const next = toggleAllMultiSelectValues({
+      selected: filters[name],
+      optionValues: getOptions(name).map((option) => option.value),
+      explicitlyEmpty: hasEmptyMultiSelection(filters, name),
+    });
+
     onChange({
       ...filters,
-      [name]: [],
+      [name]: next.selected,
+      emptyMultiSelections: updateEmptyMultiSelections(
+        filters.emptyMultiSelections,
+        name,
+        next.explicitlyEmpty,
+      ),
       ...(name === "marketplace" ? { marketplaceId: undefined } : {}),
     });
   }
@@ -333,8 +383,10 @@ export function PackageFilters({
             <MultiSelectDropdown
               label="Loja"
               allLabel="Todas"
+              emptyLabel="Nenhuma"
               options={storeOptions}
               selected={filters.lojaId}
+              explicitlyEmpty={hasEmptyMultiSelection(filters, "lojaId")}
               open={openDropdown === "lojaId"}
               onOpenChange={(open) => setOpenDropdown(open ? "lojaId" : null)}
               onToggleValue={(value) => updateMultiFilter("lojaId", value)}
@@ -343,8 +395,10 @@ export function PackageFilters({
             <MultiSelectDropdown
               label="Marketplace"
               allLabel="Todos"
+              emptyLabel="Nenhum"
               options={marketplaceOptions}
               selected={filters.marketplace}
+              explicitlyEmpty={hasEmptyMultiSelection(filters, "marketplace")}
               open={openDropdown === "marketplace"}
               onOpenChange={(open) =>
                 setOpenDropdown(open ? "marketplace" : null)
@@ -355,8 +409,13 @@ export function PackageFilters({
             <MultiSelectDropdown
               label="Transportadora"
               allLabel="Todas"
+              emptyLabel="Nenhuma"
               options={carrierOptions}
               selected={filters.transportadora}
+              explicitlyEmpty={hasEmptyMultiSelection(
+                filters,
+                "transportadora",
+              )}
               open={openDropdown === "transportadora"}
               onOpenChange={(open) =>
                 setOpenDropdown(open ? "transportadora" : null)

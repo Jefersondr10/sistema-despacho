@@ -1,3 +1,5 @@
+import type { MultiSelectFilterName } from "@/app/_lib/multi-select-filter";
+
 export type Store = {
   id: string;
   name: string;
@@ -121,6 +123,7 @@ export type PackageFilterValues = {
   tipoOperacao: OperationFilter;
   query?: string;
   codigoLote?: string;
+  emptyMultiSelections?: MultiSelectFilterName[];
 };
 
 export type ReportSummaryItem = {
@@ -199,7 +202,15 @@ export function createDefaultPackageFilters(): PackageFilterValues {
     tipoOperacao: "todos",
     query: "",
     codigoLote: "",
+    emptyMultiSelections: [],
   };
+}
+
+export function hasEmptyMultiSelection(
+  filters: PackageFilterValues,
+  name: MultiSelectFilterName,
+) {
+  return filters.emptyMultiSelections?.includes(name) ?? false;
 }
 
 export function getStoreName(lojaId: string, catalogStores: Store[] = []) {
@@ -378,6 +389,15 @@ export function filterPackages(
   const selectedMarketplaces = filters.marketplace.map(
     normalizeMarketplaceIdentity,
   );
+  const noMarketplacesSelected = hasEmptyMultiSelection(
+    filters,
+    "marketplace",
+  );
+  const noCarriersSelected = hasEmptyMultiSelection(
+    filters,
+    "transportadora",
+  );
+  const noStoresSelected = hasEmptyMultiSelection(filters, "lojaId");
   const { startDate, endDate } = getDateRangeFromFilters(filters, referenceIso);
 
   return packages.filter((item) => {
@@ -386,24 +406,27 @@ export function filterPackages(
       filters.dateMode === "all" ||
       (packageDate >= startDate && packageDate <= endDate);
     const matchesMarketplace =
-      selectedMarketplaceId
+      !noMarketplacesSelected &&
+      (selectedMarketplaceId
         ? item.marketplace_id === selectedMarketplaceId
         : selectedMarketplaces.length === 0 ||
           selectedMarketplaces.includes(
             normalizeMarketplaceIdentity(item.marketplace),
-          );
+          ));
     const matchesMelhorEnvio =
       filters.melhorEnvio === "todos" ||
       (filters.melhorEnvio === "sim" && item.melhor_envio) ||
       (filters.melhorEnvio === "nao" && !item.melhor_envio);
     const matchesCarrier =
-      filters.transportadora.length === 0 ||
-      (filters.transportadora.includes("sem-transportadora") &&
-        item.transportadora === null) ||
-      (item.transportadora !== null &&
-        filters.transportadora.includes(item.transportadora));
+      !noCarriersSelected &&
+      (filters.transportadora.length === 0 ||
+        (filters.transportadora.includes("sem-transportadora") &&
+          item.transportadora === null) ||
+        (item.transportadora !== null &&
+          filters.transportadora.includes(item.transportadora)));
     const matchesStore =
-      filters.lojaId.length === 0 || filters.lojaId.includes(item.loja_id);
+      !noStoresSelected &&
+      (filters.lojaId.length === 0 || filters.lojaId.includes(item.loja_id));
     const matchesOperation =
       filters.tipoOperacao === "todos" ||
       item.tipo_operacao === filters.tipoOperacao;
@@ -435,6 +458,15 @@ export function filterCancellations(
 ) {
   const query = normalizeTrackingCode(filters.query ?? "");
   const { startDate, endDate } = getDateRangeFromFilters(filters, referenceIso);
+  const noMarketplacesSelected = hasEmptyMultiSelection(
+    filters,
+    "marketplace",
+  );
+  const noCarriersSelected = hasEmptyMultiSelection(
+    filters,
+    "transportadora",
+  );
+  const noStoresSelected = hasEmptyMultiSelection(filters, "lojaId");
 
   return cancellations.filter((item) => {
     const canceledDate = getSaoPauloDateString(item.cancelado_em);
@@ -442,20 +474,23 @@ export function filterCancellations(
       filters.dateMode === "all" ||
       (canceledDate >= startDate && canceledDate <= endDate);
     const matchesMarketplace =
-      filters.marketplace.length === 0 ||
-      filters.marketplace.includes(item.marketplace);
+      !noMarketplacesSelected &&
+      (filters.marketplace.length === 0 ||
+        filters.marketplace.includes(item.marketplace));
     const matchesMelhorEnvio =
       filters.melhorEnvio === "todos" ||
       (filters.melhorEnvio === "sim" && item.melhor_envio) ||
       (filters.melhorEnvio === "nao" && !item.melhor_envio);
     const matchesCarrier =
-      filters.transportadora.length === 0 ||
-      (filters.transportadora.includes("sem-transportadora") &&
-        item.transportadora === null) ||
-      (item.transportadora !== null &&
-        filters.transportadora.includes(item.transportadora));
+      !noCarriersSelected &&
+      (filters.transportadora.length === 0 ||
+        (filters.transportadora.includes("sem-transportadora") &&
+          item.transportadora === null) ||
+        (item.transportadora !== null &&
+          filters.transportadora.includes(item.transportadora)));
     const matchesStore =
-      filters.lojaId.length === 0 || filters.lojaId.includes(item.loja_id);
+      !noStoresSelected &&
+      (filters.lojaId.length === 0 || filters.lojaId.includes(item.loja_id));
     const matchesOperation =
       filters.tipoOperacao === "todos" ||
       item.tipo_operacao === filters.tipoOperacao;
