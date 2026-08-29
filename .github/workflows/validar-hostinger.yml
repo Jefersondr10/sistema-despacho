@@ -48,6 +48,9 @@ jobs:
       - name: Gerar build Next.js
         run: npm run build
 
+      - name: Preparar ambiente de validação do Compose
+        run: cp deploy/hostinger/.env.production.example deploy/hostinger/.env.production
+
       - name: Validar Docker Compose
         env:
           BIPAGEM_DOMAIN: bipagem.example.com
