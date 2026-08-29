@@ -20,6 +20,29 @@ function rejected(rawCode: string, context: TrackingCodeContext = {}) {
   return result;
 }
 
+function withNfeCheckDigit(body: string) {
+  assert.equal(body.length, 43);
+  assert.match(body, /^[0-9]{6}[A-Z0-9]{12}[0-9]{25}$/);
+
+  let weight = 2;
+  let sum = 0;
+  for (let index = body.length - 1; index >= 0; index -= 1) {
+    sum += (body.charCodeAt(index) - 48) * weight;
+    weight = weight === 9 ? 2 : weight + 1;
+  }
+  const remainder = sum % 11;
+  return `${body}${remainder === 0 || remainder === 1 ? 0 : 11 - remainder}`;
+}
+
+function replaceNfeField(
+  body: string,
+  start: number,
+  end: number,
+  value: string,
+) {
+  return `${body.slice(0, start)}${value}${body.slice(end)}`;
+}
+
 test("aceita codigo com formato de CEP e mostra somente um aviso", () => {
   const plain = accepted("01001010");
   const formatted = accepted("01001-010");
@@ -64,14 +87,83 @@ test("aceita formatos amplos usados por marketplaces e transportadoras", () => {
   );
 });
 
-test("aceita chave de nota fiscal com aviso mesmo quando a transportadora e Loggi", () => {
+test("bloqueia chave valida de NF-e mesmo quando a transportadora e Loggi", () => {
   const nfeKey = "35190830290856000160550010000000011000000010";
-
-  assert.match(accepted(nfeKey).warning ?? "", /nota fiscal/i);
-  assert.match(
-    accepted(nfeKey, { carrier: "loggi" }).warning ?? "",
-    /nota fiscal/i,
+  const alphanumericNfeKey = withNfeCheckDigit(
+    replaceNfeField(nfeKey.slice(0, 43), 6, 7, "A"),
   );
+  const nfceKey = withNfeCheckDigit(
+    replaceNfeField(nfeKey.slice(0, 43), 20, 22, "65"),
+  );
+
+  assert.deepEqual(rejected(nfeKey), {
+    accepted: false,
+    reason: "nfe-access-key",
+    message: "Leitura bloqueada: este código é uma chave de NF-e, não um rastreio de pacote.",
+  });
+  assert.equal(
+    rejected(nfeKey, { carrier: "loggi" }).reason,
+    "nfe-access-key",
+  );
+  assert.equal(
+    rejected("3519 0830 2908 5600 0160 5500 1000 0000 0110 0000 0010")
+      .reason,
+    "nfe-access-key",
+  );
+  assert.equal(
+    rejected(JSON.stringify({ nfe: nfeKey })).reason,
+    "nfe-access-key",
+  );
+  assert.equal(rejected(nfceKey).reason, "nfe-access-key");
+  assert.equal(rejected(alphanumericNfeKey).reason, "nfe-access-key");
+  assert.equal(
+    rejected(alphanumericNfeKey.toLowerCase()).reason,
+    "nfe-access-key",
+  );
+  assert.equal(
+    rejected(`NF-E:${alphanumericNfeKey}`).reason,
+    "nfe-access-key",
+  );
+});
+
+test("nao encontra chave alfanumerica dentro de um rastreio maior", () => {
+  const numericNfeKey = "35190830290856000160550010000000011000000010";
+  const alphanumericNfeKey = withNfeCheckDigit(
+    replaceNfeField(numericNfeKey.slice(0, 43), 6, 7, "A"),
+  );
+
+  for (const code of [`X${alphanumericNfeKey}`, `${alphanumericNfeKey}Z`]) {
+    const result = accepted(code);
+    assert.equal(result.code, code);
+  }
+});
+
+test("aceita outros numeros de 44 digitos quando o DV de NF-e e invalido", () => {
+  const invalidNfeCheckDigit =
+    "35190830290856000160550010000000011000000011";
+  const result = accepted(invalidNfeCheckDigit);
+
+  assert.equal(result.code, invalidNfeCheckDigit);
+  assert.match(result.warning ?? "", /d.gito verificador/i);
+});
+
+test("nao confunde numero de 44 digitos estruturalmente impossivel com NF-e", () => {
+  const validNfeKey = "35190830290856000160550010000000011000000010";
+  const body = validNfeKey.slice(0, 43);
+  const impossibleKeys = [
+    withNfeCheckDigit("0".repeat(43)),
+    withNfeCheckDigit(replaceNfeField(body, 0, 2, "99")),
+    withNfeCheckDigit(replaceNfeField(body, 4, 6, "13")),
+    withNfeCheckDigit(replaceNfeField(body, 20, 22, "57")),
+    withNfeCheckDigit(replaceNfeField(body, 25, 34, "000000000")),
+    withNfeCheckDigit(replaceNfeField(body, 34, 35, "0")),
+  ];
+
+  for (const code of impossibleKeys) {
+    const result = accepted(code);
+    assert.equal(result.code, code);
+    assert.ok(result.warning);
+  }
 });
 
 test("aceita documentos, telefones, produto e numero ambiguo com aviso", () => {
@@ -270,13 +362,46 @@ test("continua rejeitando somente uma leitura vazia", () => {
 });
 
 test("um tracking_number explicito vence a chave de NF-e do mesmo QR", () => {
+  const nfeKey = "35190830290856000160550010000000011000000010";
+  const alphanumericNfeKey = withNfeCheckDigit(
+    replaceNfeField(nfeKey.slice(0, 43), 6, 7, "A"),
+  );
+
+  assert.equal(
+    rejected(
+      JSON.stringify({ nfe: nfeKey, customer: { id: "ABC1234567" } }),
+    ).reason,
+    "nfe-access-key",
+  );
+  assert.equal(
+    rejected(`${nfeKey} ABC1234567`).reason,
+    "nfe-access-key",
+  );
   assert.equal(
     accepted(
       JSON.stringify({
         tracking_number: "TBA123456789012",
-        nfe: "35190830290856000160550010000000011000000010",
+        nfe: nfeKey,
       }),
     ).code,
     "TBA123456789012",
+  );
+  assert.equal(
+    rejected(
+      JSON.stringify({
+        nfe: alphanumericNfeKey,
+        customer: { id: "ABC1234567" },
+      }),
+    ).reason,
+    "nfe-access-key",
+  );
+  assert.equal(
+    accepted(
+      JSON.stringify({
+        nfe: alphanumericNfeKey,
+        tracking_number: "BRSPX1234567890",
+      }),
+    ).code,
+    "BRSPX1234567890",
   );
 });

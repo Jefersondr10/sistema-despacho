@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { PackageFilters } from "@/app/_components/package-filters";
 import {
@@ -14,30 +14,22 @@ import {
 } from "@/app/_components/ui";
 import {
   createDefaultPackageFilters,
-  filterPackages,
   formatPackageDate,
-  getDashboardMetrics,
-  getReportSummary,
   getStoreName,
 } from "@/app/_lib/mock-data";
+import { useServerDashboardData } from "@/app/_lib/server-history-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
 export function DashboardView() {
-  const { catalogs, packages, movements: storedMovements, loading, error } =
+  const { catalogs, loading: catalogsLoading, error: catalogsError } =
     useSupabaseDispatchData("dashboard");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
-  const filteredPackages = useMemo(
-    () => filterPackages(packages, filters),
-    [packages, filters],
-  );
-  const metrics = getDashboardMetrics(filteredPackages);
-  const summary = getReportSummary(filteredPackages, catalogs.stores).slice(0, 4);
-  const recentPackages = filteredPackages.slice(0, 6);
-  const latestMovements = storedMovements
-    .filter((movement) =>
-      filteredPackages.some((item) => item.id === movement.pacote_id),
-    )
-    .slice(0, 5);
+  const dashboard = useServerDashboardData(filters, catalogs);
+  const loading = catalogsLoading || dashboard.loading;
+  const error = catalogsError || dashboard.error;
+  const metrics = dashboard.metrics;
+  const summary = dashboard.summary;
+  const recentPackages = dashboard.recentPackages;
 
   return (
     <>
@@ -84,9 +76,7 @@ export function DashboardView() {
 
       <section className="app-card-grid gap-4">
         {catalogs.stores.map((store) => {
-          const storeTotal = filteredPackages.filter(
-            (item) => item.loja_id === store.id,
-          ).length;
+          const storeTotal = dashboard.storeCounts[store.id] ?? 0;
 
           return (
             <div
@@ -173,7 +163,7 @@ export function DashboardView() {
                 Sem misturar lojas: cada linha carrega seu loja_id.
               </p>
             </div>
-            <Badge tone="neutral">{latestMovements.length} movimentações</Badge>
+            <Badge tone="neutral">{dashboard.movementCount} movimentações</Badge>
           </div>
 
           <div className="app-card-grid gap-3 p-4 sm:p-6">

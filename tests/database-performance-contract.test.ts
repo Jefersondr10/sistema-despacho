@@ -96,6 +96,6 @@ test("cada tela solicita somente o perfil de dados que utiliza", () => {
   assert.match(bipagemSource, /useSupabaseDispatchData\("bipagem"\)/);
   assert.match(packagesSource, /useSupabaseDispatchData\("pacotes"\)/);
   assert.match(cancellationsSource, /useSupabaseDispatchData\("cancelados"\)/);
-  assert.match(storeSource, /loadMovements[\s\S]*"dashboard"/);
+  assert.match(storeSource, /const loadMovements = profile === "full"/);
   assert.match(storeSource, /loadCancellations[\s\S]*"cancelados"/);
 });

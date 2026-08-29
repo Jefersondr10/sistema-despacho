@@ -126,13 +126,11 @@ export function useSupabaseDispatchData(
       const loadActivePackages = [
         "full",
         "bipagem",
-        "dashboard",
-        "pacotes",
         "relatorios",
       ].includes(profile);
       const loadAllPackages = ["full", "bipagem"].includes(profile);
       const loadBatches = ["full", "bipagem", "romaneio"].includes(profile);
-      const loadMovements = ["full", "dashboard"].includes(profile);
+      const loadMovements = profile === "full";
       const loadCancellations = ["full", "bipagem", "cancelados"].includes(
         profile,
       );

@@ -11,7 +11,13 @@ import type {
   PackageCancellation,
   PackageMovement,
   PackageStatus,
+  ReportSummaryItem,
   Store,
+} from "@/app/_lib/mock-data";
+import {
+  getDashboardMetrics,
+  getReportSummary,
+  getSaoPauloDateString,
 } from "@/app/_lib/mock-data";
 import { getSupabaseClient } from "@/lib/supabaseClient";
 
@@ -265,6 +271,28 @@ export type PacoteComRelacionamentosRow = PacoteRow & {
   sessao: SessaoBipagemRow | null;
 };
 
+type PacotePaginadoRow = {
+  id: string;
+  codigo: string;
+  loja_id: string;
+  loja_nome: string;
+  marketplace_id: string;
+  marketplace_nome: string;
+  transportadora_id: string | null;
+  transportadora_nome: string | null;
+  sessao_id: string | null;
+  codigo_lote: string | null;
+  tipo_operacao: TipoOperacao;
+  melhor_envio: boolean;
+  status: string;
+  bipado_em: string;
+  total_count?: number | string;
+  melhor_envio_count?: number | string;
+  pendentes_count?: number | string;
+  has_more?: boolean;
+  snapshot_at?: string;
+};
+
 export type SessaoComRelacionamentosRow = SessaoBipagemRow & {
   loja: LojaRow | null;
   marketplace: MarketplaceRow | null;
@@ -298,6 +326,47 @@ export type PacoteFilters = {
   sessao_id?: string;
   status?: PacoteDatabaseStatus | string;
   limit?: number;
+};
+
+export type ServerPackageQuery = {
+  startDate: string | null;
+  endDate: string | null;
+  storeIds: string[] | null;
+  marketplaceIds: string[] | null;
+  carrierIds: string[] | null;
+  includeWithoutCarrier: boolean;
+  filterCarrier: boolean;
+  melhorEnvio: boolean | null;
+  operation: TipoOperacao | null;
+  search: string | null;
+  batchCode: string | null;
+};
+
+export type PackageHistoryMetrics = {
+  total: number;
+  melhorEnvio: number;
+  pending: number;
+};
+
+export type PaginatedPackageHistory = {
+  items: DispatchPackage[];
+  total: number;
+  metrics: PackageHistoryMetrics;
+  offset: number;
+  pageSize: number;
+  hasMore: boolean;
+  nextCursor: { bipadoEm: string; id: string } | null;
+  snapshotAt: string | null;
+  source: "server" | "legacy-fallback";
+};
+
+export type DashboardDispatchData = {
+  metrics: ReturnType<typeof getDashboardMetrics>;
+  storeCounts: Record<string, number>;
+  summary: ReportSummaryItem[];
+  recentPackages: DispatchPackage[];
+  movementCount: number;
+  source: "server" | "legacy-fallback";
 };
 
 export type SessaoBipagemFilters = {
@@ -2099,6 +2168,363 @@ export async function getPacotesComRelacionamentos(
   }
 
   return data ?? [];
+}
+
+function getServerPackageRpcParams(filters: ServerPackageQuery) {
+  return {
+    p_data_inicio: filters.startDate,
+    p_data_fim: filters.endDate,
+    p_loja_ids: filters.storeIds,
+    p_marketplace_ids: filters.marketplaceIds,
+    p_transportadora_ids: filters.carrierIds,
+    p_incluir_sem_transportadora: filters.includeWithoutCarrier,
+    p_filtrar_transportadora: filters.filterCarrier,
+    p_melhor_envio: filters.melhorEnvio,
+    p_tipo_operacao: filters.operation,
+    p_busca: filters.search,
+    p_codigo_lote: filters.batchCode,
+  };
+}
+
+function getSafeHistoryCount(value: unknown) {
+  const count = Number(value ?? 0);
+  return Number.isSafeInteger(count) && count >= 0 ? count : 0;
+}
+
+function mapPacotePaginadoRow(row: PacotePaginadoRow): DispatchPackage {
+  return {
+    id: row.id,
+    lote_id: row.sessao_id ?? "",
+    codigo_lote: row.codigo_lote,
+    loja_id: row.loja_id,
+    codigo_rastreio: row.codigo,
+    marketplace_id: row.marketplace_id,
+    marketplace: row.marketplace_nome || row.marketplace_id,
+    melhor_envio: row.melhor_envio,
+    transportadora: row.transportadora_nome,
+    tipo_operacao: row.tipo_operacao,
+    status: mapDatabasePackageStatusToFrontend(row.status),
+    data_hora_bipagem: row.bipado_em,
+    criado_em: row.bipado_em,
+  };
+}
+
+function matchesServerPackageQuery(
+  row: PacoteComRelacionamentosRow,
+  filters: ServerPackageQuery,
+) {
+  const packageDate = getSaoPauloDateString(row.bipado_em);
+  const normalizedSearch = normalizeDatabaseTrackingCode(filters.search ?? "");
+  const normalizedBatchCode = normalizeDatabaseTrackingCode(
+    filters.batchCode ?? "",
+  );
+  const batchIdentity = normalizeDatabaseTrackingCode(
+    row.sessao?.codigo_lote ?? row.sessao_id ?? "",
+  );
+
+  return (
+    row.status !== "cancelado" &&
+    (!filters.startDate || packageDate >= filters.startDate) &&
+    (!filters.endDate || packageDate <= filters.endDate) &&
+    (filters.storeIds === null || filters.storeIds.includes(row.loja_id)) &&
+    (filters.marketplaceIds === null ||
+      filters.marketplaceIds.includes(row.marketplace_id)) &&
+    (!filters.filterCarrier ||
+      (row.transportadora_id === null
+        ? filters.includeWithoutCarrier
+        : (filters.carrierIds ?? []).includes(row.transportadora_id))) &&
+    (filters.melhorEnvio === null ||
+      row.melhor_envio === filters.melhorEnvio) &&
+    (filters.operation === null || row.tipo_operacao === filters.operation) &&
+    (!normalizedSearch ||
+      normalizeDatabaseTrackingCode(row.codigo).includes(normalizedSearch)) &&
+    (!normalizedBatchCode || batchIdentity.includes(normalizedBatchCode))
+  );
+}
+
+async function getLegacyFilteredPackageRows(
+  filters: ServerPackageQuery,
+  context?: DatabaseContext,
+) {
+  const rows = await getPacotesComRelacionamentos(undefined, context);
+  return rows.filter((row) => matchesServerPackageQuery(row, filters));
+}
+
+export async function getPacotesPaginados(
+  filters: ServerPackageQuery,
+  pagination: {
+    offset?: number;
+    limit?: number;
+    cursor?: { bipadoEm: string; id: string } | null;
+    snapshotAt?: string | null;
+    includeMetrics?: boolean;
+  } = {},
+  context?: DatabaseContext,
+): Promise<PaginatedPackageHistory> {
+  const { supabase } = await getDatabaseContext(context);
+  const offset = Math.max(0, Math.trunc(pagination.offset ?? 0));
+  const pageSize = Math.max(1, Math.min(100, Math.trunc(pagination.limit ?? 100)));
+  const { data, error } = await supabase.rpc("listar_pacotes_paginados_v2", {
+    ...getServerPackageRpcParams(filters),
+    p_cursor_bipado_em: pagination.cursor?.bipadoEm ?? null,
+    p_cursor_id: pagination.cursor?.id ?? null,
+    p_snapshot_at: pagination.snapshotAt ?? null,
+    p_incluir_metricas: pagination.includeMetrics ?? true,
+    p_limit: pageSize,
+  });
+
+  if (!error) {
+    const rows = (Array.isArray(data) ? data : []) as PacotePaginadoRow[];
+    const first = rows[0];
+    const total = getSafeHistoryCount(first?.total_count);
+
+    return {
+      items: rows.map(mapPacotePaginadoRow),
+      total,
+      metrics: {
+        total,
+        melhorEnvio: getSafeHistoryCount(first?.melhor_envio_count),
+        pending: getSafeHistoryCount(first?.pendentes_count),
+      },
+      offset,
+      pageSize,
+      hasMore: first?.has_more === true,
+      nextCursor: rows.length
+        ? {
+            bipadoEm: rows[rows.length - 1].bipado_em,
+            id: rows[rows.length - 1].id,
+          }
+        : null,
+      snapshotAt:
+        typeof first?.snapshot_at === "string" ? first.snapshot_at : null,
+      source: "server",
+    };
+  }
+
+  if (!isMissingRpcFunctionError(error)) {
+    throw error;
+  }
+
+  const filteredRows = await getLegacyFilteredPackageRows(filters, context);
+  const filteredPackages = filteredRows.map(mapPacoteRowToDispatchPackage);
+  const metrics = getDashboardMetrics(filteredPackages);
+  const items = filteredPackages.slice(offset, offset + pageSize);
+
+  return {
+    items,
+    total: filteredPackages.length,
+    metrics: {
+      total: metrics.total,
+      melhorEnvio: metrics.melhorEnvio,
+      pending: metrics.pending,
+    },
+    offset,
+    pageSize,
+    hasMore: offset + items.length < filteredPackages.length,
+    nextCursor: items.length
+      ? {
+          bipadoEm: items[items.length - 1].data_hora_bipagem,
+          id: items[items.length - 1].id,
+        }
+      : null,
+    snapshotAt: null,
+    source: "legacy-fallback",
+  };
+}
+
+function isHistoryRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeDashboardPackage(value: unknown) {
+  if (!isHistoryRecord(value)) {
+    return null;
+  }
+
+  const candidate = value as PacotePaginadoRow;
+  if (
+    typeof candidate.id !== "string" ||
+    typeof candidate.codigo !== "string" ||
+    typeof candidate.loja_id !== "string" ||
+    typeof candidate.marketplace_id !== "string" ||
+    typeof candidate.marketplace_nome !== "string" ||
+    (candidate.tipo_operacao !== "coleta" &&
+      candidate.tipo_operacao !== "postagem") ||
+    typeof candidate.melhor_envio !== "boolean" ||
+    typeof candidate.status !== "string" ||
+    typeof candidate.bipado_em !== "string"
+  ) {
+    return null;
+  }
+
+  return mapPacotePaginadoRow(candidate);
+}
+
+function normalizeDashboardSummary(value: unknown): ReportSummaryItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const normalized = value.flatMap((item): ReportSummaryItem[] => {
+    if (
+      !isHistoryRecord(item) ||
+      typeof item.id !== "string" ||
+      typeof item.marketplace !== "string" ||
+      (item.tipo_operacao !== "coleta" && item.tipo_operacao !== "postagem") ||
+      typeof item.melhor_envio !== "boolean"
+    ) {
+      return [];
+    }
+
+    const lojas = Array.isArray(item.lojas)
+      ? item.lojas.flatMap((loja) =>
+          isHistoryRecord(loja) &&
+          typeof loja.loja_id === "string" &&
+          typeof loja.loja_nome === "string"
+            ? [
+                {
+                  loja_id: loja.loja_id,
+                  loja_nome: loja.loja_nome,
+                  packages: getSafeHistoryCount(loja.packages),
+                },
+              ]
+            : [],
+        ).sort(
+          (a, b) =>
+            b.packages - a.packages ||
+            a.loja_nome.localeCompare(b.loja_nome, "pt-BR"),
+        )
+      : [];
+    const transportadora =
+      typeof item.transportadora === "string" ? item.transportadora : null;
+
+    return [
+      {
+        id: item.id,
+        label: [
+          item.marketplace,
+          item.tipo_operacao,
+          item.melhor_envio ? "Melhor Envio" : "Sem Melhor Envio",
+          item.melhor_envio ? transportadora : null,
+        ]
+          .filter(Boolean)
+          .join(" · "),
+        marketplace: item.marketplace,
+        tipo_operacao: item.tipo_operacao,
+        melhor_envio: item.melhor_envio,
+        transportadora: item.melhor_envio ? transportadora : null,
+        packages: getSafeHistoryCount(item.packages),
+        lojas,
+      },
+    ];
+  });
+
+  return normalized
+    .sort((a, b) =>
+      `${a.marketplace}-${a.tipo_operacao}-${a.melhor_envio}-${a.transportadora ?? ""}`.localeCompare(
+        `${b.marketplace}-${b.tipo_operacao}-${b.melhor_envio}-${b.transportadora ?? ""}`,
+        "pt-BR",
+      ),
+    )
+    .slice(0, 4);
+}
+
+function normalizeDashboardDispatchData(value: unknown): DashboardDispatchData | null {
+  if (!isHistoryRecord(value) || !isHistoryRecord(value.metricas)) {
+    return null;
+  }
+
+  const metricas = value.metricas;
+  const storeCounts: Record<string, number> = {};
+  if (Array.isArray(value.lojas)) {
+    for (const item of value.lojas) {
+      if (isHistoryRecord(item) && typeof item.loja_id === "string") {
+        storeCounts[item.loja_id] = getSafeHistoryCount(item.pacotes);
+      }
+    }
+  }
+
+  const recentPackages = Array.isArray(value.recentes)
+    ? value.recentes.flatMap((item) => {
+        const normalized = normalizeDashboardPackage(item);
+        return normalized ? [normalized] : [];
+      })
+    : [];
+
+  return {
+    metrics: {
+      total: getSafeHistoryCount(metricas.total),
+      melhorEnvio: getSafeHistoryCount(metricas.melhorEnvio),
+      semTransportadora: getSafeHistoryCount(metricas.semTransportadora),
+      pending: getSafeHistoryCount(metricas.pending),
+      coletas: getSafeHistoryCount(metricas.coletas),
+      postagens: getSafeHistoryCount(metricas.postagens),
+    },
+    storeCounts,
+    summary: normalizeDashboardSummary(value.resumo),
+    recentPackages,
+    movementCount: getSafeHistoryCount(value.movement_count),
+    source: "server",
+  };
+}
+
+export async function getDashboardDespacho(
+  filters: ServerPackageQuery,
+  context?: DatabaseContext,
+): Promise<DashboardDispatchData> {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "obter_dashboard_despacho",
+    getServerPackageRpcParams(filters),
+  );
+
+  if (!error) {
+    const normalized = normalizeDashboardDispatchData(data);
+    if (!normalized) {
+      throw new Error("Resposta invalida ao carregar o Dashboard.");
+    }
+    return normalized;
+  }
+
+  if (!isMissingRpcFunctionError(error)) {
+    throw error;
+  }
+
+  const filteredRows = await getLegacyFilteredPackageRows(filters, context);
+  const filteredPackages = filteredRows.map(mapPacoteRowToDispatchPackage);
+  const catalogStores: Store[] = Array.from(
+    new Map(
+      filteredRows.map((row) => [
+        row.loja_id,
+        {
+          id: row.loja_id,
+          name: row.loja?.nome ?? row.loja_id,
+          document: row.loja?.slug ?? "",
+          city: "",
+          status: row.loja?.ativo === false ? "Inativa" : "Ativa",
+        } satisfies Store,
+      ]),
+    ).values(),
+  );
+  const storeCounts: Record<string, number> = {};
+  for (const item of filteredPackages) {
+    storeCounts[item.loja_id] = (storeCounts[item.loja_id] ?? 0) + 1;
+  }
+  const filteredPackageIds = new Set(filteredPackages.map((item) => item.id));
+  const movements = await getMovimentacoes(undefined, context);
+
+  return {
+    metrics: getDashboardMetrics(filteredPackages),
+    storeCounts,
+    summary: getReportSummary(filteredPackages, catalogStores).slice(0, 4),
+    recentPackages: filteredPackages.slice(0, 6),
+    movementCount: movements
+      .filter((movement) =>
+        movement.pacote_id ? filteredPackageIds.has(movement.pacote_id) : false,
+      )
+      .slice(0, 5).length,
+    source: "legacy-fallback",
+  };
 }
 
 export async function listarPacotesComJoins(

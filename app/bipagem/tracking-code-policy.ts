@@ -1,6 +1,13 @@
 const CORREIOS_S10_PATTERN = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const AZUL_AWB_PATTERN = /^577\d{8}$/;
-const NFE_ACCESS_KEY_PATTERN = /^\d{44}$/;
+const NFE_ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
+const NFE_STATE_CODES = new Set([
+  "11", "12", "13", "14", "15", "16", "17",
+  "21", "22", "23", "24", "25", "26", "27", "28", "29",
+  "31", "32", "33", "35",
+  "41", "42", "43",
+  "50", "51", "52", "53",
+]);
 const TRACKING_KEY_PATTERN =
   /(?:tracking(?:[_\s-]*(?:number|id|code))?|rastreio|c[oó]digo[_\s-]*(?:de[_\s-]*)?rastreio|awb|shipment(?:[_\s-]*(?:number|id))?|remessa|etiqueta|package(?:[_\s-]*(?:number|id))?|objeto)/i;
 const PIX_PAYLOAD_PATTERN = /(?:^000201|BRGOVBCBPIX)/;
@@ -25,8 +32,8 @@ const PHONE_WARNING =
   "Atenção: o código foi aceito, mas parece ser um telefone. Confira se é o rastreio correto.";
 const PRODUCT_CODE_WARNING =
   "Atenção: o código foi aceito, mas parece ser um código de produto. Confira se é o rastreio correto.";
-const INVOICE_KEY_WARNING =
-  "Atenção: o código foi aceito, mas parece ser uma chave de nota fiscal. Confira se é o rastreio correto.";
+const INVOICE_KEY_BLOCK_MESSAGE =
+  "Leitura bloqueada: este código é uma chave de NF-e, não um rastreio de pacote.";
 const AMBIGUOUS_NUMBER_WARNING =
   "Atenção: o número foi aceito, mas não foi reconhecido com segurança como rastreio. Confira a leitura.";
 
@@ -50,7 +57,7 @@ export type TrackingCodeResult =
     }
   | {
       accepted: false;
-      reason: "empty";
+      reason: "empty" | "nfe-access-key";
       message: string;
     };
 
@@ -59,6 +66,7 @@ type CandidateOrigin = "plain" | "preferred" | "embedded";
 type Candidate = {
   code: string;
   kind: TrackingCodeKind;
+  origin: CandidateOrigin;
   score: number;
   warning?: string;
 };
@@ -126,19 +134,34 @@ function isValidAirWaybill(code: string) {
   return Number(code.slice(3, 10)) % 7 === Number(code[10]);
 }
 
-function isValidNfeAccessKey(code: string) {
+function hasValidNfeCheckDigit(code: string) {
   if (!NFE_ACCESS_KEY_PATTERN.test(code)) return false;
 
   const body = code.slice(0, 43);
   let weight = 2;
   let sum = 0;
   for (let index = body.length - 1; index >= 0; index -= 1) {
-    sum += Number(body[index]) * weight;
+    sum += (body.charCodeAt(index) - 48) * weight;
     weight = weight === 9 ? 2 : weight + 1;
   }
   const remainder = sum % 11;
   const checkDigit = remainder === 0 || remainder === 1 ? 0 : 11 - remainder;
   return Number(code[43]) === checkDigit;
+}
+
+function isValidNfeAccessKey(code: string) {
+  if (!hasValidNfeCheckDigit(code) || hasRepeatedDigits(code)) return false;
+
+  const month = Number(code.slice(4, 6));
+  const invoiceNumber = Number(code.slice(25, 34));
+  return (
+    NFE_STATE_CODES.has(code.slice(0, 2)) &&
+    month >= 1 &&
+    month <= 12 &&
+    (code.slice(20, 22) === "55" || code.slice(20, 22) === "65") &&
+    invoiceNumber > 0 &&
+    /^[1-9]$/.test(code[34])
+  );
 }
 
 function hasRepeatedDigits(code: string) {
@@ -248,7 +271,7 @@ function classifyCandidate(
   value: string,
   origin: CandidateOrigin,
   context: TrackingCodeContext,
-): Omit<Candidate, "score"> | null {
+): Omit<Candidate, "origin" | "score"> | null {
   const normalizedCode = normalizeCandidateValue(value);
   const compactCode = canonicalizeCandidate(normalizedCode);
 
@@ -287,15 +310,13 @@ function classifyCandidate(
 
   if (NFE_ACCESS_KEY_PATTERN.test(compactCode)) {
     return isValidNfeAccessKey(compactCode)
-      ? {
-          code: compactCode,
-          kind: "carrier-code",
-          warning: INVOICE_KEY_WARNING,
-        }
+      ? null
       : {
           code: compactCode,
           kind: "carrier-code",
-          warning: CHECK_DIGIT_WARNING,
+          warning: hasValidNfeCheckDigit(compactCode)
+            ? AMBIGUOUS_NUMBER_WARNING
+            : CHECK_DIGIT_WARNING,
         };
   }
 
@@ -449,7 +470,13 @@ export function parseTrackingCode(
 
   const candidates = new Map<string, Candidate>();
   let authoritativePlainCode: Candidate | null = null;
+  let validNfeCandidateDetected = false;
   const addCandidate = (value: string, origin: CandidateOrigin) => {
+    if (isValidNfeAccessKey(canonicalizeCandidate(value))) {
+      validNfeCandidateDetected = true;
+      return;
+    }
+
     const classified = classifyCandidate(value, origin, context);
     if (!classified) return;
 
@@ -457,7 +484,7 @@ export function parseTrackingCode(
       baseScore(classified.kind) +
       originScore(origin) +
       Math.min(classified.code.length, MAX_TRACKING_LENGTH) / 100;
-    const candidate = { ...classified, score };
+    const candidate = { ...classified, origin, score };
 
     // Quando a entrada inteira foi reconhecida como codigo simples, ela e a
     // identidade autoritativa. Candidatos internos nao podem descartar prefixos
@@ -572,11 +599,26 @@ export function parseTrackingCode(
       (left, right) => right.score - left.score,
     )[0];
 
+  const containsNfeAccessKey = [...upperPayload.matchAll(
+    /(?:^|[^A-Z0-9])([0-9]{6}[A-Z0-9]{12}[0-9]{26})(?![A-Z0-9])/g,
+  )].some((match) => isValidNfeAccessKey(match[1])) ||
+    validNfeCandidateDetected;
+  const selectedCanOverrideNfe =
+    selected?.origin === "preferred" ||
+    (selected?.origin === "plain" &&
+      !/\s/.test(decoded) &&
+      canonicalizeCandidate(selected.code) === canonicalWhole);
+
+  if (containsNfeAccessKey && !selectedCanOverrideNfe) {
+    return {
+      accepted: false,
+      reason: "nfe-access-key",
+      message: INVOICE_KEY_BLOCK_MESSAGE,
+    };
+  }
+
   if (!selected) {
     const containsPostalCode = /(?:^|\D)\d{5}-?\d{3}(?!\d)/.test(decoded);
-    const containsNfeAccessKey = [...upperPayload.matchAll(
-      /(?:^|\D)(\d{44})(?!\d)/g,
-    )].some((match) => isValidNfeAccessKey(match[1]));
     const wholeIsPersonalDocument =
       isValidCpf(canonicalWhole) || isValidCnpj(canonicalWhole);
     const wholeIsPhone = isLikelyBrazilianPhone(canonicalWhole);
@@ -589,15 +631,13 @@ export function parseTrackingCode(
         ? PHONE_WARNING
         : wholeIsProductCode
           ? PRODUCT_CODE_WARNING
-          : containsNfeAccessKey
-            ? INVOICE_KEY_WARNING
-            : wholeIsAmbiguousNumber
-              ? AMBIGUOUS_NUMBER_WARNING
-              : containsPostalCode ||
-                  looksLikePixPayload ||
-                  NON_TRACKING_TEXT_PATTERN.test(decoded)
-                ? NON_SHIPPING_PAYLOAD_WARNING
-                : UNRECOGNIZED_CODE_WARNING;
+          : wholeIsAmbiguousNumber
+            ? AMBIGUOUS_NUMBER_WARNING
+            : containsPostalCode ||
+                looksLikePixPayload ||
+                NON_TRACKING_TEXT_PATTERN.test(decoded)
+              ? NON_SHIPPING_PAYLOAD_WARNING
+              : UNRECOGNIZED_CODE_WARNING;
 
     return {
       accepted: true,

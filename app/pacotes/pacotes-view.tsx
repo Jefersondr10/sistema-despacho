@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { PackageFilters } from "@/app/_components/package-filters";
 import {
@@ -14,34 +14,27 @@ import {
 } from "@/app/_components/ui";
 import {
   createDefaultPackageFilters,
-  filterPackages,
   formatPackageDate,
-  getDashboardMetrics,
   getStoreName,
 } from "@/app/_lib/mock-data";
+import { usePaginatedPackageHistory } from "@/app/_lib/server-history-data";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 
-const PACKAGE_PAGE_SIZE = 100;
-
 export function PacotesView() {
-  const { catalogs, packages, loading, error } =
+  const { catalogs, loading: catalogsLoading, error: catalogsError } =
     useSupabaseDispatchData("pacotes");
   const [filters, setFilters] = useState(createDefaultPackageFilters);
-  const [visiblePackageCount, setVisiblePackageCount] = useState(
-    PACKAGE_PAGE_SIZE,
-  );
-  const filteredPackages = useMemo(
-    () => filterPackages(packages, filters),
-    [packages, filters],
-  );
-  const visiblePackages = useMemo(
-    () => filteredPackages.slice(0, visiblePackageCount),
-    [filteredPackages, visiblePackageCount],
-  );
-  const metrics = useMemo(
-    () => getDashboardMetrics(filteredPackages),
-    [filteredPackages],
-  );
+  const history = usePaginatedPackageHistory(filters, catalogs);
+  const loading = catalogsLoading || history.loading;
+  const error = catalogsError || history.error;
+  const visiblePackages = history.items;
+  const metrics = history.metrics;
+
+  const totalPackages = history.total;
+  const hasMorePackages = history.hasMore;
+
+  const handleFiltersChange = (nextFilters: typeof filters) =>
+    setFilters(nextFilters);
 
   return (
     <>
@@ -57,10 +50,7 @@ export function PacotesView() {
         marketplaces={catalogs.marketplaces}
         carriers={catalogs.carriers}
         showSearch
-        onChange={(nextFilters) => {
-          setVisiblePackageCount(PACKAGE_PAGE_SIZE);
-          setFilters(nextFilters);
-        }}
+        onChange={handleFiltersChange}
       />
 
       <section className="app-card-grid gap-4">
@@ -94,10 +84,10 @@ export function PacotesView() {
               A busca por rastreio respeita o filtro de loja selecionado.
             </p>
           </div>
-          <Badge tone="neutral">{filteredPackages.length} registros</Badge>
+          <Badge tone="neutral">{totalPackages} registros</Badge>
         </div>
 
-        {filteredPackages.length ? (
+        {totalPackages ? (
           <div className="app-card-grid gap-4 p-4 sm:p-6">
             {visiblePackages.map((item) => (
               <article
@@ -134,21 +124,15 @@ export function PacotesView() {
                 </div>
               </article>
             ))}
-            {visiblePackages.length < filteredPackages.length ? (
+            {hasMorePackages ? (
               <button
                 type="button"
-                onClick={() =>
-                  setVisiblePackageCount((current) =>
-                    Math.min(
-                      current + PACKAGE_PAGE_SIZE,
-                      filteredPackages.length,
-                    ),
-                  )
-                }
+                onClick={() => void history.loadMore()}
+                disabled={history.loadingMore}
                 className="col-span-full inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-300 bg-slate-50 px-4 text-sm font-semibold text-slate-700 transition hover:border-teal-300 hover:bg-teal-50 hover:text-teal-800"
               >
-                Mostrar mais pacotes ({visiblePackages.length} de{" "}
-                {filteredPackages.length})
+                {history.loadingMore ? "Carregando..." : "Mostrar mais pacotes"}{" "}
+                ({visiblePackages.length} de {totalPackages})
               </button>
             ) : null}
           </div>
