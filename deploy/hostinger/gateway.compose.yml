@@ -8,6 +8,8 @@ services:
       BASE_DOMAIN: "${BASE_DOMAIN:?Configure BASE_DOMAIN}"
       BIPAGEM_SUBDOMAIN: "${BIPAGEM_SUBDOMAIN:-bipagem}"
       FISCAL_SUBDOMAIN: "${FISCAL_SUBDOMAIN:-nfe}"
+      LEGACY_BIPAGEM_DOMAIN: "${LEGACY_BIPAGEM_DOMAIN:-bipagem.85-31-63-215.sslip.io}"
+      LEGACY_FISCAL_DOMAIN: "${LEGACY_FISCAL_DOMAIN:-notas.85-31-63-215.sslip.io}"
     ports:
       - "80:80"
       - "443:443"
@@ -26,7 +28,7 @@ services:
 configs:
   caddyfile:
     content: |
-      ${BIPAGEM_SUBDOMAIN:-bipagem}.${BASE_DOMAIN:?Configure BASE_DOMAIN} {
+      ${LEGACY_BIPAGEM_DOMAIN:-bipagem.85-31-63-215.sslip.io}, ${BIPAGEM_SUBDOMAIN:-bipagem}.${BASE_DOMAIN:?Configure BASE_DOMAIN} {
         encode zstd gzip
 
         header {
@@ -39,7 +41,7 @@ configs:
         reverse_proxy bipagem-web:3000
       }
 
-      ${FISCAL_SUBDOMAIN:-nfe}.${BASE_DOMAIN:?Configure BASE_DOMAIN} {
+      ${LEGACY_FISCAL_DOMAIN:-notas.85-31-63-215.sslip.io}, ${FISCAL_SUBDOMAIN:-nfe}.${BASE_DOMAIN:?Configure BASE_DOMAIN} {
         encode zstd gzip
 
         header {

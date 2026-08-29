@@ -1,4 +1,4 @@
-{$BIPAGEM_SUBDOMAIN}.{$BASE_DOMAIN} {
+{$LEGACY_BIPAGEM_DOMAIN}, {$BIPAGEM_SUBDOMAIN}.{$BASE_DOMAIN} {
 	encode zstd gzip
 
 	header {
@@ -10,7 +10,7 @@
 	reverse_proxy bipagem-web:3000
 }
 
-{$FISCAL_SUBDOMAIN}.{$BASE_DOMAIN} {
+{$LEGACY_FISCAL_DOMAIN}, {$FISCAL_SUBDOMAIN}.{$BASE_DOMAIN} {
 	encode zstd gzip
 
 	header {

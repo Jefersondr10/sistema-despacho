@@ -29,6 +29,11 @@ domínio-base público, sem protocolo nem caminho. Os nomes padrão criam os
 endereços `bipagem.<domínio-base>` e `nfe.<domínio-base>`; eles podem ser
 alterados por `BIPAGEM_SUBDOMAIN` e `FISCAL_SUBDOMAIN`.
 
+Durante a migração, mantenha `LEGACY_BIPAGEM_DOMAIN` e
+`LEGACY_FISCAL_DOMAIN` com os endereços `sslip.io` atuais. O mesmo bloco do
+Caddy atende o endereço novo e o temporário, permitindo validar e reverter o
+corte sem indisponibilidade.
+
 Exemplo de locais no servidor:
 
 ```text
@@ -108,6 +113,8 @@ Não inicie nginx, Traefik ou outro Caddy nas portas públicas.
 
 No `deploy/gateway/Caddyfile`, `{$BASE_DOMAIN}`, `{$BIPAGEM_SUBDOMAIN}` e
 `{$FISCAL_SUBDOMAIN}` são substituídas pelo próprio Caddy dentro do contêiner,
-não pelo Docker Compose. No arquivo inline do Docker Manager da Hostinger, os
+assim como `{$LEGACY_BIPAGEM_DOMAIN}` e `{$LEGACY_FISCAL_DOMAIN}`, que preservam
+os endereços temporários durante a transição. Nenhuma delas é substituída pelo
+Docker Compose. No arquivo inline do Docker Manager da Hostinger, os
 endereços são montados pelo Compose durante o redeploy. Por isso, alterar as
 variáveis exige recriar o gateway, e não apenas reiniciar o contêiner.
