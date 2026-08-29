@@ -35,7 +35,7 @@ No painel do Supabase:
    contas cujo endereço ainda não foi confirmado.
 3. Em **Authentication > URL Configuration**, defina a Site URL e os Redirect URLs:
    - local: `http://localhost:3000/login`;
-   - produção: `https://SEU-DOMINIO/login`.
+   - produção: `https://bipagem.SEU-DOMINIO-BASE/login`.
 4. Crie a conta proprietária dos dados antigos em **Authentication > Users** e confirme o e-mail, se necessário.
 
 A tela `/login` oferece entrada, criação de conta e recuperação de senha. A sessão é persistida e renovada pelo cliente oficial do Supabase. Rotas internas sem sessão são redirecionadas para `/login`; as APIs exigem `Authorization: Bearer <access_token>`.

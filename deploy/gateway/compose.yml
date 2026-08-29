@@ -5,7 +5,9 @@ services:
     image: caddy:2.11.4-alpine
     restart: unless-stopped
     environment:
-      BIPAGEM_DOMAIN: "${BIPAGEM_DOMAIN:?Configure BIPAGEM_DOMAIN}"
+      BASE_DOMAIN: "${BASE_DOMAIN:?Configure BASE_DOMAIN}"
+      BIPAGEM_SUBDOMAIN: "${BIPAGEM_SUBDOMAIN:-bipagem}"
+      NOTAS_SUBDOMAIN: "${NOTAS_SUBDOMAIN:-notas}"
     ports:
       - "80:80"
       - "443:443"

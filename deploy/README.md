@@ -24,8 +24,10 @@ docker network create edge
 
 Copie `deploy/bipagem.env.example` para um arquivo fora do repositório, com
 permissão `600`, e preencha todos os campos. Faça o mesmo com
-`deploy/gateway/gateway.env.example`. Em `BIPAGEM_DOMAIN`, informe somente o
-domínio público, sem caminho, depois de apontar o DNS para a VPS.
+`deploy/gateway/gateway.env.example`. Em `BASE_DOMAIN`, informe somente o
+domínio-base público, sem protocolo nem caminho. Os nomes padrão criam os
+endereços `bipagem.<domínio-base>` e `notas.<domínio-base>`; eles podem ser
+alterados por `BIPAGEM_SUBDOMAIN` e `NOTAS_SUBDOMAIN`.
 
 Exemplo de locais no servidor:
 
@@ -56,6 +58,19 @@ docker compose --env-file /etc/caddy-gateway/gateway.env -f deploy/gateway/compo
 O Caddy solicita e renova o certificado automaticamente quando o domínio já
 aponta para a VPS e as portas `80` e `443` estão acessíveis.
 
+Antes de recriar o gateway, crie no DNS dois registros `A` apontando para o
+IPv4 da VPS:
+
+```text
+bipagem.<domínio-base>
+notas.<domínio-base>
+```
+
+No Supabase Auth, configure a Site URL e a Redirect URL de produção como
+`https://bipagem.<domínio-base>/login`. A tela de login monta os retornos de
+confirmação e recuperação pela origem atual, então não existe domínio fixo no
+código da aplicação.
+
 Para conferir o estado:
 
 ```bash
@@ -74,25 +89,25 @@ docker compose --env-file /etc/sistema-despacho/bipagem.env -f compose.yml up -d
 Os dados e certificados do Caddy ficam nos volumes `caddy_data` e
 `caddy_config` e não são removidos nessa atualização.
 
-## Adicionar o sistema fiscal depois
+## Sistema fiscal no mesmo domínio-base
 
 O Compose do sistema fiscal deve conectar `fiscal-web` à mesma rede externa
-`edge`, expor somente `8080` internamente e não publicar `80` ou `443`. Adicione
-`FISCAL_DOMAIN` ao ambiente do Caddy e acrescente ao `Caddyfile`:
+`edge`, expor somente `8080` internamente e não publicar `80` ou `443`. O
+gateway já publica os dois sistemas de forma isolada:
 
-```caddyfile
-{$FISCAL_DOMAIN} {
-  encode zstd gzip
-  reverse_proxy fiscal-web:8080
-}
+```text
+bipagem.<domínio-base> -> bipagem-web:3000
+notas.<domínio-base>   -> fiscal-web:8080
 ```
 
-Então recrie apenas o gateway. Não inicie nginx, Traefik ou outro Caddy nas
-portas públicas.
+Ao trocar o domínio-base, recrie apenas o gateway e ajuste `APP_URL` e
+`NOTAS_DOMAIN` no ambiente do projeto fiscal para o endereço `notas` definitivo.
+Não inicie nginx, Traefik ou outro Caddy nas portas públicas.
 
 ## Observação sobre a variável do Caddy
 
-`{$BIPAGEM_DOMAIN}` é substituída pelo próprio Caddy dentro do contêiner, não
-pelo Docker Compose. Por isso, uma validação direta do `Caddyfile` fora do
-Compose precisa receber essa variável; pelo fluxo acima ela é fornecida pelo
-arquivo `gateway.env`.
+No `deploy/gateway/Caddyfile`, `{$BASE_DOMAIN}`, `{$BIPAGEM_SUBDOMAIN}` e
+`{$NOTAS_SUBDOMAIN}` são substituídas pelo próprio Caddy dentro do contêiner,
+não pelo Docker Compose. No arquivo inline do Docker Manager da Hostinger, os
+endereços são montados pelo Compose durante o redeploy. Por isso, alterar as
+variáveis exige recriar o gateway, e não apenas reiniciar o contêiner.
