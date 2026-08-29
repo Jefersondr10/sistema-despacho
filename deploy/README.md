@@ -26,8 +26,8 @@ Copie `deploy/bipagem.env.example` para um arquivo fora do repositório, com
 permissão `600`, e preencha todos os campos. Faça o mesmo com
 `deploy/gateway/gateway.env.example`. Em `BASE_DOMAIN`, informe somente o
 domínio-base público, sem protocolo nem caminho. Os nomes padrão criam os
-endereços `bipagem.<domínio-base>` e `notas.<domínio-base>`; eles podem ser
-alterados por `BIPAGEM_SUBDOMAIN` e `NOTAS_SUBDOMAIN`.
+endereços `bipagem.<domínio-base>` e `nfe.<domínio-base>`; eles podem ser
+alterados por `BIPAGEM_SUBDOMAIN` e `FISCAL_SUBDOMAIN`.
 
 Exemplo de locais no servidor:
 
@@ -63,7 +63,7 @@ IPv4 da VPS:
 
 ```text
 bipagem.<domínio-base>
-notas.<domínio-base>
+nfe.<domínio-base>
 ```
 
 No Supabase Auth, configure a Site URL e a Redirect URL de produção como
@@ -97,17 +97,17 @@ gateway já publica os dois sistemas de forma isolada:
 
 ```text
 bipagem.<domínio-base> -> bipagem-web:3000
-notas.<domínio-base>   -> fiscal-web:8080
+nfe.<domínio-base>     -> fiscal-web:8080
 ```
 
 Ao trocar o domínio-base, recrie apenas o gateway e ajuste `APP_URL` e
-`NOTAS_DOMAIN` no ambiente do projeto fiscal para o endereço `notas` definitivo.
+`NOTAS_DOMAIN` no ambiente do projeto fiscal para o endereço `nfe` definitivo.
 Não inicie nginx, Traefik ou outro Caddy nas portas públicas.
 
 ## Observação sobre a variável do Caddy
 
 No `deploy/gateway/Caddyfile`, `{$BASE_DOMAIN}`, `{$BIPAGEM_SUBDOMAIN}` e
-`{$NOTAS_SUBDOMAIN}` são substituídas pelo próprio Caddy dentro do contêiner,
+`{$FISCAL_SUBDOMAIN}` são substituídas pelo próprio Caddy dentro do contêiner,
 não pelo Docker Compose. No arquivo inline do Docker Manager da Hostinger, os
 endereços são montados pelo Compose durante o redeploy. Por isso, alterar as
 variáveis exige recriar o gateway, e não apenas reiniciar o contêiner.

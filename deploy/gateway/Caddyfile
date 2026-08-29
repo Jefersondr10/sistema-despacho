@@ -10,7 +10,7 @@
 	reverse_proxy bipagem-web:3000
 }
 
-{$NOTAS_SUBDOMAIN}.{$BASE_DOMAIN} {
+{$FISCAL_SUBDOMAIN}.{$BASE_DOMAIN} {
 	encode zstd gzip
 
 	header {
