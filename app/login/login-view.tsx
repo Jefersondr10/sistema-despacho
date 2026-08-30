@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { FeedbackMessage } from "@/app/_components/ui";
+import { InstallAppButton } from "@/app/_components/pwa-install";
 import { useAuth } from "@/app/_lib/auth-context";
 
 type AuthMode = "login" | "signup" | "reset" | "new-password";
@@ -221,6 +222,7 @@ export function LoginView() {
             )}
           </div>
         ) : null}
+        <InstallAppButton className="mt-5 border-t border-slate-100 pt-5" />
         </div>
       </section>
     </main>

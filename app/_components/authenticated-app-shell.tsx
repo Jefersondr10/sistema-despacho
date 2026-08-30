@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 
 import { Navigation } from "@/app/_components/navigation";
+import { InstallAppButton } from "@/app/_components/pwa-install";
 import { AuthProvider, useAuth } from "@/app/_lib/auth-context";
 import { FeedbackAdminAccessProvider } from "@/app/_lib/feedback-admin-access";
 
@@ -181,6 +182,7 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
           <Navigation />
         </div>
         <div className="shrink-0 border-t border-slate-200/70 pt-4">
+          <InstallAppButton className="mb-3" />
           <UserSessionBox />
         </div>
       </aside>
@@ -210,6 +212,7 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
           <div className={isMobileBipagem ? "mt-2" : "mt-3"}>
             <Navigation compact />
           </div>
+          <InstallAppButton compact className="mt-2" />
           {!isMobileBipagem ? (
             <div className="mt-1 sm:hidden">
               <UserSessionBox />

@@ -39,6 +39,21 @@ No painel do Supabase:
 
 A tela `/login` oferece entrada, criação de conta e recuperação de senha. A sessão é persistida e renovada pelo cliente oficial do Supabase. Rotas internas sem sessão são redirecionadas para `/login`; as APIs exigem `Authorization: Bearer <access_token>`.
 
+## Instalação como aplicativo
+
+O endereço de produção pode ser instalado como aplicativo no celular ou no
+computador. O botão **Instalar aplicativo** usa a instalação nativa quando o
+navegador oferece esse recurso e mostra o caminho manual nos demais casos.
+
+- Android/Chrome: toque em **Instalar aplicativo** ou use a opção de instalação
+  do menu do navegador.
+- iPhone/iPad: abra no Safari e use **Compartilhar > Adicionar à Tela de Início**.
+
+O aplicativo abre em `/dashboard`, oferece um atalho direto para `/bipagem` e
+mantém a câmera disponível pelo HTTPS. Ele continua exigindo internet: páginas
+autenticadas, respostas do Supabase e operações de bipagem não são armazenadas
+para uso offline.
+
 ## Feedback e notificações por e-mail
 
 O envio de feedback usa `POST /api/feedback` e exige uma sessão válida do
