@@ -155,6 +155,8 @@ function UserSessionBox({ compact = false }: { compact?: boolean }) {
 }
 
 function ProtectedAppShell({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  const isMobileBipagem = pathname === "/bipagem";
   const { user } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const accountEmail = user?.email ?? "Sessão ativa";
@@ -192,73 +194,102 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
 
       <div className="min-w-0 overflow-x-clip">
         <header className="mobile-app-shell-header app-scroll-region sticky top-0 z-30 max-h-[55dvh] overflow-y-auto border-b border-slate-200/80 bg-white/90 px-3 py-3 shadow-[0_8px_30px_-24px_rgba(15,23,42,0.4)] backdrop-blur-xl sm:px-5 xl:hidden">
-          <div className="flex min-w-0 items-center gap-2">
-            <Link
-              href="/dashboard"
-              onNavigate={() => setMobileMenuOpen(false)}
-              aria-label="Ir para o Dashboard"
-              className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl py-1 pr-1 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
-            >
-              <BrandMark compact />
-              <div className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-                  <p className="shrink-0 text-sm font-bold tracking-[-0.02em] text-slate-950 transition-colors group-hover:text-teal-800">
+          <div className="md:hidden">
+            <div className="flex min-w-0 items-center gap-2">
+              <Link
+                href="/dashboard"
+                onNavigate={() => setMobileMenuOpen(false)}
+                aria-label="Ir para o Dashboard"
+                className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl py-1 pr-1 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+              >
+                <BrandMark compact />
+                <div className="min-w-0">
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <p className="shrink-0 text-sm font-bold tracking-[-0.02em] text-slate-950 transition-colors group-hover:text-teal-800">
+                      Sistema Despacho
+                    </p>
+                    <span className="shrink-0 whitespace-nowrap rounded-full bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-teal-700">
+                      Conta ativa
+                    </span>
+                  </div>
+                  <p
+                    className="mt-0.5 truncate text-xs font-medium text-slate-500"
+                    title={accountEmail}
+                  >
+                    {accountEmail}
+                  </p>
+                </div>
+              </Link>
+              <button
+                type="button"
+                aria-expanded={mobileMenuOpen}
+                aria-controls="mobile-primary-menu"
+                aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+                onClick={() => setMobileMenuOpen((open) => !open)}
+                className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  className="size-5"
+                  aria-hidden="true"
+                >
+                  {mobileMenuOpen ? (
+                    <>
+                      <path d="m6 6 12 12" />
+                      <path d="m18 6-12 12" />
+                    </>
+                  ) : (
+                    <>
+                      <path d="M4 7h16" />
+                      <path d="M4 12h16" />
+                      <path d="M4 17h16" />
+                    </>
+                  )}
+                </svg>
+              </button>
+              <UserSessionBox compact />
+            </div>
+            {mobileMenuOpen ? (
+              <div
+                id="mobile-primary-menu"
+                className="mt-3 rounded-2xl border border-slate-200/80 bg-slate-50/90 p-2 shadow-inner"
+              >
+                <Navigation onNavigate={() => setMobileMenuOpen(false)} />
+                <InstallAppButton compact className="mt-2" />
+              </div>
+            ) : null}
+          </div>
+
+          <div className="hidden md:block">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex shrink-0 items-center gap-3">
+                <BrandMark compact />
+                <div>
+                  <p className="text-sm font-bold tracking-[-0.02em] text-slate-950">
                     Sistema Despacho
                   </p>
-                  <span className="shrink-0 whitespace-nowrap rounded-full bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-teal-700">
-                    Conta ativa
-                  </span>
+                  <p className="text-xs font-medium text-slate-500">
+                    Controle de expedição
+                  </p>
                 </div>
-                <p
-                  className="mt-0.5 truncate text-xs font-medium text-slate-500"
-                  title={accountEmail}
-                >
-                  {accountEmail}
-                </p>
               </div>
-            </Link>
-            <button
-              type="button"
-              aria-expanded={mobileMenuOpen}
-              aria-controls="mobile-primary-menu"
-              aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
-              onClick={() => setMobileMenuOpen((open) => !open)}
-              className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                className="size-5"
-                aria-hidden="true"
-              >
-                {mobileMenuOpen ? (
-                  <>
-                    <path d="m6 6 12 12" />
-                    <path d="m18 6-12 12" />
-                  </>
-                ) : (
-                  <>
-                    <path d="M4 7h16" />
-                    <path d="M4 12h16" />
-                    <path d="M4 17h16" />
-                  </>
-                )}
-              </svg>
-            </button>
-            <UserSessionBox compact />
-          </div>
-          {mobileMenuOpen ? (
-            <div
-              id="mobile-primary-menu"
-              className="mt-3 rounded-2xl border border-slate-200/80 bg-slate-50/90 p-2 shadow-inner"
-            >
-              <Navigation onNavigate={() => setMobileMenuOpen(false)} />
-              <InstallAppButton compact className="mt-2" />
+              {isMobileBipagem ? (
+                <UserSessionBox compact />
+              ) : (
+                <div className="hidden min-w-0 sm:block sm:w-64">
+                  <UserSessionBox />
+                </div>
+              )}
             </div>
-          ) : null}
+            <div className={isMobileBipagem ? "mt-2" : "mt-3"}>
+              <Navigation compact />
+            </div>
+            <InstallAppButton compact className="mt-2" />
+          </div>
         </header>
 
         <main className="mx-auto flex min-h-dvh min-w-0 w-full max-w-[1640px] flex-col gap-5 px-3 py-4 sm:gap-6 sm:px-6 sm:py-7 lg:px-8 lg:py-8 2xl:px-12 2xl:py-10">
