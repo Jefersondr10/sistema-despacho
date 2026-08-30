@@ -4,8 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
-import { useFeedbackAdminAccess } from "@/app/_lib/feedback-admin-access";
-
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/bipagem", label: "Bipar Pacotes", icon: "scan" },
@@ -16,15 +14,7 @@ const mainNavItems = [
   { href: "/feedback", label: "Feedback", icon: "feedback" },
 ] as const;
 
-const adminNavItem = {
-  href: "/admin/feedback",
-  label: "Gerenciar feedbacks",
-  icon: "admin",
-} as const;
-
-type NavigationItem =
-  | (typeof mainNavItems)[number]
-  | typeof adminNavItem;
+type NavigationItem = (typeof mainNavItems)[number];
 type NavigationIcon = NavigationItem["icon"];
 
 function NavIcon({ icon }: { icon: NavigationIcon }) {
@@ -78,12 +68,6 @@ function NavIcon({ icon }: { icon: NavigationIcon }) {
         <path d="M8 10h8M8 14h5" />
       </>
     ),
-    admin: (
-      <>
-        <path d="M12 3 20 6v5c0 5-3.4 8.4-8 10-4.6-1.6-8-5-8-10V6l8-3Z" />
-        <path d="M9 12h6M12 9v6" />
-      </>
-    ),
   };
 
   return (
@@ -106,10 +90,12 @@ function NavigationLink({
   item,
   compact,
   pathname,
+  onNavigate,
 }: {
   item: NavigationItem;
   compact: boolean;
   pathname: string;
+  onNavigate?: () => void;
 }) {
   const isActive =
     pathname === item.href ||
@@ -118,6 +104,7 @@ function NavigationLink({
   return (
     <Link
       href={item.href}
+      onNavigate={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={`group relative flex min-h-[3.25rem] items-center gap-3 rounded-2xl border px-3 py-2.5 text-sm font-semibold tracking-[-0.01em] transition-all duration-200 ${
         isActive
@@ -146,10 +133,14 @@ function NavigationLink({
   );
 }
 
-export function Navigation({ compact = false }: { compact?: boolean }) {
+export function Navigation({
+  compact = false,
+  onNavigate,
+}: {
+  compact?: boolean;
+  onNavigate?: () => void;
+}) {
   const pathname = usePathname();
-  const { status: adminAccessStatus } = useFeedbackAdminAccess();
-  const isAdmin = adminAccessStatus === "allowed";
 
   return (
     <nav
@@ -166,27 +157,9 @@ export function Navigation({ compact = false }: { compact?: boolean }) {
           item={item}
           compact={compact}
           pathname={pathname}
+          onNavigate={onNavigate}
         />
       ))}
-      {isAdmin ? (
-        <>
-          {compact ? (
-            <span
-              className="my-2 h-8 w-px shrink-0 self-center bg-slate-300"
-              aria-hidden="true"
-            />
-          ) : (
-            <p className="mt-3 border-t border-slate-200/80 px-3 pt-4 text-[10px] font-bold uppercase tracking-[0.17em] text-slate-400">
-              Administração
-            </p>
-          )}
-          <NavigationLink
-            item={adminNavItem}
-            compact={compact}
-            pathname={pathname}
-          />
-        </>
-      ) : null}
     </nav>
   );
 }

@@ -13,10 +13,11 @@ const managerSource = read(
 );
 const databaseSource = read("lib/database.ts");
 
-test("cadastro de notificacoes existe somente na area administrativa", () => {
-  assert.match(adminPageSource, /FeedbackNotificationRecipientsManager/);
-  assert.match(adminPageSource, /<FeedbackNotificationRecipientsManager \/>/);
+test("cadastro de notificacoes não é exposto na interface", () => {
+  assert.match(adminPageSource, /redirect\("\/feedback"\)/);
+  assert.doesNotMatch(adminPageSource, /FeedbackNotificationRecipientsManager/);
   assert.doesNotMatch(employeePageSource, /NotificationRecipients|Destinatários/);
+  assert.doesNotMatch(adminPageSource, /Gerenciar feedbacks/);
   assert.match(managerSource, /useFeedbackAdminAccess\(\)/);
   assert.match(managerSource, /adminAccessStatus === "allowed"/);
   assert.match(managerSource, /if \(!isAdmin\) return null/);

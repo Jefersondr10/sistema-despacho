@@ -29,10 +29,14 @@ domínio-base público, sem protocolo nem caminho. Os nomes padrão criam os
 endereços `bipagem.<domínio-base>` e `nfe.<domínio-base>`; eles podem ser
 alterados por `BIPAGEM_SUBDOMAIN` e `FISCAL_SUBDOMAIN`.
 
-Os destinatários dos novos feedbacks não ficam no arquivo de ambiente. Depois
-de aplicar a migration de destinatários e publicar a aplicação, cadastre-os em
-**Administração > Gerenciar feedbacks**. Somente administradores de feedback
-veem essa configuração; até 50 endereços podem ficar ativos ao mesmo tempo.
+O destinatário dos novos feedbacks é definido somente no backend e não pode ser
+alterado pelo navegador. Nesta versão, todo novo feedback é encaminhado para
+`jefersondr10@gmail.com`; a antiga tela administrativa redireciona para o
+formulário comum de Feedback.
+
+Confirme que a migration
+`supabase/migrations/202608290001_feedback_notification_recipients.sql` foi
+aplicada no Supabase antes de publicar essa versão.
 
 Durante a migração, mantenha `LEGACY_BIPAGEM_DOMAIN` e
 `LEGACY_FISCAL_DOMAIN` com os endereços `sslip.io` atuais. O mesmo bloco do

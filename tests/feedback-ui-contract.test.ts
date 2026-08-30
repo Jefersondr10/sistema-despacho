@@ -15,17 +15,17 @@ const authenticatedShellSource = read(
   "app/_components/authenticated-app-shell.tsx",
 );
 
-test("feedback do funcionário e gerência usam rotas próprias responsivas", () => {
+test("feedback é a única opção visível e a rota administrativa redireciona", () => {
   assert.match(navigationSource, /href: "\/feedback", label: "Feedback"/);
   assert.match(navigationSource, /icon: "feedback"/);
   assert.match(pageSource, /PageHeader/);
   assert.match(pageSource, /title="Feedback"/);
   assert.match(pageSource, /<FeedbackView/);
   assert.doesNotMatch(pageSource, /mode="management"/);
-  assert.match(adminPageSource, /PageHeader/);
-  assert.match(adminPageSource, /title="Gerenciar feedbacks"/);
-  assert.match(adminPageSource, /<FeedbackView mode="management"/);
-  assert.match(navigationSource, /href: "\/admin\/feedback"/);
+  assert.match(adminPageSource, /import \{ redirect \} from "next\/navigation"/);
+  assert.match(adminPageSource, /redirect\("\/feedback"\)/);
+  assert.doesNotMatch(adminPageSource, /FeedbackView|FeedbackNotificationRecipientsManager/);
+  assert.doesNotMatch(navigationSource, /admin\/feedback|Gerenciar feedbacks/);
   assert.match(viewSource, /"use client"/);
   assert.match(viewSource, /grid-cols-2/);
   assert.match(viewSource, /xl:grid-cols-/);
@@ -52,18 +52,10 @@ test("provider administrativo tri-state é compartilhado pelo shell", () => {
   );
 });
 
-test("link administrativo só aparece depois da autorização compartilhada", () => {
-  assert.match(
-    navigationSource,
-    /const \{ status: adminAccessStatus \} = useFeedbackAdminAccess\(\)/,
-  );
-  assert.match(
-    navigationSource,
-    /const isAdmin = adminAccessStatus === "allowed"/,
-  );
-  assert.match(navigationSource, /\{isAdmin \? \(/);
-  assert.match(navigationSource, /item=\{adminNavItem\}/);
-  assert.match(navigationSource, />\s*Administração\s*</);
+test("navegação não consulta nem mostra acesso administrativo", () => {
+  assert.doesNotMatch(navigationSource, /useFeedbackAdminAccess/);
+  assert.doesNotMatch(navigationSource, /adminAccessStatus|adminNavItem/);
+  assert.doesNotMatch(navigationSource, />\s*Administração\s*</);
 });
 
 test("formulário cobre tipos, áreas, limites Unicode e foco do primeiro erro", () => {

@@ -1,5 +1,6 @@
 import type { DispatchPackage } from "@/app/_lib/mock-data";
 import type { RomaneioGroup } from "@/app/_lib/romaneio";
+import { MarketplaceBrandMark } from "@/app/_components/marketplace-brand-mark";
 
 export type { RomaneioGroup } from "@/app/_lib/romaneio";
 
@@ -41,13 +42,13 @@ function RomaneioSheet({ group }: { group: RomaneioGroup }) {
               {group.loja_nome}
             </p>
           </div>
-          <div className="rounded-xl border-2 border-teal-600 bg-teal-50 px-4 py-3 print:bg-white">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
+          <div className="grid grid-rows-[auto_1fr] rounded-xl border-2 border-teal-600 bg-teal-50 px-4 py-3 print:bg-white">
+            <p className="text-center text-[10px] font-bold uppercase tracking-[0.18em] text-teal-700">
               Marketplace
             </p>
-            <p className="mt-1 break-words text-lg font-extrabold leading-tight text-teal-950 sm:text-xl print:text-lg">
-              {group.marketplace}
-            </p>
+            <div className="romaneio-marketplace-mark mt-1 flex min-h-10 items-center justify-center text-center">
+              <MarketplaceBrandMark name={group.marketplace} />
+            </div>
           </div>
         </div>
 
@@ -144,11 +145,11 @@ export function RomaneioDocument({
       ) : null}
 
       {groups.map((group, groupIndex) => (
-        <div key={group.id}>
+        <div
+          key={group.id}
+          className={groupIndex > 0 ? "romaneio-page-break" : undefined}
+        >
           <RomaneioSheet group={group} />
-          {groupIndex < groups.length - 1 ? (
-            <div className="romaneio-page-break" />
-          ) : null}
         </div>
       ))}
     </div>

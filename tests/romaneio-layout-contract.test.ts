@@ -42,6 +42,52 @@ test("loja, marketplace e período ficam em destaque sem lote", () => {
   assert.doesNotMatch(componentSource, /codigo_lote|>\s*Lote\s*</i);
 });
 
+test("marketplace fica centralizado e usa marca local com fallback textual", () => {
+  const brandComponentSource = read(
+    "app/_components/marketplace-brand-mark.tsx",
+  );
+
+  assert.match(
+    componentSource,
+    /romaneio-marketplace-mark[^"\n]*items-center[^"\n]*justify-center[^"\n]*text-center/,
+  );
+  assert.match(
+    componentSource,
+    /<MarketplaceBrandMark name=\{group\.marketplace\} \/>/,
+  );
+  assert.match(brandComponentSource, /role="img"/);
+  assert.match(brandComponentSource, /aria-label=\{`\$\{label\}, marketplace`\}/);
+  assert.match(brandComponentSource, /if \(brand === "amazon"\)/);
+  assert.match(brandComponentSource, /if \(brand === "mercado-livre"\)/);
+  assert.match(brandComponentSource, /if \(brand === "shopee"\)/);
+  assert.match(brandComponentSource, />\s*\{label\}\s*<\/span>/);
+});
+
+test("impressão não leva o aviso do navegador nem um bloco vazio ao final", () => {
+  const reportViewSource = read("app/relatorios/relatorios-view.tsx");
+
+  assert.match(
+    reportViewSource,
+    /mode !== "romaneio" \? \([\s\S]*?className="no-print[^\"]*"[\s\S]*?PDF via navegador/,
+  );
+  assert.doesNotMatch(
+    componentSource,
+    /<div className="romaneio-page-break"\s*\/>/,
+  );
+  assert.match(
+    componentSource,
+    /className=\{groupIndex > 0 \? "romaneio-page-break" : undefined\}/,
+  );
+  assert.match(
+    globalStyles,
+    /\.romaneio-page-break\s*\{[\s\S]*break-before:\s*page;[\s\S]*page-break-before:\s*always;/,
+  );
+  assert.doesNotMatch(
+    globalStyles,
+    /\.romaneio-page-break\s*\{[\s\S]*?break-after:\s*page;/,
+  );
+});
+
 test("romaneio do email segue o mesmo resumo e preserva as assinaturas", () => {
   const romaneioEmailSource = emailSource.match(
     /function buildRomaneioEmail[\s\S]*?(?=function buildReportEmail)/,

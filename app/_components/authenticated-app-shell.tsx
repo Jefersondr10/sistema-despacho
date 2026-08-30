@@ -6,6 +6,7 @@ import { useEffect, useState, type ReactNode } from "react";
 
 import { Navigation } from "@/app/_components/navigation";
 import { InstallAppButton } from "@/app/_components/pwa-install";
+import { WhatsNewNotice } from "@/app/_components/whats-new-notice";
 import { AuthProvider, useAuth } from "@/app/_lib/auth-context";
 import { FeedbackAdminAccessProvider } from "@/app/_lib/feedback-admin-access";
 
@@ -154,11 +155,13 @@ function UserSessionBox({ compact = false }: { compact?: boolean }) {
 }
 
 function ProtectedAppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
-  const isMobileBipagem = pathname === "/bipagem";
+  const { user } = useAuth();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const accountEmail = user?.email ?? "Sessão ativa";
 
   return (
     <div className="min-h-dvh min-w-0 text-slate-950 xl:grid xl:grid-cols-[clamp(248px,19vw,288px)_minmax(0,1fr)]">
+      <WhatsNewNotice />
       <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-gradient-to-b from-white/95 via-white/88 to-slate-50/90 p-4 shadow-[10px_0_40px_rgba(15,23,42,0.045)] backdrop-blur-xl xl:flex xl:p-5">
         <Link
           href="/dashboard"
@@ -189,33 +192,71 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
 
       <div className="min-w-0 overflow-x-clip">
         <header className="mobile-app-shell-header app-scroll-region sticky top-0 z-30 max-h-[55dvh] overflow-y-auto border-b border-slate-200/80 bg-white/90 px-3 py-3 shadow-[0_8px_30px_-24px_rgba(15,23,42,0.4)] backdrop-blur-xl sm:px-5 xl:hidden">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex shrink-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <Link
+              href="/dashboard"
+              onNavigate={() => setMobileMenuOpen(false)}
+              aria-label="Ir para o Dashboard"
+              className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl py-1 pr-1 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+            >
               <BrandMark compact />
-              <div>
-                <p className="text-sm font-bold tracking-[-0.02em] text-slate-950">
-                  Sistema Despacho
-                </p>
-                <p className="text-xs font-medium text-slate-500">
-                  Controle de expedição
+              <div className="min-w-0">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+                  <p className="shrink-0 text-sm font-bold tracking-[-0.02em] text-slate-950 transition-colors group-hover:text-teal-800">
+                    Sistema Despacho
+                  </p>
+                  <span className="shrink-0 whitespace-nowrap rounded-full bg-teal-50 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em] text-teal-700">
+                    Conta ativa
+                  </span>
+                </div>
+                <p
+                  className="mt-0.5 truncate text-xs font-medium text-slate-500"
+                  title={accountEmail}
+                >
+                  {accountEmail}
                 </p>
               </div>
-            </div>
-            {isMobileBipagem ? (
-              <UserSessionBox compact />
-            ) : (
-              <div className="hidden min-w-0 sm:block sm:w-64">
-                <UserSessionBox />
-              </div>
-            )}
+            </Link>
+            <button
+              type="button"
+              aria-expanded={mobileMenuOpen}
+              aria-controls="mobile-primary-menu"
+              aria-label={mobileMenuOpen ? "Fechar menu" : "Abrir menu"}
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="grid size-10 shrink-0 place-items-center rounded-xl border border-slate-200 bg-white text-slate-700 shadow-sm transition hover:border-teal-200 hover:bg-teal-50 hover:text-teal-800 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                className="size-5"
+                aria-hidden="true"
+              >
+                {mobileMenuOpen ? (
+                  <>
+                    <path d="m6 6 12 12" />
+                    <path d="m18 6-12 12" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M4 7h16" />
+                    <path d="M4 12h16" />
+                    <path d="M4 17h16" />
+                  </>
+                )}
+              </svg>
+            </button>
+            <UserSessionBox compact />
           </div>
-          <div className={isMobileBipagem ? "mt-2" : "mt-3"}>
-            <Navigation compact />
-          </div>
-          <InstallAppButton compact className="mt-2" />
-          {!isMobileBipagem ? (
-            <div className="mt-1 sm:hidden">
-              <UserSessionBox />
+          {mobileMenuOpen ? (
+            <div
+              id="mobile-primary-menu"
+              className="mt-3 rounded-2xl border border-slate-200/80 bg-slate-50/90 p-2 shadow-inner"
+            >
+              <Navigation onNavigate={() => setMobileMenuOpen(false)} />
+              <InstallAppButton compact className="mt-2" />
             </div>
           ) : null}
         </header>

@@ -725,12 +725,14 @@ export function RelatoriosView({
           </div>
         ) : null}
 
-        <div className="border-t border-slate-100 p-5 text-xs leading-5 text-slate-500">
-          <Badge tone="neutral">PDF via navegador</Badge>
-          <span className="ml-2">
-            O botão Gerar PDF abre a impressão com os filtros aplicados.
-          </span>
-        </div>
+        {mode !== "romaneio" ? (
+          <div className="no-print border-t border-slate-100 p-5 text-xs leading-5 text-slate-500">
+            <Badge tone="neutral">PDF via navegador</Badge>
+            <span className="ml-2">
+              O botão Gerar PDF abre a impressão com os filtros aplicados.
+            </span>
+          </div>
+        ) : null}
       </section>
     </>
   );

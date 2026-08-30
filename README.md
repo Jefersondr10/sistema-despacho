@@ -54,6 +54,11 @@ mantém a câmera disponível pelo HTTPS. Ele continua exigindo internet: págin
 autenticadas, respostas do Supabase e operações de bipagem não são armazenadas
 para uso offline.
 
+O componente `app/_components/whats-new-notice.tsx` mostra as novidades uma vez
+por versão em cada aparelho, somente no Dashboard. Em toda publicação com mudança visível,
+atualize `CURRENT_RELEASE_ID` e a lista `releaseItems`; assim o aviso reaparece
+no próximo acesso sem depender do banco.
+
 ## Feedback e notificações por e-mail
 
 O envio de feedback usa `POST /api/feedback` e exige uma sessão válida do
@@ -66,28 +71,26 @@ Cada notificação usa um identificador persistente criado no banco. Repetir a
 mesma solicitação tenta novamente somente uma entrega pendente; solicitações já
 marcadas como notificadas não voltam a chamar o provedor de e-mail.
 
-As notificações de novos feedbacks usam somente os destinatários ativos
-cadastrados por um administrador em **Administração > Gerenciar feedbacks**.
-O cadastro aceita até 50 endereços ativos, permite editar, desativar e excluir,
-e não usa nenhum e-mail pessoal fixo no ambiente do servidor. Se não houver
-destinatário ativo, o feedback continua salvo sem envio de notificação. A API
-nunca aceita destinatário, remetente, assunto de e-mail ou HTML vindos do
-navegador.
+Antes de publicar esse fluxo em um ambiente novo, aplique a migration
+`supabase/migrations/202608290001_feedback_notification_recipients.sql`. Ela
+cria o contexto de entrega e a marcação idempotente usados pela API.
+
+As notificações de novos feedbacks são enviadas diretamente para
+`jefersondr10@gmail.com`. O destinatário é definido exclusivamente no backend:
+a tela de Feedback e o navegador nunca podem substituí-lo. A opção de gerenciar
+destinatários e feedbacks não aparece mais na navegação; a rota administrativa
+antiga redireciona para `/feedback`.
 `RELATORIOS_EMAIL_FROM` e
 `RESEND_API_KEY` também ficam exclusivamente no backend. O e-mail autenticado
-do autor é usado apenas como `reply_to`.
+do autor é usado como `reply_to`, permitindo responder diretamente pelo e-mail
+recebido. As tabelas e snapshots históricos de notificação permanecem no banco
+para preservar compatibilidade e idempotência, mas não escolhem o destinatário
+dos novos feedbacks.
 
-Antes de publicar essa tela, aplique
-`supabase/migrations/202608290001_feedback_notification_recipients.sql`. A
-migration cria o cadastro vazio, as permissões administrativas e o snapshot
-dos destinatários por notificação; ela não copia endereços de variáveis antigas
-nem cadastra automaticamente o e-mail de um administrador.
-
-Administradores revisam pela rota `PATCH /api/feedback/[id]`, protegida pela RPC
-`review_feedback`. O PATCH envia também `expectedUpdatedAt`, permitindo que o
-banco rejeite com HTTP 409 uma edição baseada em dados desatualizados. Uma
-resposta nova e não vazia é enviada ao e-mail confirmado atual retornado pelo
-banco. Mudanças somente de status não alteram o conteúdo do e-mail pendente.
+A rota histórica `PATCH /api/feedback/[id]` permanece protegida pela RPC
+`review_feedback` para compatibilidade, mas não é mais exposta na interface. O
+PATCH envia também `expectedUpdatedAt`, permitindo que o banco rejeite com HTTP
+409 uma edição baseada em dados desatualizados.
 Se o Resend estiver indisponível ou sem configuração, o feedback ou a revisão
 continuam salvos; a resposta da API informa `notificationSent: false` sem expor
 detalhes internos do provedor.

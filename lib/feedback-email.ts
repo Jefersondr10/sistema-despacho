@@ -1,5 +1,6 @@
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 export const FEEDBACK_EMAIL_TIMEOUT_MS = 10_000;
+export const FEEDBACK_SUBMISSION_RECIPIENT = "jefersondr10@gmail.com";
 
 type FeedbackEmailFetcher = (
   input: string | URL | Request,

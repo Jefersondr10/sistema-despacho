@@ -15,6 +15,7 @@ import {
   validateFeedbackSubmission,
 } from "../app/api/feedback/_shared.ts";
 import {
+  FEEDBACK_SUBMISSION_RECIPIENT,
   buildFeedbackResponseEmail,
   buildFeedbackSubmissionEmail,
   createFeedbackResponseIdempotencyKey,
@@ -571,7 +572,9 @@ test("rotas separam autenticacao publica do estado interno de entrega", () => {
     postRouteSource,
     /notificationId: deliveryContext\.notificationId/,
   );
-  assert.match(postRouteSource, /deliveryContext\.recipientEmails/);
+  assert.equal(FEEDBACK_SUBMISSION_RECIPIENT, "jefersondr10@gmail.com");
+  assert.match(postRouteSource, /\[FEEDBACK_SUBMISSION_RECIPIENT\]/);
+  assert.doesNotMatch(postRouteSource, /deliveryContext\.recipientEmails/);
   assert.doesNotMatch(postRouteSource, /recipientEmails\s*:/);
   assert.doesNotMatch(postRouteSource, /deliveryContext\s*[,}]/);
   assert.match(postRouteSource, /"mark_feedback_submission_notified"/);

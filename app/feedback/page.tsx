@@ -7,7 +7,7 @@ export default function FeedbackPage() {
     <>
       <PageHeader
         title="Feedback"
-        description="Envie sugestões, reclamações ou dúvidas e acompanhe cada retorno em um só lugar."
+        description="Envie sugestões, reclamações ou dúvidas. Seu feedback será encaminhado por e-mail ao responsável."
       />
       <FeedbackView />
     </>

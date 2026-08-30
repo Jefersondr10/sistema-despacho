@@ -220,7 +220,7 @@ function FeedbackHistory({
           <p className="mt-1 text-sm text-slate-500">
             {total
               ? `Exibindo ${start}–${end} de ${total}`
-              : "Acompanhe aqui os retornos da equipe."}
+              : "Acompanhe aqui os feedbacks que você enviou."}
           </p>
         </div>
         <button
@@ -294,7 +294,7 @@ function FeedbackHistory({
                 </p>
               ) : (
                 <p className="mt-4 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-500">
-                  Aguardando retorno da equipe.
+                  Feedback encaminhado. O retorno será enviado ao e-mail da sua conta.
                 </p>
               )}
             </article>

@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getFeedbackDeliveryClient } from "@/lib/feedback-delivery-client";
-import { sendFeedbackSubmissionEmail } from "@/lib/feedback-email";
+import {
+  FEEDBACK_SUBMISSION_RECIPIENT,
+  sendFeedbackSubmissionEmail,
+} from "@/lib/feedback-email";
 
 import {
   authenticateFeedbackRequest,
@@ -125,7 +128,7 @@ export async function POST(request: Request) {
           },
           authenticatedUser: { email: authentication.user.email },
         },
-        deliveryContext.recipientEmails,
+        [FEEDBACK_SUBMISSION_RECIPIENT],
       );
     } catch {
       notification = { sent: false, reason: "delivery_failed" };

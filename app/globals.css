@@ -227,6 +227,11 @@ textarea {
   container-type: inline-size;
 }
 
+.marketplace-brand-mark {
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
 .romaneio-tracking-grid {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -443,7 +448,7 @@ textarea {
   }
 
   .romaneio-page-break {
-    break-after: page;
-    page-break-after: always;
+    break-before: page;
+    page-break-before: always;
   }
 }
