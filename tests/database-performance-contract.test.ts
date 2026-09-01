@@ -16,12 +16,15 @@ const cancellationsSource = read(
 const emailRouteSource = read("app/api/relatorios/enviar-email/route.ts");
 const healthRouteSource = read("app/api/supabase-health/route.ts");
 
-test("contexto autenticado reutiliza userId sem validar a sessao por helper", () => {
+test("contexto autenticado preserva o ator e resolve a conta compartilhada", () => {
   assert.match(databaseSource, /export type DatabaseContext = \{[\s\S]*userId\?: string;/);
   assert.match(
     databaseSource,
-    /if \(resolvedUserId\) \{\s*return \{ supabase, userId: resolvedUserId \};\s*\}[\s\S]*auth\.getUser/,
+    /context\?\.actorUserId\?\.trim\(\) \|\| context\?\.userId\?\.trim\(\)/,
   );
+  assert.match(databaseSource, /\.rpc\("get_current_account_context"\)/);
+  assert.match(databaseSource, /userId: accountContext\.accountId/);
+  assert.match(databaseSource, /actorUserId: accountContext\.actorUserId/);
 
   assert.match(storeSource, /const databaseContext: DatabaseContext = \{ userId: requestedUserId \}/);
   assert.match(emailRouteSource, /userId: userData\.user\.id/);

@@ -525,7 +525,7 @@ test("database exporta o contrato completo e consultas de leitura estreitas", ()
   );
   assert.match(
     helperSource,
-    /export async function getOwnFeedbackPage[\s\S]*\.select\(feedbackSelect, \{ count: "exact" \}\)[\s\S]*\.eq\("user_id", userId\)[\s\S]*\.range\(offset, offset \+ pageSize - 1\)/,
+    /export async function getOwnFeedbackPage[\s\S]*actorUserId[\s\S]*\.select\(feedbackSelect, \{ count: "exact" \}\)[\s\S]*\.eq\("user_id", actorUserId\)[\s\S]*\.range\(offset, offset \+ pageSize - 1\)/,
   );
   assert.match(
     helperSource,

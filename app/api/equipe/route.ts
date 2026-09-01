@@ -1,0 +1,350 @@
+import "server-only";
+
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { NextResponse } from "next/server";
+
+import {
+  TEAM_MEMBER_STATUSES,
+  TEAM_ROLES,
+  type TeamContext,
+  type TeamMemberStatus,
+  type TeamRole,
+} from "@/app/equipe/team-contract";
+import {
+  createSupabaseClientForAccessToken,
+  getSupabaseConfig,
+  isSupabaseConfigured,
+} from "@/lib/supabaseClient";
+
+export const dynamic = "force-dynamic";
+
+const REQUEST_BODY_LIMIT_BYTES = 12 * 1024;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+type AuthenticatedTeamRequest = {
+  supabase: SupabaseClient;
+  context: TeamContext;
+};
+
+type TeamRequestError = Error & { status?: number };
+
+function requestError(status: number, message: string) {
+  const error = new Error(message) as TeamRequestError;
+  error.status = status;
+  return error;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function hasExactKeys(value: Record<string, unknown>, keys: string[]) {
+  const received = Object.keys(value).sort();
+  const expected = [...keys].sort();
+  return received.length === expected.length && received.every((key, index) => key === expected[index]);
+}
+
+function isRole(value: unknown): value is TeamRole {
+  return typeof value === "string" && TEAM_ROLES.includes(value as TeamRole);
+}
+
+function isStatus(value: unknown): value is TeamMemberStatus {
+  return typeof value === "string" && TEAM_MEMBER_STATUSES.includes(value as TeamMemberStatus);
+}
+
+function normalizeName(value: unknown) {
+  if (typeof value !== "string") throw requestError(400, "Nome inválido.");
+  const name = value.trim();
+  if (Array.from(name).length < 2 || Array.from(name).length > 120) {
+    throw requestError(400, "O nome deve ter entre 2 e 120 caracteres.");
+  }
+  return name;
+}
+
+function normalizeEmail(value: unknown) {
+  if (typeof value !== "string") throw requestError(400, "E-mail inválido.");
+  const email = value.trim().toLowerCase();
+  if (
+    email.length < 3 ||
+    email.length > 320 ||
+    /\s/.test(email) ||
+    email.indexOf("@") <= 0 ||
+    email.lastIndexOf("@") !== email.indexOf("@") ||
+    email.indexOf("@") >= email.length - 1
+  ) {
+    throw requestError(400, "E-mail inválido.");
+  }
+  return email;
+}
+
+async function readJsonBody(request: Request) {
+  const declaredLength = request.headers.get("content-length")?.trim() ?? "";
+  if (/^\d+$/.test(declaredLength) && Number(declaredLength) > REQUEST_BODY_LIMIT_BYTES) {
+    throw requestError(413, "O conteúdo enviado excede o limite permitido.");
+  }
+
+  const text = await request.text();
+  if (new TextEncoder().encode(text).byteLength > REQUEST_BODY_LIMIT_BYTES) {
+    throw requestError(413, "O conteúdo enviado excede o limite permitido.");
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    throw requestError(400, "Payload JSON inválido.");
+  }
+}
+
+function getBearerToken(request: Request) {
+  const authorization = request.headers.get("authorization")?.trim() ?? "";
+  return /^Bearer\s+(\S+)$/i.exec(authorization)?.[1] ?? "";
+}
+
+function normalizeRpcRow(value: unknown) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function normalizeTeamContext(value: unknown): TeamContext | null {
+  const context = normalizeRpcRow(value);
+  if (
+    !isRecord(context) ||
+    typeof context.account_id !== "string" ||
+    typeof context.actor_user_id !== "string" ||
+    !isRole(context.role) ||
+    typeof context.account_name !== "string" ||
+    typeof context.can_manage_team !== "boolean"
+  ) {
+    return null;
+  }
+
+  return {
+    account_id: context.account_id,
+    actor_user_id: context.actor_user_id,
+    role: context.role,
+    display_name:
+      typeof context.display_name === "string" && context.display_name.trim()
+        ? context.display_name.trim()
+        : "Usuário",
+    account_name: context.account_name,
+    can_manage_team: context.can_manage_team,
+  };
+}
+
+async function authenticateTeamRequest(request: Request): Promise<AuthenticatedTeamRequest> {
+  if (!isSupabaseConfigured()) {
+    throw requestError(503, "Supabase não configurado.");
+  }
+
+  const token = getBearerToken(request);
+  if (!token) throw requestError(401, "Sessão obrigatória.");
+
+  const supabase = createSupabaseClientForAccessToken(token);
+  const { data: userData, error: userError } = await supabase.auth.getUser(token);
+  if (userError || !userData.user) {
+    throw requestError(401, "Sessão inválida ou expirada.");
+  }
+
+  const { data, error } = await supabase.rpc("get_current_account_context");
+  if (error) throw requestError(403, "Você não possui acesso a esta conta.");
+
+  const context = normalizeTeamContext(data);
+  if (!context || context.actor_user_id !== userData.user.id) {
+    throw requestError(403, "Você não possui acesso a esta conta.");
+  }
+
+  if (!context.can_manage_team || !["owner", "admin"].includes(context.role)) {
+    throw requestError(403, "Seu perfil não possui permissão para gerenciar usuários.");
+  }
+
+  return { supabase, context };
+}
+
+function getAdminClient() {
+  const { url } = getSupabaseConfig();
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
+
+  if (!url || !serviceRoleKey) {
+    throw requestError(503, "Administração de usuários não configurada.");
+  }
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  });
+}
+
+function databaseErrorMessage(error: unknown, fallback: string) {
+  if (!isRecord(error)) return fallback;
+  const text = [error.code, error.message, error.details, error.hint]
+    .filter((part): part is string => typeof part === "string")
+    .join(" ")
+    .toLowerCase();
+
+  if (text.includes("permission") || text.includes("forbidden") || text.includes("42501")) {
+    return "Seu perfil não possui permissão para gerenciar usuários.";
+  }
+  if (text.includes("already") || text.includes("duplicate") || text.includes("23505")) {
+    return "Este e-mail já está cadastrado.";
+  }
+  if (text.includes("finalize ou cancele o lote aberto")) {
+    return "Finalize ou cancele o lote aberto antes de tornar este usuário somente leitura.";
+  }
+  return fallback;
+}
+
+async function assertAdminCanManageMember(
+  supabase: SupabaseClient,
+  targetUserId: string,
+  nextRole: TeamRole,
+) {
+  const { data, error } = await supabase.rpc("list_team_admin_snapshot");
+  if (error) {
+    throw requestError(403, "Você não possui permissão para alterar este usuário.");
+  }
+
+  const snapshot = normalizeRpcRow(data);
+  const members = isRecord(snapshot) && Array.isArray(snapshot.members)
+    ? snapshot.members
+    : [];
+  const target = members.find(
+    (member) => isRecord(member) && member.user_id === targetUserId,
+  );
+
+  if (!isRecord(target)) {
+    throw requestError(404, "Usuário não encontrado nesta equipe.");
+  }
+  if (target.role === "admin" || nextRole === "admin" || target.role === "owner") {
+    throw requestError(403, "Somente o proprietário pode gerenciar administradores.");
+  }
+}
+
+function errorResponse(error: unknown) {
+  const status =
+    isRecord(error) && typeof error.status === "number" && error.status >= 400 && error.status <= 599
+      ? error.status
+      : 500;
+  const message = error instanceof Error ? error.message : "Não foi possível processar a solicitação.";
+  return NextResponse.json({ ok: false, message }, { status });
+}
+
+export async function GET(request: Request) {
+  try {
+    const { supabase } = await authenticateTeamRequest(request);
+    const { data, error } = await supabase.rpc("list_team_admin_snapshot");
+
+    if (error) {
+      throw requestError(403, databaseErrorMessage(error, "Não foi possível carregar a equipe."));
+    }
+
+    const snapshot = normalizeRpcRow(data);
+    if (!isRecord(snapshot)) throw requestError(500, "O banco retornou dados de equipe inválidos.");
+
+    return NextResponse.json({ ok: true, snapshot });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function POST(request: Request) {
+  let createdUserId = "";
+  let adminClient: ReturnType<typeof getAdminClient> | null = null;
+
+  try {
+    const { supabase, context } = await authenticateTeamRequest(request);
+    const body = await readJsonBody(request);
+    if (!isRecord(body) || !hasExactKeys(body, ["name", "email", "password", "role"])) {
+      throw requestError(400, "Dados do usuário inválidos.");
+    }
+
+    const name = normalizeName(body.name);
+    const email = normalizeEmail(body.email);
+    const password = typeof body.password === "string" ? body.password : "";
+    if (password.length < 8 || password.length > 128) {
+      throw requestError(400, "A senha inicial deve ter entre 8 e 128 caracteres.");
+    }
+    if (!isRole(body.role) || body.role === "owner") {
+      throw requestError(400, "Perfil inválido para um novo usuário.");
+    }
+    if (context.role === "admin" && body.role === "admin") {
+      throw requestError(403, "Somente o proprietário pode cadastrar administradores.");
+    }
+
+    adminClient = getAdminClient();
+    const { data: created, error: createError } = await adminClient.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: { name },
+      app_metadata: { team_account_id: context.account_id },
+    });
+
+    if (createError || !created.user) {
+      throw requestError(409, databaseErrorMessage(createError, "Não foi possível criar o login do usuário."));
+    }
+
+    createdUserId = created.user.id;
+    const { error: membershipError } = await supabase.rpc("add_account_member", {
+      p_user_id: createdUserId,
+      p_email: email,
+      p_display_name: name,
+      p_role: body.role,
+    });
+
+    if (membershipError) {
+      const { error: rollbackError } = await adminClient.auth.admin.deleteUser(createdUserId);
+      if (rollbackError) {
+        throw requestError(500, "O login foi criado, mas não foi vinculado à equipe. Contate o administrador antes de tentar novamente.");
+      }
+      createdUserId = "";
+      throw requestError(400, databaseErrorMessage(membershipError, "Não foi possível vincular o usuário à equipe."));
+    }
+
+    return NextResponse.json({ ok: true, userId: createdUserId }, { status: 201 });
+  } catch (error) {
+    if (createdUserId && adminClient) {
+      await adminClient.auth.admin.deleteUser(createdUserId).catch(() => undefined);
+    }
+    return errorResponse(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  try {
+    const { supabase, context } = await authenticateTeamRequest(request);
+    const body = await readJsonBody(request);
+    if (!isRecord(body) || !hasExactKeys(body, ["userId", "name", "role", "status"])) {
+      throw requestError(400, "Dados da atualização inválidos.");
+    }
+
+    if (typeof body.userId !== "string" || !UUID_PATTERN.test(body.userId)) {
+      throw requestError(400, "Usuário inválido.");
+    }
+    const name = normalizeName(body.name);
+    if (!isRole(body.role) || body.role === "owner" || !isStatus(body.status)) {
+      throw requestError(400, "Perfil ou situação inválidos.");
+    }
+
+    if (context.role === "admin") {
+      await assertAdminCanManageMember(supabase, body.userId, body.role);
+    }
+
+    const { error } = await supabase.rpc("update_account_member", {
+      p_user_id: body.userId,
+      p_display_name: name,
+      p_role: body.role,
+      p_status: body.status,
+    });
+
+    if (error) {
+      throw requestError(400, databaseErrorMessage(error, "Não foi possível atualizar o usuário."));
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}

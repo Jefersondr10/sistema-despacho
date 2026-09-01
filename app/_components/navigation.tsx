@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
+import { useTeam } from "@/app/_lib/team-context";
+
 const mainNavItems = [
   { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
   { href: "/bipagem", label: "Bipar Pacotes", icon: "scan" },
@@ -11,6 +13,7 @@ const mainNavItems = [
   { href: "/pacotes-cancelados", label: "Cancelados", icon: "cancel" },
   { href: "/relatorios", label: "Relatórios", icon: "report" },
   { href: "/cadastros", label: "Cadastros", icon: "settings" },
+  { href: "/equipe", label: "Equipe", icon: "team" },
   { href: "/feedback", label: "Feedback", icon: "feedback" },
 ] as const;
 
@@ -60,6 +63,13 @@ function NavIcon({ icon }: { icon: NavigationIcon }) {
         <circle cx="16" cy="7" r="2" />
         <circle cx="8" cy="17" r="2" />
         <circle cx="10" cy="12" r="2" />
+      </>
+    ),
+    team: (
+      <>
+        <circle cx="9" cy="8" r="3" />
+        <path d="M3.5 19a5.5 5.5 0 0 1 11 0" />
+        <path d="M16 5.5a3 3 0 0 1 0 5.5M17.5 14a5 5 0 0 1 3 5" />
       </>
     ),
     feedback: (
@@ -141,6 +151,10 @@ export function Navigation({
   onNavigate?: () => void;
 }) {
   const pathname = usePathname();
+  const { context: teamContext } = useTeam();
+  const visibleItems = mainNavItems.filter(
+    (item) => item.href !== "/equipe" || teamContext?.can_manage_team,
+  );
 
   return (
     <nav
@@ -151,7 +165,7 @@ export function Navigation({
       }
       aria-label="Navegação principal"
     >
-      {mainNavItems.map((item) => (
+      {visibleItems.map((item) => (
         <NavigationLink
           key={item.href}
           item={item}

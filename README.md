@@ -1,6 +1,6 @@
 # Sistema Despacho
 
-Aplicação Next.js 16 para bipagem, lotes, pacotes, cancelamentos e relatórios. Cada login do Supabase Auth é uma conta independente: `user_id` separa contas e `loja_id` continua separando as lojas dentro da conta.
+Aplicação Next.js 16 para bipagem, lotes, pacotes, cancelamentos e relatórios. `user_id` identifica a conta operacional compartilhada, `account_members` vincula os logins da equipe a essa conta e `loja_id` continua separando as lojas dentro da operação.
 
 ## Configuração local
 
@@ -17,8 +17,9 @@ RELATORIOS_EMAIL_REPLY_TO=
 
 A aplicação usa somente a chave publicável no navegador. A
 `SUPABASE_SERVICE_ROLE_KEY` é usada exclusivamente pelas rotas server-side para
-consultar e marcar o estado interno de entrega das notificações. Nunca exponha
-essa chave em variáveis `NEXT_PUBLIC_*`, logs ou respostas JSON.
+o estado interno das notificações e para criar os logins cadastrados na tela
+**Equipe**. Nunca exponha essa chave em variáveis `NEXT_PUBLIC_*`, logs ou
+respostas JSON.
 
 ```bash
 npm install
@@ -37,7 +38,7 @@ No painel do Supabase:
    - produção: `https://bipagem.SEU-DOMINIO-BASE/login`.
 4. Crie a conta proprietária dos dados antigos em **Authentication > Users** e confirme o e-mail, se necessário.
 
-A tela `/login` oferece entrada, criação de conta e recuperação de senha. A sessão é persistida e renovada pelo cliente oficial do Supabase. Rotas internas sem sessão são redirecionadas para `/login`; as APIs exigem `Authorization: Bearer <access_token>`.
+A tela `/login` oferece entrada, criação de conta e recuperação de senha. A sessão é persistida e renovada pelo cliente oficial do Supabase. Rotas internas sem sessão são redirecionadas para `/login`; as APIs exigem `Authorization: Bearer <access_token>`. O proprietário e os administradores cadastram funcionários em `/equipe`, sem compartilhar a senha da conta principal.
 
 ## Instalação como aplicativo
 
@@ -201,6 +202,37 @@ Aplique esta migration antes do frontend, em uma janela sem bipagens ativas:
 A estação representa o aparelho ou perfil do navegador, não uma aba. Duas abas
 do mesmo perfil compartilham o lote para permitir recarregar a página sem perder
 a bipagem. O isolamento de segurança continua sendo o `user_id` da conta.
+
+## Equipe, perfis e autoria
+
+Aplique `supabase/migrations/202609010001_team_accounts_audit.sql` antes do
+frontend que disponibiliza `/equipe`. A migration é transacional, preserva os
+valores atuais de `user_id` como identificador da conta e registra o login real
+em colunas de autoria separadas. Registros anteriores permanecem sem autor
+inventado.
+
+Os perfis disponíveis são:
+
+- **Proprietário** e **Administrador**: operam o sistema, gerenciam a equipe e
+  consultam as atividades;
+- **Supervisor** e **Operador**: operam normalmente, mas não gerenciam usuários;
+- **Somente consulta**: pode visualizar os dados, sem bipar, alterar cadastros,
+  cancelar pacotes ou enviar relatórios por e-mail.
+
+Para uma publicação segura:
+
+1. confirme que não existem sessões de bipagem abertas;
+2. registre as contagens das tabelas operacionais;
+3. aplique a migration e valide imediatamente o acesso do proprietário;
+4. confira novamente as contagens e os fluxos atuais;
+5. publique o frontend e só então cadastre os demais usuários.
+
+As sessões abertas passam a ser separadas por conta, operador e aparelho. O
+histórico administrativo registra as novas bipagens, finalizações,
+cancelamentos, alterações de cadastros, envios de relatórios e mudanças na
+equipe sem duplicar os milhares de registros criados durante uma finalização.
+Para preservar a identificação no histórico, desative funcionários pela opção
+**Suspender** da tela Equipe; não exclua o login diretamente no Supabase.
 
 ## Testes
 

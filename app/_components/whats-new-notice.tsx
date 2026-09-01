@@ -3,25 +3,25 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-08-30-app-feedback-romaneio";
+export const CURRENT_RELEASE_ID = "2026-09-01-equipe-auditoria";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
   {
-    title: "Aplicativo mais simples",
+    title: "Acessos individuais",
     description:
-      "O topo agora mostra a conta ativa, o menu fica no botão sanduíche e a marca leva direto ao Dashboard.",
+      "Agora cada funcionário pode entrar com seu próprio e-mail e senha, sem alterar os dados já existentes da operação.",
   },
   {
-    title: "Feedback direto",
+    title: "Ações identificadas",
     description:
-      "Sugestões e reclamações são encaminhadas por e-mail ao responsável, sem uma área gerencial misturada à operação.",
+      "Bipagens, finalizações, cancelamentos, cadastros e envios passam a registrar quem realizou cada ação.",
   },
   {
-    title: "Romaneio mais limpo",
+    title: "Controle de equipe",
     description:
-      "A identificação do marketplace ganhou destaque e a impressão foi ajustada para evitar uma página informativa extra.",
+      "Proprietários e administradores podem definir perfis, suspender acessos e consultar as atividades recentes pela nova opção Equipe.",
   },
 ] as const;
 

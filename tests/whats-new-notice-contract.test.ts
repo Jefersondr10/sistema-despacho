@@ -42,7 +42,7 @@ test("aviso usa diálogo nativo acessível e pode ser fechado pelo teclado", () 
 });
 
 test("conteúdo resume as mudanças visíveis desta versão", () => {
-  assert.match(noticeSource, /Aplicativo mais simples/);
-  assert.match(noticeSource, /Feedback direto/);
-  assert.match(noticeSource, /Romaneio mais limpo/);
+  assert.match(noticeSource, /Acessos individuais/);
+  assert.match(noticeSource, /Ações identificadas/);
+  assert.match(noticeSource, /Controle de equipe/);
 });

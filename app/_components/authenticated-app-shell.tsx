@@ -9,6 +9,7 @@ import { InstallAppButton } from "@/app/_components/pwa-install";
 import { WhatsNewNotice } from "@/app/_components/whats-new-notice";
 import { AuthProvider, useAuth } from "@/app/_lib/auth-context";
 import { FeedbackAdminAccessProvider } from "@/app/_lib/feedback-admin-access";
+import { TeamProvider } from "@/app/_lib/team-context";
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -338,9 +339,11 @@ function AppShellContent({ children }: { children: ReactNode }) {
 export function AuthenticatedAppShell({ children }: { children: ReactNode }) {
   return (
     <AuthProvider>
-      <FeedbackAdminAccessProvider>
-        <AppShellContent>{children}</AppShellContent>
-      </FeedbackAdminAccessProvider>
+      <TeamProvider>
+        <FeedbackAdminAccessProvider>
+          <AppShellContent>{children}</AppShellContent>
+        </FeedbackAdminAccessProvider>
+      </TeamProvider>
     </AuthProvider>
   );
 }

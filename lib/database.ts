@@ -25,19 +25,64 @@ export type DatabaseContext = {
   supabase?: SupabaseClient;
   accessToken?: string;
   /**
+   * Authenticated user that is performing the request.
+   *
+   * Prefer this field in new server boundaries. `userId` remains as a
+   * compatibility alias while existing callers are migrated.
+   */
+  actorUserId?: string;
+  /**
    * User id already resolved by a trusted authentication boundary.
    *
    * Browser callers get this value from AuthProvider's authenticated session.
    * Server callers must only set it after validating the bearer token.
-   * RLS remains the final authorization boundary for every query.
+   * It identifies the actor, not the shared account. RLS remains the final
+   * authorization boundary for every query.
    */
   userId?: string;
 };
 
+export type AccountRole =
+  | "owner"
+  | "admin"
+  | "supervisor"
+  | "operator"
+  | "viewer";
+
 type ResolvedDatabaseContext = {
   supabase: SupabaseClient;
+  /**
+   * Compatibility name used by the operational queries below. It is the
+   * shared account id after the team migration, not the authenticated actor.
+   */
   userId: string;
+  accountId: string;
+  actorUserId: string;
+  role: AccountRole;
 };
+
+type CurrentAccountContextRow = {
+  account_id: string;
+  actor_user_id: string;
+  role: string;
+  member_status?: string | null;
+  account_name?: string | null;
+};
+
+type CachedAccountContext = {
+  expiresAt: number;
+  promise: Promise<{
+    accountId: string;
+    actorUserId: string;
+    role: AccountRole;
+  }>;
+};
+
+const ACCOUNT_CONTEXT_CACHE_TTL_MS = 60_000;
+const accountContextCache = new WeakMap<
+  SupabaseClient,
+  Map<string, CachedAccountContext>
+>();
 
 export type TipoOperacao = "coleta" | "postagem";
 export type SessaoBipagemStatus = "aberta" | "finalizada" | "cancelada";
@@ -52,6 +97,8 @@ export type PacoteDatabaseStatus =
 export type LojaRow = {
   id: string;
   user_id: string;
+  criado_por?: string | null;
+  atualizado_por?: string | null;
   nome: string;
   slug: string;
   ativo: boolean;
@@ -62,6 +109,8 @@ export type LojaRow = {
 export type MarketplaceRow = {
   id: string;
   user_id: string;
+  criado_por?: string | null;
+  atualizado_por?: string | null;
   nome: string;
   slug: string;
   ativo: boolean;
@@ -72,6 +121,8 @@ export type MarketplaceRow = {
 export type TransportadoraRow = {
   id: string;
   user_id: string;
+  criado_por?: string | null;
+  atualizado_por?: string | null;
   nome: string;
   slug: string;
   ativo: boolean;
@@ -82,6 +133,8 @@ export type TransportadoraRow = {
 export type RelatorioDestinatarioRow = {
   id: string;
   user_id: string;
+  criado_por?: string | null;
+  atualizado_por?: string | null;
   nome: string | null;
   email: string;
   ativo: boolean;
@@ -94,6 +147,7 @@ export type RelatorioEnvioStatus = "sucesso" | "erro";
 export type RelatorioEnvioRow = {
   id: string;
   user_id: string;
+  realizado_por?: string | null;
   destinatarios: string[];
   assunto: string;
   filtros: Record<string, unknown>;
@@ -188,6 +242,9 @@ export type FeedbackNotificationRecipientInput = {
 export type SessaoBipagemRow = {
   id: string;
   user_id: string;
+  iniciada_por?: string | null;
+  finalizada_por?: string | null;
+  cancelada_por?: string | null;
   estacao_id: string | null;
   codigo_lote: string | null;
   loja_id: string;
@@ -210,6 +267,8 @@ export type ItemSessaoBipagemStatus =
 export type ItemSessaoBipagemRow = {
   id: string;
   user_id: string;
+  bipado_por?: string | null;
+  removido_por?: string | null;
   sessao_id: string;
   codigo: string;
   codigo_normalizado: string;
@@ -223,6 +282,9 @@ export type ItemSessaoBipagemRow = {
 export type PacoteRow = {
   id: string;
   user_id: string;
+  bipado_por?: string | null;
+  finalizado_por?: string | null;
+  cancelado_por?: string | null;
   codigo: string;
   loja_id: string;
   marketplace_id: string;
@@ -239,6 +301,7 @@ export type PacoteRow = {
 export type MovimentacaoRow = {
   id: string;
   user_id: string;
+  realizado_por?: string | null;
   pacote_id: string | null;
   loja_id: string;
   sessao_id: string | null;
@@ -250,6 +313,7 @@ export type MovimentacaoRow = {
 export type PacoteCanceladoRow = {
   id: string;
   user_id: string;
+  realizado_por?: string | null;
   pacote_id: string | null;
   codigo_pacote: string;
   loja_id: string;
@@ -497,25 +561,127 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function normalizeAccountRole(value: unknown): AccountRole {
+  if (
+    value === "owner" ||
+    value === "admin" ||
+    value === "supervisor" ||
+    value === "operator" ||
+    value === "viewer"
+  ) {
+    return value;
+  }
+
+  throw new Error("Perfil de acesso da conta invalido. Entre novamente.");
+}
+
+async function resolveCurrentAccountContext(
+  supabase: SupabaseClient,
+  actorUserId: string,
+) {
+  let clientCache = accountContextCache.get(supabase);
+  if (!clientCache) {
+    clientCache = new Map<string, CachedAccountContext>();
+    accountContextCache.set(supabase, clientCache);
+  }
+
+  const cached = clientCache.get(actorUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+
+  const promise = (async () => {
+    const { data, error } = await supabase.rpc("get_current_account_context");
+
+    // The application and the database can be rolled out independently. An
+    // old database still behaves exactly as before: the authenticated user is
+    // also the account owner. No other RPC error is hidden by this fallback.
+    if (error && isMissingRpcFunctionError(error)) {
+      return {
+        accountId: actorUserId,
+        actorUserId,
+        role: "owner" as const,
+      };
+    }
+
+    if (error) {
+      throw error;
+    }
+
+    const row = (Array.isArray(data) ? data[0] : data) as
+      | CurrentAccountContextRow
+      | null;
+    const accountId = row?.account_id?.trim();
+    const resolvedActorUserId = row?.actor_user_id?.trim();
+
+    if (!row || !accountId || !resolvedActorUserId) {
+      throw new Error("Conta ativa nao encontrada. Entre novamente.");
+    }
+
+    // The actor comes from the validated access token. Refuse inconsistent
+    // context instead of accidentally attributing an action to another user.
+    if (resolvedActorUserId !== actorUserId) {
+      throw new Error("Contexto de usuario invalido. Entre novamente.");
+    }
+
+    if (row.member_status && row.member_status !== "active") {
+      throw new Error("Seu acesso a esta conta esta suspenso.");
+    }
+
+    return {
+      accountId,
+      actorUserId: resolvedActorUserId,
+      role: normalizeAccountRole(row.role),
+    };
+  })();
+
+  const entry = {
+    expiresAt: Date.now() + ACCOUNT_CONTEXT_CACHE_TTL_MS,
+    promise,
+  } satisfies CachedAccountContext;
+  clientCache.set(actorUserId, entry);
+
+  try {
+    return await promise;
+  } catch (error) {
+    if (clientCache.get(actorUserId) === entry) {
+      clientCache.delete(actorUserId);
+    }
+    throw error;
+  }
+}
+
 async function getDatabaseContext(
   context?: DatabaseContext,
 ): Promise<ResolvedDatabaseContext> {
   const supabase = context?.supabase ?? getSupabaseClient();
-  const resolvedUserId = context?.userId?.trim();
+  const resolvedActorUserId =
+    context?.actorUserId?.trim() || context?.userId?.trim();
 
-  if (resolvedUserId) {
-    return { supabase, userId: resolvedUserId };
+  let actorUserId = resolvedActorUserId;
+
+  if (!actorUserId) {
+    const accessToken = context?.accessToken?.trim();
+    const { data, error } = await supabase.auth.getUser(accessToken || undefined);
+    actorUserId = data.user?.id;
+
+    if (error || !actorUserId) {
+      throw new Error("Usuario autenticado obrigatorio. Entre novamente.");
+    }
   }
 
-  const accessToken = context?.accessToken?.trim();
-  const { data, error } = await supabase.auth.getUser(accessToken || undefined);
-  const userId = data.user?.id;
+  const accountContext = await resolveCurrentAccountContext(
+    supabase,
+    actorUserId,
+  );
 
-  if (error || !userId) {
-    throw new Error("Usuario autenticado obrigatorio. Entre novamente.");
-  }
-
-  return { supabase, userId };
+  return {
+    supabase,
+    userId: accountContext.accountId,
+    accountId: accountContext.accountId,
+    actorUserId: accountContext.actorUserId,
+    role: accountContext.role,
+  };
 }
 
 function withAuthenticatedOwner<T extends Record<string, unknown>>(
@@ -1069,12 +1235,12 @@ export async function getOwnFeedbackPage(
   options?: FeedbackPageOptions,
   context?: DatabaseContext,
 ): Promise<FeedbackPage> {
-  const { supabase, userId } = await getDatabaseContext(context);
+  const { supabase, actorUserId } = await getDatabaseContext(context);
   const { page, pageSize, offset } = getFeedbackPageSettings(options);
   const { data, error, count } = await supabase
     .from("feedbacks")
     .select(feedbackSelect, { count: "exact" })
-    .eq("user_id", userId)
+    .eq("user_id", actorUserId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .range(offset, offset + pageSize - 1)
