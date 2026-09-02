@@ -1036,7 +1036,7 @@ begin
         or v_row->>'status' not in ('finalizada', 'cancelada') then
         return new;
       end if;
-      v_action := 'sessoes_bipagem.' || v_row->>'status';
+      v_action := 'sessoes_bipagem.' || (v_row->>'status');
     end if;
   elsif tg_table_name = 'itens_sessao_bipagem' and tg_op = 'UPDATE' then
     if v_old->>'status' = 'pendente'

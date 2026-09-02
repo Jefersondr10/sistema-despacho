@@ -177,6 +177,10 @@ test("autoria e auditoria sao impostas pelo banco e permanecem append-only", () 
     functionDefinition("append_operational_audit_event"),
     /tg_op = 'INSERT'[\s\S]*v_action := 'sessoes_bipagem\.aberta'/i,
   );
+  assert.match(
+    functionDefinition("append_operational_audit_event"),
+    /'sessoes_bipagem\.'\s*\|\|\s*\(v_row->>'status'\)/i,
+  );
   assert.match(sql, /revoke all on table public\.audit_events from public, anon, authenticated/i);
   assert.doesNotMatch(sql, /grant (?:insert|update|delete)[^;]*audit_events/i);
   assert.match(sql, /after insert on public\.itens_sessao_bipagem/i);
