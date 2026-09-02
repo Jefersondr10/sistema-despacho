@@ -32,7 +32,9 @@ import {
   normalizeTrackingCode,
 } from "@/app/_lib/mock-data";
 import { useAuth } from "@/app/_lib/auth-context";
+import { useTeam } from "@/app/_lib/team-context";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
+import { hasTeamPermission } from "@/app/equipe/team-contract";
 import {
   adicionarItemSessaoBipagem,
   cancelarSessaoBipagemAberta,
@@ -139,6 +141,15 @@ export function BipagemForm() {
   const mobileSessionOptionsInitialFocusRef = useRef<HTMLButtonElement>(null);
   const mobileImmersiveRef = useRef<HTMLElement>(null);
   const { user } = useAuth();
+  const { context: teamContext } = useTeam();
+  const canViewCancellations = hasTeamPermission(
+    teamContext,
+    "cancelamentos.view",
+  );
+  const canManageCancellations = hasTeamPermission(
+    teamContext,
+    "cancelamentos.manage",
+  );
   const {
     catalogs,
     allPackages,
@@ -814,6 +825,13 @@ export function BipagemForm() {
   }
 
   function cancelSessionPackageFromFullscreen(item: DispatchPackage) {
+    if (!canManageCancellations) {
+      setSessionPackageActionError(
+        "Seu acesso permite bipar, mas não cancelar pacotes.",
+      );
+      return;
+    }
+
     setShowFullscreenSessionPackages(false);
     setSessionPackageActionError("");
     cancelSessionPackage(item);
@@ -1291,6 +1309,14 @@ export function BipagemForm() {
   }
 
   function requestCancellationMode() {
+    if (!canManageCancellations) {
+      setNotice({
+        type: "warning",
+        text: "Seu acesso não permite cancelar pacotes.",
+      });
+      return;
+    }
+
     if (loading || loadingOpenSession || savingSession || checkingPackage) {
       setNotice({
         type: "warning",
@@ -1312,6 +1338,14 @@ export function BipagemForm() {
   }
 
   function activateCancellationMode() {
+    if (!canManageCancellations) {
+      setNotice({
+        type: "warning",
+        text: "Seu acesso não permite cancelar pacotes.",
+      });
+      return;
+    }
+
     setMobileScanningStarted(false);
     setCancellationMode(true);
     clearCodeField();
@@ -1459,6 +1493,14 @@ export function BipagemForm() {
   }
 
   function requestFinalizePendingCancellations() {
+    if (!canManageCancellations) {
+      setNotice({
+        type: "warning",
+        text: "Seu acesso não permite cancelar pacotes.",
+      });
+      return;
+    }
+
     if (savingCancellation) {
       return;
     }
@@ -1485,6 +1527,15 @@ export function BipagemForm() {
   }
 
   async function finalizePendingCancellations() {
+    if (!canManageCancellations) {
+      setShowFinalizeCancellationConfirm(false);
+      setNotice({
+        type: "warning",
+        text: "Seu acesso não permite cancelar pacotes.",
+      });
+      return;
+    }
+
     if (savingCancellation) {
       return;
     }
@@ -1565,6 +1616,14 @@ export function BipagemForm() {
 
 
   function cancelSessionPackage(item: DispatchPackage) {
+    if (!canManageCancellations) {
+      setNotice({
+        type: "warning",
+        text: "Seu acesso não permite cancelar pacotes.",
+      });
+      return;
+    }
+
     if (processingTrackingRef.current || sessionMutationLocked) {
       setNotice({
         type: "warning",
@@ -1634,6 +1693,17 @@ export function BipagemForm() {
   }
 
   async function confirmSessionPackageCancellation() {
+    if (!canManageCancellations) {
+      setPendingSessionCancelPackage(null);
+      setSessionCancelReason("");
+      setSessionCancelError("");
+      setNotice({
+        type: "warning",
+        text: "Seu acesso não permite cancelar pacotes.",
+      });
+      return;
+    }
+
     if (
       !pendingSessionCancelPackage ||
       savingCancellation ||
@@ -2193,16 +2263,21 @@ export function BipagemForm() {
                 >
                   Descartar lote
                 </button>
-                <button
-                  type="button"
-                  onClick={requestCancellationMode}
-                  disabled={
-                    loading || loadingOpenSession || savingSession || checkingPackage
-                  }
-                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                >
-                  Cancelar finalizados
-                </button>
+                {canManageCancellations ? (
+                  <button
+                    type="button"
+                    onClick={requestCancellationMode}
+                    disabled={
+                      loading ||
+                      loadingOpenSession ||
+                      savingSession ||
+                      checkingPackage
+                    }
+                    className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                  >
+                    Cancelar finalizados
+                  </button>
+                ) : null}
               </>
             )}
           </div>
@@ -2290,7 +2365,9 @@ export function BipagemForm() {
             </div>
           ) : null}
 
-          {!cancellationMode && recentCancellations.length ? (
+          {!cancellationMode &&
+          canViewCancellations &&
+          recentCancellations.length ? (
             <div className={`mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4 ${mobileImmersiveSession ? "max-xl:hidden" : ""}`}>
               <h3 className="text-sm font-semibold text-slate-950">
                 Últimos cancelamentos
@@ -2474,14 +2551,16 @@ export function BipagemForm() {
                           >
                             {isDuplicate ? "Remover repetição" : "Remover"}
                           </button>
-                          <button
-                            type="button"
-                            onClick={() => cancelSessionPackage(item)}
-                            disabled={sessionMutationLocked}
-                            className="inline-flex min-h-11 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-wait disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
-                          >
-                            Cancelar
-                          </button>
+                          {canManageCancellations ? (
+                            <button
+                              type="button"
+                              onClick={() => cancelSessionPackage(item)}
+                              disabled={sessionMutationLocked}
+                              className="inline-flex min-h-11 items-center justify-center rounded-md border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700 transition hover:border-rose-300 hover:bg-rose-100 disabled:cursor-wait disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+                            >
+                              Cancelar
+                            </button>
+                          ) : null}
                         </div>
                       </li>
                     );
@@ -2926,7 +3005,8 @@ export function BipagemForm() {
                               ? "Remover repetição"
                               : "Remover"}
                         </button>
-                        {fullscreenPackagesMode === "browse" ? (
+                        {fullscreenPackagesMode === "browse" &&
+                        canManageCancellations ? (
                           <button
                             type="button"
                             onClick={() => cancelSessionPackageFromFullscreen(item)}

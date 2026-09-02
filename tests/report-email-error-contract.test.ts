@@ -12,7 +12,7 @@ const resendSource = routeSource.match(
 
 test("envio valida a permissão antes de chamar o provedor externo", () => {
   const permissionCheck = routeSource.indexOf(
-    'authenticatedClient.rpc("current_account_can_write")',
+    'authenticatedClient.rpc("current_account_has_permission",',
   );
   const providerCall = routeSource.indexOf("await sendEmailWithResend(");
 
@@ -21,7 +21,8 @@ test("envio valida a permissão antes de chamar o provedor externo", () => {
     providerCall > permissionCheck,
     "a permissão deve ser validada antes do envio externo",
   );
-  assert.match(routeSource, /permissionError \|\| canWrite !== true/);
+  assert.match(routeSource, /p_permission: "relatorios\.send"/);
+  assert.match(routeSource, /permissionError \|\| canSendReport !== true/);
   assert.match(routeSource, /status: 403/);
 });
 

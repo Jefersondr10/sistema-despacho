@@ -7,17 +7,17 @@ const shellSource = readFileSync(
   "utf8",
 );
 
-test("marca do sistema no menu desktop retorna ao Dashboard", () => {
+test("marca do sistema no menu desktop retorna ao primeiro acesso liberado", () => {
   assert.match(shellSource, /import Link from "next\/link"/);
   assert.match(
     shellSource,
-    /<aside[\s\S]*?<Link[\s\S]*?href="\/dashboard"[\s\S]*?aria-label="Ir para o Dashboard"[\s\S]*?<BrandMark \/>[\s\S]*?Sistema Despacho[\s\S]*?<\/Link>[\s\S]*?<Navigation \/>/,
+    /<aside[\s\S]*?<Link[\s\S]*?href=\{homeRoute\}[\s\S]*?aria-label="Ir para o início"[\s\S]*?<BrandMark \/>[\s\S]*?Sistema Despacho[\s\S]*?<\/Link>[\s\S]*?<Navigation \/>/,
   );
 });
 
 test("atalho desktop possui retorno visual para mouse e teclado", () => {
   assert.match(
     shellSource,
-    /aria-label="Ir para o Dashboard"[\s\S]*?hover:bg-white\/80[\s\S]*?focus-visible:ring-4/,
+    /aria-label="Ir para o início"[\s\S]*?hover:bg-white\/80[\s\S]*?focus-visible:ring-4/,
   );
 });

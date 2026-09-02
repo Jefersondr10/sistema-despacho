@@ -9,7 +9,11 @@ import { InstallAppButton } from "@/app/_components/pwa-install";
 import { WhatsNewNotice } from "@/app/_components/whats-new-notice";
 import { AuthProvider, useAuth } from "@/app/_lib/auth-context";
 import { FeedbackAdminAccessProvider } from "@/app/_lib/feedback-admin-access";
-import { TeamProvider } from "@/app/_lib/team-context";
+import { TeamProvider, useTeam } from "@/app/_lib/team-context";
+import {
+  canAccessTeamPathname,
+  getFirstAllowedTeamRoute,
+} from "@/app/equipe/team-contract";
 
 function BrandMark({ compact = false }: { compact?: boolean }) {
   return (
@@ -159,16 +163,18 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const isMobileBipagem = pathname === "/bipagem";
   const { user } = useAuth();
+  const { context: teamContext } = useTeam();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const accountEmail = user?.email ?? "Sessão ativa";
+  const homeRoute = getFirstAllowedTeamRoute(teamContext);
 
   return (
     <div className="min-h-dvh min-w-0 text-slate-950 xl:grid xl:grid-cols-[clamp(248px,19vw,288px)_minmax(0,1fr)]">
       <WhatsNewNotice />
       <aside className="sticky top-0 hidden h-dvh min-h-0 flex-col overflow-hidden border-r border-slate-200/80 bg-gradient-to-b from-white/95 via-white/88 to-slate-50/90 p-4 shadow-[10px_0_40px_rgba(15,23,42,0.045)] backdrop-blur-xl xl:flex xl:p-5">
         <Link
-          href="/dashboard"
-          aria-label="Ir para o Dashboard"
+          href={homeRoute}
+          aria-label="Ir para o início"
           className="group flex items-center gap-3 rounded-2xl px-2 py-2.5 transition hover:bg-white/80 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
         >
           <BrandMark />
@@ -198,9 +204,9 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
           <div className="md:hidden">
             <div className="flex min-w-0 items-center gap-2">
               <Link
-                href="/dashboard"
+                href={homeRoute}
                 onNavigate={() => setMobileMenuOpen(false)}
-                aria-label="Ir para o Dashboard"
+                aria-label="Ir para o início"
                 className="group flex min-w-0 flex-1 items-center gap-2.5 rounded-2xl py-1 pr-1 transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
               >
                 <BrandMark compact />
@@ -267,7 +273,11 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
 
           <div className="hidden md:block">
             <div className="flex items-center justify-between gap-3">
-              <div className="flex shrink-0 items-center gap-3">
+              <Link
+                href={homeRoute}
+                aria-label="Ir para o início"
+                className="flex shrink-0 items-center gap-3 rounded-2xl transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-teal-100"
+              >
                 <BrandMark compact />
                 <div>
                   <p className="text-sm font-bold tracking-[-0.02em] text-slate-950">
@@ -277,7 +287,7 @@ function ProtectedAppShell({ children }: { children: ReactNode }) {
                     Controle de expedição
                   </p>
                 </div>
-              </div>
+              </Link>
               {isMobileBipagem ? (
                 <UserSessionBox compact />
               ) : (
@@ -305,8 +315,15 @@ function AppShellContent({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { loading, session, passwordRecovery } = useAuth();
+  const {
+    context: teamContext,
+    loading: teamLoading,
+    error: teamError,
+  } = useTeam();
   const isLoginRoute = pathname === "/login";
   const canStayOnLogin = isLoginRoute && passwordRecovery;
+  const firstAllowedRoute = getFirstAllowedTeamRoute(teamContext);
+  const canAccessCurrentRoute = canAccessTeamPathname(pathname, teamContext);
 
   useEffect(() => {
     if (loading) return;
@@ -314,9 +331,27 @@ function AppShellContent({ children }: { children: ReactNode }) {
     if (!session && !isLoginRoute) {
       router.replace("/login");
     } else if (session && isLoginRoute && !passwordRecovery) {
-      router.replace("/dashboard");
+      if (!teamLoading && teamContext) router.replace(firstAllowedRoute);
+    } else if (
+      session &&
+      !isLoginRoute &&
+      !teamLoading &&
+      teamContext &&
+      !canAccessCurrentRoute
+    ) {
+      router.replace(firstAllowedRoute);
     }
-  }, [isLoginRoute, loading, passwordRecovery, router, session]);
+  }, [
+    canAccessCurrentRoute,
+    firstAllowedRoute,
+    isLoginRoute,
+    loading,
+    passwordRecovery,
+    router,
+    session,
+    teamContext,
+    teamLoading,
+  ]);
 
   if (loading) {
     return <FullScreenState>Verificando sessao...</FullScreenState>;
@@ -324,10 +359,22 @@ function AppShellContent({ children }: { children: ReactNode }) {
   if (!session && !isLoginRoute) {
     return <FullScreenState>Redirecionando para o login...</FullScreenState>;
   }
+  if (session && !canStayOnLogin && teamLoading) {
+    return <FullScreenState>Carregando seus acessos...</FullScreenState>;
+  }
+  if (session && !canStayOnLogin && teamError) {
+    return <FullScreenState>{teamError}</FullScreenState>;
+  }
+  if (session && !canStayOnLogin && !teamContext) {
+    return <FullScreenState>Não foi possível identificar seus acessos.</FullScreenState>;
+  }
   if (session && isLoginRoute && !canStayOnLogin) {
     return <FullScreenState>Entrando no sistema...</FullScreenState>;
   }
   if (isLoginRoute) return <>{children}</>;
+  if (!canAccessCurrentRoute) {
+    return <FullScreenState>Redirecionando para uma área liberada...</FullScreenState>;
+  }
 
   return (
     <ProtectedAppShell key={session?.user.id ?? "sem-sessao"}>

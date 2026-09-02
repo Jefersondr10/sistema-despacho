@@ -15,11 +15,11 @@ const mobileHeader = shellSource.match(
   /<header className="mobile-app-shell-header[\s\S]*?<\/header>/,
 )?.[0];
 
-test("topo móvel mostra conta ativa e a marca retorna ao Dashboard", () => {
+test("topo móvel mostra conta ativa e a marca retorna ao primeiro acesso liberado", () => {
   assert.ok(mobileHeader, "cabeçalho móvel não encontrado");
   assert.match(mobileHeader, /<div className="md:hidden">/);
-  assert.match(mobileHeader, /href="\/dashboard"/);
-  assert.match(mobileHeader, /aria-label="Ir para o Dashboard"/);
+  assert.match(mobileHeader, /href=\{homeRoute\}/);
+  assert.match(mobileHeader, /aria-label="Ir para o início"/);
   assert.match(mobileHeader, /Sistema Despacho/);
   assert.match(mobileHeader, /Conta ativa/);
   assert.match(mobileHeader, /title=\{accountEmail\}/);

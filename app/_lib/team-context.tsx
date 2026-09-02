@@ -11,8 +11,12 @@ import {
 } from "react";
 
 import {
+  TEAM_PERMISSIONS,
   TEAM_ROLES,
+  getFallbackPermissionsForRole,
+  isTeamPermission,
   type TeamContext,
+  type TeamPermission,
   type TeamRole,
 } from "@/app/equipe/team-contract";
 import { useAuth } from "@/app/_lib/auth-context";
@@ -52,6 +56,7 @@ function normalizeContext(value: unknown): TeamContext | null {
     account_id: candidate.account_id,
     actor_user_id: candidate.actor_user_id,
     role: candidate.role,
+    permissions: getFallbackPermissionsForRole(candidate.role),
     display_name:
       typeof candidate.display_name === "string" && candidate.display_name.trim()
         ? candidate.display_name.trim()
@@ -59,6 +64,17 @@ function normalizeContext(value: unknown): TeamContext | null {
     account_name: candidate.account_name,
     can_manage_team: candidate.can_manage_team,
   };
+}
+
+function normalizePermissions(value: unknown, role: TeamRole) {
+  if (role === "owner" || role === "admin") return [...TEAM_PERMISSIONS];
+
+  const candidate = Array.isArray(value) ? value : null;
+  if (!candidate || candidate.some((permission) => !isTeamPermission(permission))) {
+    return null;
+  }
+
+  return TEAM_PERMISSIONS.filter((permission) => candidate.includes(permission));
 }
 
 function isMissingTeamContextRpc(error: unknown) {
@@ -79,6 +95,24 @@ function isMissingTeamContextRpc(error: unknown) {
   );
 }
 
+function isMissingTeamPermissionsRpc(error: unknown) {
+  if (!isRecord(error)) return false;
+  const code = typeof error.code === "string" ? error.code.toUpperCase() : "";
+  const text = [error.message, error.details, error.hint]
+    .filter((part): part is string => typeof part === "string")
+    .join(" ")
+    .toLowerCase();
+
+  return (
+    code === "PGRST202" ||
+    code === "42883" ||
+    (text.includes("get_current_account_permissions") &&
+      (text.includes("not find") ||
+        text.includes("does not exist") ||
+        text.includes("schema cache")))
+  );
+}
+
 function getLegacyOwnerContext(
   user: NonNullable<ReturnType<typeof useAuth>["user"]>,
 ): TeamContext {
@@ -92,6 +126,7 @@ function getLegacyOwnerContext(
     account_id: user.id,
     actor_user_id: user.id,
     role: "owner",
+    permissions: [...TEAM_PERMISSIONS],
     display_name: metadataName || email,
     account_name: "Minha operação",
     can_manage_team: true,
@@ -143,7 +178,36 @@ export function TeamProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setContext(normalized);
+    const { data: permissionsData, error: permissionsError } = await supabase.rpc(
+      "get_current_account_permissions",
+    );
+
+    const permissions = permissionsError && isMissingTeamPermissionsRpc(permissionsError)
+      ? getFallbackPermissionsForRole(normalized.role)
+      : normalizePermissions(permissionsData, normalized.role);
+
+    if (permissionsError && !isMissingTeamPermissionsRpc(permissionsError)) {
+      setContext(null);
+      setError("Não foi possível confirmar suas permissões de acesso.");
+      setLoading(false);
+      return;
+    }
+
+    if (!permissions) {
+      setContext(null);
+      setError("As permissões da sua conta são inválidas. Entre novamente.");
+      setLoading(false);
+      return;
+    }
+
+    setContext({
+      ...normalized,
+      permissions,
+      can_manage_team:
+        normalized.role === "owner" ||
+        normalized.role === "admin" ||
+        permissions.includes("team.manage" satisfies TeamPermission),
+    });
     setLoading(false);
   }, [authLoading, configured, user]);
 

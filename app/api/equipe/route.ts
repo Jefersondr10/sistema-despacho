@@ -5,8 +5,13 @@ import { NextResponse } from "next/server";
 
 import {
   TEAM_MEMBER_STATUSES,
+  TEAM_PERMISSIONS,
   TEAM_ROLES,
+  getFallbackPermissionsForRole,
+  isTeamPermission,
+  resolveTeamPermissionDependencies,
   type TeamContext,
+  type TeamPermission,
   type TeamMemberStatus,
   type TeamRole,
 } from "@/app/equipe/team-contract";
@@ -51,6 +56,17 @@ function isRole(value: unknown): value is TeamRole {
 
 function isStatus(value: unknown): value is TeamMemberStatus {
   return typeof value === "string" && TEAM_MEMBER_STATUSES.includes(value as TeamMemberStatus);
+}
+
+function normalizePermissions(value: unknown) {
+  if (!Array.isArray(value) || value.length > TEAM_PERMISSIONS.length) {
+    throw requestError(400, "Permissões inválidas.");
+  }
+  if (value.some((permission) => !isTeamPermission(permission))) {
+    throw requestError(400, "Uma ou mais permissões são inválidas.");
+  }
+
+  return resolveTeamPermissionDependencies(value as TeamPermission[]);
 }
 
 function normalizeName(value: unknown) {
@@ -122,6 +138,7 @@ function normalizeTeamContext(value: unknown): TeamContext | null {
     account_id: context.account_id,
     actor_user_id: context.actor_user_id,
     role: context.role,
+    permissions: getFallbackPermissionsForRole(context.role),
     display_name:
       typeof context.display_name === "string" && context.display_name.trim()
         ? context.display_name.trim()
@@ -129,6 +146,15 @@ function normalizeTeamContext(value: unknown): TeamContext | null {
     account_name: context.account_name,
     can_manage_team: context.can_manage_team,
   };
+}
+
+function normalizePermissionRpcResult(value: unknown, role: TeamRole) {
+  if (role === "owner" || role === "admin") return [...TEAM_PERMISSIONS];
+  if (!Array.isArray(value) || value.some((permission) => !isTeamPermission(permission))) {
+    return null;
+  }
+
+  return TEAM_PERMISSIONS.filter((permission) => value.includes(permission));
 }
 
 async function authenticateTeamRequest(request: Request): Promise<AuthenticatedTeamRequest> {
@@ -153,11 +179,28 @@ async function authenticateTeamRequest(request: Request): Promise<AuthenticatedT
     throw requestError(403, "Você não possui acesso a esta conta.");
   }
 
-  if (!context.can_manage_team || !["owner", "admin"].includes(context.role)) {
-    throw requestError(403, "Seu perfil não possui permissão para gerenciar usuários.");
+  const { data: permissionsData, error: permissionsError } = await supabase.rpc(
+    "get_current_account_permissions",
+  );
+  const permissions = normalizePermissionRpcResult(permissionsData, context.role);
+  if (permissionsError || !permissions) {
+    throw requestError(403, "Não foi possível confirmar suas permissões de acesso.");
   }
 
-  return { supabase, context };
+  const contextWithPermissions: TeamContext = {
+    ...context,
+    permissions,
+    can_manage_team:
+      context.role === "owner" ||
+      context.role === "admin" ||
+      permissions.includes("team.manage"),
+  };
+
+  if (!contextWithPermissions.can_manage_team) {
+    throw requestError(403, "Você não possui permissão para gerenciar usuários.");
+  }
+
+  return { supabase, context: contextWithPermissions };
 }
 
 function getAdminClient() {
@@ -185,13 +228,13 @@ function databaseErrorMessage(error: unknown, fallback: string) {
     .toLowerCase();
 
   if (text.includes("permission") || text.includes("forbidden") || text.includes("42501")) {
-    return "Seu perfil não possui permissão para gerenciar usuários.";
+    return "Você não possui permissão para gerenciar usuários.";
   }
   if (text.includes("already") || text.includes("duplicate") || text.includes("23505")) {
     return "Este e-mail já está cadastrado.";
   }
   if (text.includes("finalize ou cancele o lote aberto")) {
-    return "Finalize ou cancele o lote aberto antes de tornar este usuário somente leitura.";
+    return "Finalize ou cancele o lote aberto antes de retirar a permissão de bipagem deste usuário.";
   }
   return fallback;
 }
@@ -199,9 +242,9 @@ function databaseErrorMessage(error: unknown, fallback: string) {
 async function assertAdminCanManageMember(
   supabase: SupabaseClient,
   targetUserId: string,
-  nextRole: TeamRole,
+  nextPermissions: readonly TeamPermission[],
 ) {
-  const { data, error } = await supabase.rpc("list_team_admin_snapshot");
+  const { data, error } = await supabase.rpc("list_team_admin_snapshot_v2");
   if (error) {
     throw requestError(403, "Você não possui permissão para alterar este usuário.");
   }
@@ -217,8 +260,16 @@ async function assertAdminCanManageMember(
   if (!isRecord(target)) {
     throw requestError(404, "Usuário não encontrado nesta equipe.");
   }
-  if (target.role === "admin" || nextRole === "admin" || target.role === "owner") {
-    throw requestError(403, "Somente o proprietário pode gerenciar administradores.");
+  const targetPermissions = Array.isArray(target.permissions)
+    ? target.permissions.filter(isTeamPermission)
+    : [];
+  if (
+    target.role === "admin" ||
+    target.role === "owner" ||
+    targetPermissions.includes("team.manage") ||
+    nextPermissions.includes("team.manage")
+  ) {
+    throw requestError(403, "Somente o proprietário pode gerenciar outros responsáveis pelos acessos.");
   }
 }
 
@@ -234,7 +285,7 @@ function errorResponse(error: unknown) {
 export async function GET(request: Request) {
   try {
     const { supabase } = await authenticateTeamRequest(request);
-    const { data, error } = await supabase.rpc("list_team_admin_snapshot");
+    const { data, error } = await supabase.rpc("list_team_admin_snapshot_v2");
 
     if (error) {
       throw requestError(403, databaseErrorMessage(error, "Não foi possível carregar a equipe."));
@@ -256,7 +307,7 @@ export async function POST(request: Request) {
   try {
     const { supabase, context } = await authenticateTeamRequest(request);
     const body = await readJsonBody(request);
-    if (!isRecord(body) || !hasExactKeys(body, ["name", "email", "password", "role"])) {
+    if (!isRecord(body) || !hasExactKeys(body, ["name", "email", "password", "permissions"])) {
       throw requestError(400, "Dados do usuário inválidos.");
     }
 
@@ -266,11 +317,9 @@ export async function POST(request: Request) {
     if (password.length < 8 || password.length > 128) {
       throw requestError(400, "A senha inicial deve ter entre 8 e 128 caracteres.");
     }
-    if (!isRole(body.role) || body.role === "owner") {
-      throw requestError(400, "Perfil inválido para um novo usuário.");
-    }
-    if (context.role === "admin" && body.role === "admin") {
-      throw requestError(403, "Somente o proprietário pode cadastrar administradores.");
+    const permissions = normalizePermissions(body.permissions);
+    if (context.role !== "owner" && permissions.includes("team.manage")) {
+      throw requestError(403, "Somente o proprietário pode liberar o gerenciamento de usuários.");
     }
 
     adminClient = getAdminClient();
@@ -287,11 +336,12 @@ export async function POST(request: Request) {
     }
 
     createdUserId = created.user.id;
-    const { error: membershipError } = await supabase.rpc("add_account_member", {
+    const { error: membershipError } = await supabase.rpc("add_account_member_v2", {
       p_user_id: createdUserId,
       p_email: email,
       p_display_name: name,
-      p_role: body.role,
+      p_permissions: permissions,
+      p_role: "operator",
     });
 
     if (membershipError) {
@@ -316,7 +366,7 @@ export async function PATCH(request: Request) {
   try {
     const { supabase, context } = await authenticateTeamRequest(request);
     const body = await readJsonBody(request);
-    if (!isRecord(body) || !hasExactKeys(body, ["userId", "name", "role", "status"])) {
+    if (!isRecord(body) || !hasExactKeys(body, ["userId", "name", "permissions", "status"])) {
       throw requestError(400, "Dados da atualização inválidos.");
     }
 
@@ -324,18 +374,20 @@ export async function PATCH(request: Request) {
       throw requestError(400, "Usuário inválido.");
     }
     const name = normalizeName(body.name);
-    if (!isRole(body.role) || body.role === "owner" || !isStatus(body.status)) {
-      throw requestError(400, "Perfil ou situação inválidos.");
+    const permissions = normalizePermissions(body.permissions);
+    if (!isStatus(body.status)) {
+      throw requestError(400, "Situação inválida.");
     }
 
-    if (context.role === "admin") {
-      await assertAdminCanManageMember(supabase, body.userId, body.role);
+    if (context.role !== "owner") {
+      await assertAdminCanManageMember(supabase, body.userId, permissions);
     }
 
-    const { error } = await supabase.rpc("update_account_member", {
+    const { error } = await supabase.rpc("update_account_member_v2", {
       p_user_id: body.userId,
       p_display_name: name,
-      p_role: body.role,
+      p_permissions: permissions,
+      p_role: null,
       p_status: body.status,
     });
 

@@ -830,14 +830,16 @@ export async function POST(request: Request) {
   // O envio pelo provedor externo acontece antes de o histórico ser salvo.
   // Confirme a permissão aqui, porque a RLS não consegue desfazer um e-mail
   // que já tenha sido entregue pelo provedor.
-  const { data: canWrite, error: permissionError } =
-    await authenticatedClient.rpc("current_account_can_write");
+  const { data: canSendReport, error: permissionError } =
+    await authenticatedClient.rpc("current_account_has_permission", {
+      p_permission: "relatorios.send",
+    });
 
-  if (permissionError || canWrite !== true) {
+  if (permissionError || canSendReport !== true) {
     return NextResponse.json(
       {
         ok: false,
-        message: "Seu perfil possui acesso somente para consulta.",
+        message: "Seu acesso não permite enviar relatórios por e-mail.",
       },
       { status: 403 },
     );

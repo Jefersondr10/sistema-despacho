@@ -1,6 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type FormEvent,
+} from "react";
 
 import {
   Badge,
@@ -11,14 +18,21 @@ import {
 import { useAuth } from "@/app/_lib/auth-context";
 
 import {
-  TEAM_ROLE_LABELS,
-  TEAM_ROLES,
   TEAM_MEMBER_STATUSES,
+  TEAM_PERMISSIONS,
+  TEAM_PERMISSION_DESCRIPTIONS,
+  TEAM_PERMISSION_LABELS,
+  TEAM_ROLES,
   TEAM_STATUS_LABELS,
+  getFallbackPermissionsForRole,
+  isTeamPermission,
+  resolveTeamPermissionDependencies,
+  toggleTeamPermission,
   type TeamActivity,
   type TeamAdminSnapshot,
   type TeamMember,
   type TeamMemberStatus,
+  type TeamPermission,
   type TeamRole,
 } from "./team-contract";
 
@@ -31,7 +45,7 @@ type TeamApiError = Error & { status?: number };
 
 type MemberDraft = {
   displayName: string;
-  role: TeamRole;
+  permissions: TeamPermission[];
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -101,6 +115,12 @@ function normalizeSnapshot(value: unknown): TeamAdminSnapshot | null {
     return null;
   }
 
+  const contextRole = context.role as TeamRole;
+  const contextPermissions = Array.isArray(context.permissions) &&
+    context.permissions.every(isTeamPermission)
+    ? resolveTeamPermissionDependencies(context.permissions)
+    : getFallbackPermissionsForRole(contextRole);
+
   const members = snapshot.members.flatMap((candidate): TeamMember[] => {
     if (
       !isRecord(candidate) ||
@@ -113,6 +133,12 @@ function normalizeSnapshot(value: unknown): TeamAdminSnapshot | null {
       return [];
     }
 
+    const role = candidate.role as TeamRole;
+    const permissions = Array.isArray(candidate.permissions) &&
+      candidate.permissions.every(isTeamPermission)
+      ? resolveTeamPermissionDependencies(candidate.permissions)
+      : getFallbackPermissionsForRole(role);
+
     return [{
       user_id: candidate.user_id,
       display_name:
@@ -120,7 +146,8 @@ function normalizeSnapshot(value: unknown): TeamAdminSnapshot | null {
           ? candidate.display_name.trim()
           : candidate.email,
       email: candidate.email,
-      role: candidate.role as TeamRole,
+      role,
+      permissions,
       status: candidate.status as TeamMemberStatus,
       created_at: candidate.created_at,
       updated_at: typeof candidate.updated_at === "string" ? candidate.updated_at : null,
@@ -160,11 +187,15 @@ function normalizeSnapshot(value: unknown): TeamAdminSnapshot | null {
     context: {
       account_id: context.account_id,
       actor_user_id: context.actor_user_id,
-      role: context.role as TeamRole,
+      role: contextRole,
+      permissions: contextPermissions,
       display_name:
         typeof context.display_name === "string" ? context.display_name : "Usuário",
       account_name: context.account_name,
-      can_manage_team: context.can_manage_team,
+      can_manage_team:
+        contextRole === "owner" ||
+        contextRole === "admin" ||
+        contextPermissions.includes("team.manage"),
     },
     members,
     activities,
@@ -182,13 +213,6 @@ function formatDateTime(value: string | null) {
     timeStyle: "short",
     timeZone: "America/Sao_Paulo",
   }).format(date);
-}
-
-function getRoleTone(role: TeamRole) {
-  if (role === "owner" || role === "admin") return "purple" as const;
-  if (role === "supervisor") return "blue" as const;
-  if (role === "operator") return "green" as const;
-  return "neutral" as const;
 }
 
 const ACTIVITY_LABELS: Record<string, string> = {
@@ -231,6 +255,109 @@ function getActivityLabel(activity: TeamActivity) {
   );
 }
 
+function PermissionChecklist({
+  value,
+  onChange,
+  disabled = false,
+  allowTeamManagement,
+  legend = "O que este usuário pode fazer?",
+}: {
+  value: readonly TeamPermission[];
+  onChange: (permissions: TeamPermission[]) => void;
+  disabled?: boolean;
+  allowTeamManagement: boolean;
+  legend?: string;
+}) {
+  const groupId = useId();
+  const visiblePermissions = TEAM_PERMISSIONS.filter(
+    (permission) => allowTeamManagement || permission !== "team.manage",
+  );
+  const allSelected = visiblePermissions.every((permission) =>
+    value.includes(permission),
+  );
+
+  return (
+    <fieldset
+      className="min-w-0 rounded-2xl border border-slate-200 bg-slate-50/60 p-3 sm:p-4"
+      disabled={disabled}
+      aria-describedby={`${groupId}-help`}
+    >
+      <legend className="px-1 text-sm font-bold text-slate-900">{legend}</legend>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <p id={`${groupId}-help`} className="mt-1 text-xs leading-5 text-slate-500">
+          Acessos complementares são marcados ou removidos automaticamente.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            disabled={disabled || allSelected}
+            onClick={() =>
+              onChange(resolveTeamPermissionDependencies(visiblePermissions))
+            }
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-teal-200 bg-white px-3 text-xs font-bold text-teal-800 transition hover:bg-teal-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            Selecionar tudo
+          </button>
+          <button
+            type="button"
+            disabled={disabled || value.length === 0}
+            onClick={() => onChange([])}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            Limpar tudo
+          </button>
+        </div>
+      </div>
+
+      <div
+        id={`${groupId}-options`}
+        className="mt-3 grid gap-2 lg:grid-cols-2"
+      >
+        {visiblePermissions.map((permission) => {
+          const inputId = `${groupId}-${permission.replaceAll(".", "-")}`;
+          const checked = value.includes(permission);
+
+          return (
+            <label
+              key={permission}
+              htmlFor={inputId}
+              className={`flex min-h-16 cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
+                checked
+                  ? "border-teal-300 bg-teal-50/80 shadow-sm"
+                  : "border-slate-200 bg-white hover:border-teal-200"
+              } ${disabled ? "cursor-not-allowed opacity-70" : ""}`}
+            >
+              <input
+                id={inputId}
+                type="checkbox"
+                checked={checked}
+                onChange={(event) =>
+                  onChange(
+                    toggleTeamPermission(
+                      value,
+                      permission,
+                      event.target.checked,
+                    ),
+                  )
+                }
+                className="mt-0.5 size-5 shrink-0 accent-teal-700"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-bold text-slate-900">
+                  {TEAM_PERMISSION_LABELS[permission]}
+                </span>
+                <span className="mt-0.5 block text-xs leading-5 text-slate-500">
+                  {TEAM_PERMISSION_DESCRIPTIONS[permission]}
+                </span>
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
+  );
+}
+
 function MemberCard({
   member,
   currentUserId,
@@ -247,13 +374,20 @@ function MemberCard({
   onToggleStatus: (member: TeamMember) => Promise<void>;
 }) {
   const [displayName, setDisplayName] = useState(member.display_name);
-  const [role, setRole] = useState<TeamRole>(member.role);
+  const [permissions, setPermissions] = useState<TeamPermission[]>(
+    member.permissions,
+  );
   const isOwner = member.role === "owner";
+  const hasLegacyFullAccess = isOwner || member.role === "admin";
   const isCurrentUser = member.user_id === currentUserId;
-  const isAdminProtectedFromAdmin =
-    managerRole === "admin" && member.role === "admin";
-  const canEditMember = !isOwner && !isAdminProtectedFromAdmin;
-  const changed = displayName.trim() !== member.display_name || role !== member.role;
+  const isProtectedFromManager =
+    managerRole !== "owner" &&
+    (hasLegacyFullAccess || member.permissions.includes("team.manage"));
+  const canEditMember = !isOwner && !isCurrentUser && !isProtectedFromManager;
+  const canEditPermissions = canEditMember && !hasLegacyFullAccess;
+  const changed =
+    displayName.trim() !== member.display_name ||
+    permissions.join("|") !== member.permissions.join("|");
 
   return (
     <article className="min-w-0 rounded-2xl border border-slate-200/80 bg-white p-4 shadow-sm sm:p-5">
@@ -270,7 +404,11 @@ function MemberCard({
           </div>
           <p className="mt-1 break-all text-sm text-slate-500">{member.email}</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <Badge tone={getRoleTone(member.role)}>{TEAM_ROLE_LABELS[member.role]}</Badge>
+            <Badge tone={hasLegacyFullAccess ? "purple" : "blue"}>
+              {hasLegacyFullAccess
+                ? "Acesso total"
+                : `${member.permissions.length} ${member.permissions.length === 1 ? "acesso" : "acessos"}`}
+            </Badge>
             <span className="text-xs font-medium text-slate-500">
               Última atividade: {formatDateTime(member.last_activity_at)}
             </span>
@@ -278,7 +416,7 @@ function MemberCard({
         </div>
       </div>
 
-      <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 lg:grid-cols-[minmax(0,1fr)_minmax(12rem,0.55fr)_auto] lg:items-end">
+      <div className="mt-4 grid gap-4 border-t border-slate-100 pt-4">
         <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
           Nome
           <input
@@ -289,40 +427,38 @@ function MemberCard({
             className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:bg-slate-100"
           />
         </label>
-        <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
-          Perfil
-          <select
-            value={role}
-            onChange={(event) => setRole(event.target.value as TeamRole)}
-            disabled={saving || !canEditMember || isCurrentUser}
-            className="min-h-11 rounded-xl border border-slate-300 bg-white px-3 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:bg-slate-100"
-          >
-            {(isOwner
-              ? TEAM_ROLES
-              : TEAM_ROLES.filter(
-                  (option) =>
-                    option !== "owner" &&
-                    (managerRole === "owner" || option !== "admin"),
-                )
-            ).map((option) => (
-              <option key={option} value={option}>
-                {TEAM_ROLE_LABELS[option]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+
+        {hasLegacyFullAccess ? (
+          <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
+            <p className="font-bold">
+              {isOwner ? "Proprietário da conta" : "Administrador existente"}
+            </p>
+            <p className="mt-1 leading-6 text-violet-800">
+              Este usuário possui acesso total. As permissões individuais não podem ser reduzidas enquanto este acesso especial estiver ativo.
+            </p>
+          </div>
+        ) : (
+          <PermissionChecklist
+            value={permissions}
+            onChange={setPermissions}
+            disabled={saving || !canEditPermissions}
+            allowTeamManagement={managerRole === "owner"}
+            legend="Acessos liberados"
+          />
+        )}
+
+        <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
           <button
             type="button"
             disabled={saving || !canEditMember || !changed || !displayName.trim()}
-            onClick={() => void onSave(member, { displayName, role })}
+            onClick={() => void onSave(member, { displayName, permissions })}
             className="inline-flex min-h-11 items-center justify-center rounded-xl bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
           >
             Salvar
           </button>
           <button
             type="button"
-            disabled={saving || !canEditMember || isCurrentUser}
+            disabled={saving || !canEditMember}
             onClick={() => void onToggleStatus(member)}
             className={`inline-flex min-h-11 items-center justify-center rounded-xl border px-4 text-sm font-bold transition disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400 ${
               member.status === "active"
@@ -349,7 +485,7 @@ export function TeamManagementView() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<TeamRole>("operator");
+  const [permissions, setPermissions] = useState<TeamPermission[]>([]);
   const accessToken = session?.access_token ?? "";
 
   const activeMembers = useMemo(
@@ -357,12 +493,6 @@ export function TeamManagementView() {
     [snapshot?.members],
   );
   const suspendedMembers = (snapshot?.members.length ?? 0) - activeMembers;
-  const creatableRoles = TEAM_ROLES.filter(
-    (option) =>
-      option !== "owner" &&
-      (snapshot?.context.role === "owner" || option !== "admin"),
-  );
-
   const loadSnapshot = useCallback(async () => {
     if (!accessToken) return;
 
@@ -417,13 +547,13 @@ export function TeamManagementView() {
           name: name.trim(),
           email: email.trim(),
           password,
-          role,
+          permissions,
         }),
       });
       setName("");
       setEmail("");
       setPassword("");
-      setRole("operator");
+      setPermissions([]);
       setNotice({
         tone: "success",
         text: "Usuário cadastrado. Ele já pode entrar com o e-mail e a senha inicial.",
@@ -455,7 +585,7 @@ export function TeamManagementView() {
         body: JSON.stringify({
           userId: member.user_id,
           name: draft.displayName.trim(),
-          role: draft.role,
+          permissions: draft.permissions,
           status,
         }),
       });
@@ -478,7 +608,7 @@ export function TeamManagementView() {
   if (forbidden) {
     return (
       <FeedbackMessage tone="warning">
-        Seu perfil não possui permissão para gerenciar usuários. Solicite acesso a um administrador.
+        Você não possui permissão para gerenciar usuários. Solicite acesso ao responsável pela conta.
       </FeedbackMessage>
     );
   }
@@ -491,8 +621,12 @@ export function TeamManagementView() {
         <StatCard label="Usuários ativos" value={activeMembers} detail="Pessoas com acesso liberado." tone="teal" />
         <StatCard label="Suspensos" value={suspendedMembers} detail="Acessos temporariamente bloqueados." tone="rose" />
         <StatCard
-          label="Sua permissão"
-          value={snapshot ? TEAM_ROLE_LABELS[snapshot.context.role] : "—"}
+          label="Seus acessos"
+          value={
+            snapshot?.context.role === "owner" || snapshot?.context.role === "admin"
+              ? "Acesso total"
+              : `${snapshot?.context.permissions.length ?? 0} liberados`
+          }
           detail={snapshot?.context.account_name || "Conta operacional"}
           tone="blue"
         />
@@ -520,7 +654,7 @@ export function TeamManagementView() {
             />
           </label>
           <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            E-mail
+            Login (e-mail)
             <input
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -548,20 +682,19 @@ export function TeamManagementView() {
               Oriente o usuário a trocar a senha após o primeiro acesso.
             </span>
           </label>
-          <label className="grid gap-2 text-sm font-semibold text-slate-700">
-            Perfil
-            <select
-              value={role}
-              onChange={(event) => setRole(event.target.value as TeamRole)}
-              className="min-h-12 rounded-xl border border-slate-300 bg-white px-4 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-            >
-              {creatableRoles.map((option) => (
-                <option key={option} value={option}>
-                  {TEAM_ROLE_LABELS[option]}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="lg:col-span-2">
+            <PermissionChecklist
+              value={permissions}
+              onChange={setPermissions}
+              disabled={creating}
+              allowTeamManagement={snapshot?.context.role === "owner"}
+            />
+            {permissions.length === 0 ? (
+              <p className="mt-2 text-xs font-semibold text-amber-700">
+                Sem acessos marcados, o usuário poderá entrar apenas para enviar feedback.
+              </p>
+            ) : null}
+          </div>
           <button
             type="submit"
             disabled={creating}
@@ -583,7 +716,7 @@ export function TeamManagementView() {
           {snapshot?.members.length ? (
             snapshot.members.map((member) => (
               <MemberCard
-                key={`${member.user_id}:${member.updated_at ?? "sem-atualizacao"}:${member.status}:${member.role}:${member.display_name}`}
+                key={`${member.user_id}:${member.updated_at ?? "sem-atualizacao"}:${member.status}:${member.role}:${member.permissions.join(",")}:${member.display_name}`}
                 member={member}
                 currentUserId={user?.id ?? ""}
                 managerRole={snapshot.context.role}
@@ -592,7 +725,10 @@ export function TeamManagementView() {
                 onToggleStatus={(target) =>
                   updateMember(
                     target,
-                    { displayName: target.display_name, role: target.role },
+                    {
+                      displayName: target.display_name,
+                      permissions: target.permissions,
+                    },
                     target.status === "active" ? "suspended" : "active",
                   )
                 }

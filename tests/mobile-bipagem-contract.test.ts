@@ -439,7 +439,7 @@ test("opções permitem localizar e remover manualmente uma leitura do lote", ()
   assert.match(bipagemSource, /Localize a leitura/);
   assert.match(
     bipagemSource,
-    /fullscreenPackagesMode === "browse" \? \([\s\S]*cancelSessionPackageFromFullscreen/,
+    /fullscreenPackagesMode === "browse" &&[\s\S]*canManageCancellations \? \([\s\S]*cancelSessionPackageFromFullscreen/,
   );
 });
 

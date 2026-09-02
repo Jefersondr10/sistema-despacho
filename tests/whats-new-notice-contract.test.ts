@@ -42,7 +42,8 @@ test("aviso usa diálogo nativo acessível e pode ser fechado pelo teclado", () 
 });
 
 test("conteúdo resume as mudanças visíveis desta versão", () => {
-  assert.match(noticeSource, /Acessos individuais/);
-  assert.match(noticeSource, /Ações identificadas/);
-  assert.match(noticeSource, /Controle de equipe/);
+  assert.match(noticeSource, /Permissões sob medida/);
+  assert.match(noticeSource, /Login individual/);
+  assert.match(noticeSource, /Operação protegida/);
+  assert.match(noticeSource, /marque exatamente quais áreas e ações/);
 });

@@ -16,7 +16,9 @@ import {
   StatusBadge,
 } from "@/app/_components/ui";
 import { useAuth } from "@/app/_lib/auth-context";
+import { useTeam } from "@/app/_lib/team-context";
 import type { Carrier, Marketplace, Store } from "@/app/_lib/mock-data";
+import { hasTeamPermission } from "@/app/equipe/team-contract";
 import {
   ativarRelatorioDestinatario,
   ativarLoja,
@@ -546,6 +548,11 @@ function ReportEmailSection({
 
 export function CadastrosView() {
   const { user } = useAuth();
+  const { context: teamContext } = useTeam();
+  const canManageCatalogs = hasTeamPermission(
+    teamContext,
+    "cadastros.manage",
+  );
   const userId = user?.id ?? null;
   const loadCatalogsRequestIdRef = useRef(0);
   const [catalogs, setCatalogs] = useState<CatalogState>(emptyCatalogState);
@@ -630,6 +637,14 @@ export function CadastrosView() {
   const viewLoading = loading;
 
   async function handleCreate(kind: CatalogKind, name: string) {
+    if (!canManageCatalogs) {
+      setNotice({
+        tone: "warning",
+        text: "Seu acesso permite consultar, mas não alterar cadastros.",
+      });
+      return false;
+    }
+
     const cleanName = name.trim();
     if (!cleanName) {
       setNotice({ tone: "warning", text: "Informe um nome valido para cadastrar." });
@@ -671,6 +686,14 @@ export function CadastrosView() {
     item: CatalogItem,
     name: string,
   ) {
+    if (!canManageCatalogs) {
+      setNotice({
+        tone: "warning",
+        text: "Seu acesso permite consultar, mas não alterar cadastros.",
+      });
+      return false;
+    }
+
     const cleanName = name.trim();
     if (!cleanName) {
       setNotice({ tone: "warning", text: "Informe um nome valido para salvar." });
@@ -732,6 +755,14 @@ export function CadastrosView() {
   }
 
   async function handleCreateReportEmail(nome: string, email: string) {
+    if (!canManageCatalogs) {
+      setNotice({
+        tone: "warning",
+        text: "Seu acesso permite consultar, mas não alterar cadastros.",
+      });
+      return false;
+    }
+
     if (!userId) {
       setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
       return false;
@@ -755,6 +786,15 @@ export function CadastrosView() {
   }
 
   async function runAction(action: PendingAction) {
+    if (!canManageCatalogs) {
+      setNotice({
+        tone: "warning",
+        text: "Seu acesso permite consultar, mas não alterar cadastros.",
+      });
+      setPendingAction(null);
+      return;
+    }
+
     if (!userId) {
       setNotice({ tone: "danger", text: "Sessao expirada. Entre novamente." });
       setPendingAction(null);
@@ -838,6 +878,13 @@ export function CadastrosView() {
     <div className="grid gap-5">
       {notice ? <FeedbackMessage tone={notice.tone}>{notice.text}</FeedbackMessage> : null}
 
+      {!canManageCatalogs ? (
+        <FeedbackMessage tone="neutral">
+          Você pode consultar os cadastros. As opções de criar, editar, ativar,
+          inativar e excluir não estão liberadas para este acesso.
+        </FeedbackMessage>
+      ) : null}
+
       {viewLoading ? (
         <section className="rounded-2xl border border-slate-200/80 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">
           Carregando cadastros...
@@ -850,7 +897,7 @@ export function CadastrosView() {
           description="Use para separar unidades, filiais ou operacoes."
           placeholder="Nome da loja"
           items={visibleCatalogs.stores}
-          disabled={viewLoading}
+          disabled={viewLoading || !canManageCatalogs}
           saving={saving}
           onAdd={(name) => handleCreate("stores", name)}
           onRename={(item, name) => handleRename("stores", item, name)}
@@ -863,7 +910,7 @@ export function CadastrosView() {
           description="Canais de venda disponíveis ao bipar pacotes e usar os filtros."
           placeholder="Nome do marketplace"
           items={visibleCatalogs.marketplaces}
-          disabled={viewLoading}
+          disabled={viewLoading || !canManageCatalogs}
           saving={saving}
           onAdd={(name) => handleCreate("marketplaces", name)}
           onRename={(item, name) => handleRename("marketplaces", item, name)}
@@ -876,7 +923,7 @@ export function CadastrosView() {
           description="Obrigatorias quando Melhor Envio estiver marcado como Sim."
           placeholder="Nome da transportadora"
           items={visibleCatalogs.carriers}
-          disabled={viewLoading}
+          disabled={viewLoading || !canManageCatalogs}
           saving={saving}
           onAdd={(name) => handleCreate("carriers", name)}
           onRename={(item, name) => handleRename("carriers", item, name)}
@@ -886,7 +933,7 @@ export function CadastrosView() {
         />
         <ReportEmailSection
           items={visibleCatalogs.reportEmails}
-          disabled={viewLoading}
+          disabled={viewLoading || !canManageCatalogs}
           saving={saving}
           onAdd={handleCreateReportEmail}
           onActivate={(item) =>

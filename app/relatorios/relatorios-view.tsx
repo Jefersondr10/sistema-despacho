@@ -29,6 +29,8 @@ import {
 } from "@/app/_lib/romaneio";
 import { useSupabaseDispatchData } from "@/app/_lib/supabase-dispatch-store";
 import { useAuth } from "@/app/_lib/auth-context";
+import { useTeam } from "@/app/_lib/team-context";
+import { hasTeamPermission } from "@/app/equipe/team-contract";
 import {
   formatDatabaseError,
   getRelatorioDestinatarios,
@@ -129,6 +131,8 @@ export function RelatoriosView({
   initialDate?: string;
 }) {
   const { session, user } = useAuth();
+  const { context: teamContext } = useTeam();
+  const canSendReports = hasTeamPermission(teamContext, "relatorios.send");
   const loadRecipientsRequestIdRef = useRef(0);
   const { catalogs, packages, loading, error } =
     useSupabaseDispatchData("relatorios");
@@ -217,6 +221,14 @@ export function RelatoriosView({
     const isCurrentRequest = () =>
       requestId === loadRecipientsRequestIdRef.current;
 
+    if (!canSendReports) {
+      setRecipients([]);
+      setSelectedRecipientIds([]);
+      setRecipientsError("");
+      setRecipientsLoading(false);
+      return;
+    }
+
     setRecipientsLoading(true);
     setRecipientsError("");
 
@@ -244,7 +256,7 @@ export function RelatoriosView({
         setRecipientsLoading(false);
       }
     }
-  }, [databaseContext]);
+  }, [canSendReports, databaseContext]);
 
   useEffect(() => {
     let cancelled = false;
@@ -278,6 +290,14 @@ export function RelatoriosView({
 
   async function sendReportByEmail() {
     setSendNotice(null);
+
+    if (!canSendReports) {
+      setSendNotice({
+        tone: "warning",
+        text: "Seu acesso não permite enviar relatórios por e-mail.",
+      });
+      return;
+    }
 
     let manualEmails: string[];
     try {
@@ -377,6 +397,7 @@ export function RelatoriosView({
         onChange={setFilters}
       />
 
+      {canSendReports ? (
       <section className="no-print min-w-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5">
         <div className="border-b border-slate-200 bg-gradient-to-r from-teal-50/80 to-white p-4 sm:p-6">
           <h2 className="text-lg font-bold text-slate-950">
@@ -491,6 +512,7 @@ export function RelatoriosView({
           </div>
         </div>
       </section>
+      ) : null}
 
       <section className="min-w-0 overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm shadow-slate-900/5 print:overflow-visible print:rounded-none print:border-0 print:shadow-none">
         <div className="no-print flex flex-col gap-4 border-b border-slate-200 p-4 sm:p-6 lg:flex-row lg:items-center lg:justify-between">

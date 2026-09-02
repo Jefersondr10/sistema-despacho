@@ -3,25 +3,25 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-01-equipe-auditoria";
+export const CURRENT_RELEASE_ID = "2026-09-01-permissoes-individuais";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
   {
-    title: "Acessos individuais",
+    title: "Permissões sob medida",
     description:
-      "Agora cada funcionário pode entrar com seu próprio e-mail e senha, sem alterar os dados já existentes da operação.",
+      "Ao criar ou editar um acesso, marque exatamente quais áreas e ações cada pessoa poderá usar.",
   },
   {
-    title: "Ações identificadas",
+    title: "Login individual",
     description:
-      "Bipagens, finalizações, cancelamentos, cadastros e envios passam a registrar quem realizou cada ação.",
+      "Cada funcionário continua entrando com seu próprio e-mail e senha, e as ações permanecem registradas em seu nome.",
   },
   {
-    title: "Controle de equipe",
+    title: "Operação protegida",
     description:
-      "Proprietários e administradores podem definir perfis, suspender acessos e consultar as atividades recentes pela nova opção Equipe.",
+      "O proprietário mantém acesso total e as permissões são verificadas também nas ações críticas, sem alterar os lotes existentes.",
   },
 ] as const;
 

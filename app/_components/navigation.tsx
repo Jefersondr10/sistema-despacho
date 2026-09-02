@@ -5,17 +5,26 @@ import { usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 
 import { useTeam } from "@/app/_lib/team-context";
+import {
+  hasTeamPermission,
+  type TeamPermission,
+} from "@/app/equipe/team-contract";
 
 const mainNavItems = [
-  { href: "/dashboard", label: "Dashboard", icon: "dashboard" },
-  { href: "/bipagem", label: "Bipar Pacotes", icon: "scan" },
-  { href: "/pacotes", label: "Pacotes", icon: "package" },
-  { href: "/pacotes-cancelados", label: "Cancelados", icon: "cancel" },
-  { href: "/relatorios", label: "Relatórios", icon: "report" },
-  { href: "/cadastros", label: "Cadastros", icon: "settings" },
-  { href: "/equipe", label: "Equipe", icon: "team" },
-  { href: "/feedback", label: "Feedback", icon: "feedback" },
-] as const;
+  { href: "/dashboard", label: "Dashboard", icon: "dashboard", permission: "dashboard.view" },
+  { href: "/bipagem", label: "Bipar Pacotes", icon: "scan", permission: "bipagem.manage" },
+  { href: "/pacotes", label: "Pacotes", icon: "package", permission: "pacotes.view" },
+  { href: "/pacotes-cancelados", label: "Cancelados", icon: "cancel", permission: "cancelamentos.view" },
+  { href: "/relatorios", label: "Relatórios", icon: "report", permission: "relatorios.view" },
+  { href: "/cadastros", label: "Cadastros", icon: "settings", permission: "cadastros.view" },
+  { href: "/equipe", label: "Equipe", icon: "team", permission: "team.manage" },
+  { href: "/feedback", label: "Feedback", icon: "feedback", permission: null },
+] as const satisfies readonly {
+  href: string;
+  label: string;
+  icon: string;
+  permission: TeamPermission | null;
+}[];
 
 type NavigationItem = (typeof mainNavItems)[number];
 type NavigationIcon = NavigationItem["icon"];
@@ -153,7 +162,8 @@ export function Navigation({
   const pathname = usePathname();
   const { context: teamContext } = useTeam();
   const visibleItems = mainNavItems.filter(
-    (item) => item.href !== "/equipe" || teamContext?.can_manage_team,
+    (item) =>
+      item.permission === null || hasTeamPermission(teamContext, item.permission),
   );
 
   return (
