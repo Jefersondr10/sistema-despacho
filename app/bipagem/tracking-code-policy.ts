@@ -1,5 +1,6 @@
 const CORREIOS_S10_PATTERN = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const AZUL_AWB_PATTERN = /^577\d{8}$/;
+const MERCADO_LIVRE_NUMERIC_PATTERN = /^47[89]\d{8}$/;
 const NFE_ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
 const NFE_STATE_CODES = new Set([
   "11", "12", "13", "14", "15", "16", "17",
@@ -96,11 +97,11 @@ function isKnownMarketplaceTrackingCode(
 ) {
   const marketplace = normalizeMarketplaceName(context.marketplace);
   const isMercadoLivre =
-    marketplace.includes("mercadolivre") ||
-    marketplace.includes("mercadolibre");
+    marketplace.startsWith("mercadolivre") ||
+    marketplace.startsWith("mercadolibre");
 
   if (isMercadoLivre) {
-    return /^478\d{8}$/.test(code) || /^AP\d{9}BR$/.test(code);
+    return MERCADO_LIVRE_NUMERIC_PATTERN.test(code) || /^AP\d{9}BR$/.test(code);
   }
 
   if (marketplace.includes("amazon")) {
@@ -557,7 +558,7 @@ export function parseTrackingCode(
     addCandidate(value, "embedded");
   });
   upperPayload
-    .match(/\b(?:478\d{8}|AP\d{9}BR|TBR[A-Z0-9]{8,24}|BR\d{10,20})\b/g)
+    .match(/\b(?:47[89]\d{8}|AP\d{9}BR|TBR[A-Z0-9]{8,24}|BR\d{10,20})\b/g)
     ?.forEach((value) => {
       addCandidate(value, "embedded");
     });

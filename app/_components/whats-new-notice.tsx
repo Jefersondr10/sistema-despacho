@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-01-permissoes-individuais";
+export const CURRENT_RELEASE_ID = "2026-09-02-rastreio-mercado-livre";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Rastreios do Mercado Livre corrigidos",
+    description:
+      "Códigos numéricos iniciados por 478 ou 479 agora são reconhecidos sem o aviso incorreto de telefone nos lotes do Mercado Livre.",
+  },
   {
     title: "Permissões sob medida",
     description:

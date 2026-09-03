@@ -106,6 +106,10 @@ test("bloqueia chave valida de NF-e mesmo quando a transportadora e Loggi", () =
     "nfe-access-key",
   );
   assert.equal(
+    rejected(nfeKey, { marketplace: "Mercado Livre" }).reason,
+    "nfe-access-key",
+  );
+  assert.equal(
     rejected("3519 0830 2908 5600 0160 5500 1000 0000 0110 0000 0010")
       .reason,
     "nfe-access-key",
@@ -197,6 +201,7 @@ test("aceita sem alerta os rastreios observados nas etiquetas das plataformas", 
   const samples = [
     ["47809104041", "Mercado Livre"],
     ["47831596060", "Mercado Livre"],
+    ["47915405326", "Mercado Livre"],
     ["TBR418020241", "Amazon"],
     ["BR2684201032696", "Shopee"],
     ["AP395494633BR", "Mercado Livre"],
@@ -215,16 +220,39 @@ test("aceita sem alerta os rastreios observados nas etiquetas das plataformas", 
 });
 
 test("codigo numerico do Mercado Livre nao e acusado como CEP", () => {
-  const result = accepted("47809104041", { marketplace: "Mercado Livre" });
+  for (const marketplace of [
+    "Mercado Livre",
+    "Mercado-Livre",
+    "Mercado_Livre",
+    "MercadoLivre",
+    "Mercado Lívrê",
+    "Mercado Libre",
+  ]) {
+    for (const code of ["47809104041", "47915405326"]) {
+      const result = accepted(code, { marketplace });
+      assert.equal(result.code, code);
+      assert.equal(result.warning, undefined);
+    }
+  }
 
-  assert.equal(result.code, "47809104041");
-  assert.equal(result.warning, undefined);
-
-  const qrResult = accepted('{"id":"47809104041","t":"lm"}', {
+  const qrResult = accepted('{"id":"47915405326","t":"lm"}', {
     marketplace: "Mercado Livre",
   });
-  assert.equal(qrResult.code, "47809104041");
+  assert.equal(qrResult.code, "47915405326");
   assert.equal(qrResult.warning, undefined);
+
+  assert.ok(
+    accepted("47915405326", { marketplace: "Amazon" }).warning,
+    "O prefixo 479 só deve ser confiável no contexto do Mercado Livre",
+  );
+  assert.ok(
+    accepted("52998224725", { marketplace: "Mercado Livre" }).warning,
+    "Um CPF ainda deve gerar aviso mesmo em um lote do Mercado Livre",
+  );
+  assert.match(
+    accepted("72243100", { marketplace: "Mercado Livre" }).warning ?? "",
+    /formato de CEP/i,
+  );
 
   const checksumCollision = accepted("57712345678", {
     marketplace: "Mercado Livre",
