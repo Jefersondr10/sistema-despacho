@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-02-rastreio-mercado-livre";
+export const CURRENT_RELEASE_ID = "2026-09-02-login-google";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Entrar ou criar conta com Google",
+    description:
+      "Agora você também pode acessar o Sistema Despacho usando sua conta Google, sem perder a opção de entrar com e-mail e senha.",
+  },
   {
     title: "Rastreios do Mercado Livre corrigidos",
     description:

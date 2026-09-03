@@ -42,6 +42,13 @@ test("aviso usa diálogo nativo acessível e pode ser fechado pelo teclado", () 
 });
 
 test("conteúdo resume as mudanças visíveis desta versão", () => {
+  assert.match(
+    noticeSource,
+    /CURRENT_RELEASE_ID = "2026-09-02-login-google"/,
+  );
+  assert.match(noticeSource, /Entrar ou criar conta com Google/);
+  assert.match(noticeSource, /sem perder a opção de entrar com e-mail e senha/);
+  assert.match(noticeSource, /Rastreios do Mercado Livre corrigidos/);
   assert.match(noticeSource, /Permissões sob medida/);
   assert.match(noticeSource, /Login individual/);
   assert.match(noticeSource, /Operação protegida/);

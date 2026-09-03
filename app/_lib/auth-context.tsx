@@ -32,6 +32,7 @@ type AuthContextValue = {
   error: string;
   passwordRecovery: boolean;
   signIn: (email: string, password: string) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   signUp: (input: SignUpInput) => Promise<{ session: Session | null }>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -55,6 +56,13 @@ function getAuthErrorMessage(error: unknown) {
 
   if (message.includes("email not confirmed")) {
     return "Confirme seu e-mail antes de entrar.";
+  }
+
+  if (
+    message.includes("provider is not enabled") ||
+    message.includes("unsupported provider")
+  ) {
+    return "O acesso com Google ainda não está disponível. Tente entrar com e-mail e senha.";
   }
 
   if (message.includes("session") || message.includes("jwt")) {
@@ -166,6 +174,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const { error: signInError } =
           await getSupabaseClient().auth.signInWithPassword({ email, password });
         if (signInError) throw new Error(getAuthErrorMessage(signInError));
+      },
+      async signInWithGoogle() {
+        if (!configured) throw new Error(SUPABASE_NOT_CONFIGURED_MESSAGE);
+
+        const { error: oauthError } =
+          await getSupabaseClient().auth.signInWithOAuth({
+            provider: "google",
+            options: {
+              redirectTo: getRedirectUrl(),
+            },
+          });
+        if (oauthError) throw new Error(getAuthErrorMessage(oauthError));
       },
       async signUp(input: SignUpInput) {
         if (!configured) throw new Error(SUPABASE_NOT_CONFIGURED_MESSAGE);

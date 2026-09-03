@@ -21,10 +21,18 @@ const AuthenticatedAppShell = dynamic<{ children: ReactNode }>(
   },
 );
 
+const PUBLIC_STANDALONE_ROUTES = new Set([
+  "/privacidade",
+  "/termos",
+]);
+
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
 
-  if (pathname === "/demonstracao-bipagem") {
+  if (
+    pathname === "/demonstracao-bipagem" ||
+    PUBLIC_STANDALONE_ROUTES.has(pathname)
+  ) {
     return <>{children}</>;
   }
 

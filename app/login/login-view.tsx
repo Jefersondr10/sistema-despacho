@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
@@ -26,6 +27,7 @@ export function LoginView() {
     error: authError,
     passwordRecovery,
     signIn,
+    signInWithGoogle,
     signUp,
     requestPasswordReset,
     updatePassword,
@@ -36,6 +38,7 @@ export function LoginView() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [oauthSubmitting, setOauthSubmitting] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(
     authError ? { tone: "warning", text: authError } : null,
   );
@@ -50,6 +53,18 @@ export function LoginView() {
     setPassword("");
     setConfirmPassword("");
     setNotice(null);
+  }
+
+  async function handleGoogleSignIn() {
+    setOauthSubmitting(true);
+    setNotice(null);
+
+    try {
+      await signInWithGoogle();
+    } catch (error) {
+      setNotice({ tone: "danger", text: getErrorMessage(error) });
+      setOauthSubmitting(false);
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -176,6 +191,47 @@ export function LoginView() {
           <div className="mb-4"><FeedbackMessage tone="warning">Configure o Supabase no .env.local antes de usar login e senha.</FeedbackMessage></div>
         ) : null}
 
+        {activeMode === "login" || activeMode === "signup" ? (
+          <div className="mb-5 grid gap-4">
+            <button
+              type="button"
+              disabled={!configured || submitting || oauthSubmitting}
+              onClick={handleGoogleSignIn}
+              aria-busy={oauthSubmitting}
+              className="inline-flex min-h-12 items-center justify-center gap-3 rounded-xl border border-[#747775] bg-white px-5 text-sm font-bold text-[#1f1f1f] shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-100 disabled:text-slate-400"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="size-5 shrink-0"
+                aria-hidden="true"
+              >
+                <path
+                  fill="#4285F4"
+                  d="M21.6 12.23c0-.71-.06-1.4-.18-2.07H12v3.92h5.38a4.6 4.6 0 0 1-2 3.02v2.54h3.24c1.9-1.75 2.98-4.33 2.98-7.41Z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 22c2.7 0 4.98-.9 6.63-2.36l-3.24-2.54c-.9.6-2.05.96-3.39.96-2.61 0-4.82-1.76-5.61-4.13H3.04v2.62A10 10 0 0 0 12 22Z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M6.39 13.93A6.02 6.02 0 0 1 6.07 12c0-.67.12-1.32.32-1.93V7.45H3.04A10 10 0 0 0 2 12c0 1.61.39 3.14 1.04 4.55l3.35-2.62Z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.94c1.47 0 2.79.5 3.83 1.5l2.87-2.87A9.64 9.64 0 0 0 12 2a10 10 0 0 0-8.96 5.45l3.35 2.62C7.18 7.7 9.39 5.94 12 5.94Z"
+                />
+              </svg>
+              {oauthSubmitting ? "Abrindo Google…" : "Continuar com Google"}
+            </button>
+            <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.14em] text-slate-400" aria-hidden="true">
+              <span className="h-px flex-1 bg-slate-200" />
+              ou use e-mail e senha
+              <span className="h-px flex-1 bg-slate-200" />
+            </div>
+          </div>
+        ) : null}
+
         <form className="grid gap-4" onSubmit={handleSubmit}>
           {activeMode === "signup" ? (
             <label className="grid gap-2 text-sm font-medium text-slate-700">
@@ -205,7 +261,7 @@ export function LoginView() {
             </label>
           ) : null}
 
-          <button type="submit" disabled={!configured || submitting} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal-700 px-5 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:-translate-y-0.5 hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">
+          <button type="submit" disabled={!configured || submitting || oauthSubmitting} className="inline-flex min-h-12 items-center justify-center rounded-xl bg-teal-700 px-5 text-sm font-bold text-white shadow-lg shadow-teal-900/15 transition hover:-translate-y-0.5 hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:shadow-none">
             {submitting ? "Aguarde..." : title}
           </button>
         </form>
@@ -223,6 +279,17 @@ export function LoginView() {
           </div>
         ) : null}
         <InstallAppButton className="mt-5 border-t border-slate-100 pt-5" />
+        <nav
+          aria-label="Documentos legais"
+          className="mt-5 flex flex-wrap justify-center gap-x-5 gap-y-2 text-xs font-semibold text-slate-500 lg:justify-start"
+        >
+          <Link className="transition hover:text-teal-800" href="/privacidade">
+            Política de Privacidade
+          </Link>
+          <Link className="transition hover:text-teal-800" href="/termos">
+            Termos de Uso
+          </Link>
+        </nav>
         </div>
       </section>
     </main>
