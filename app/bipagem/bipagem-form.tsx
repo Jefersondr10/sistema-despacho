@@ -2352,7 +2352,7 @@ export function BipagemForm() {
                     }
                     className="inline-flex min-h-12 items-center justify-center rounded-md border border-rose-300 bg-rose-50 px-5 text-sm font-semibold text-rose-700 transition hover:bg-rose-100 focus:outline-none focus:ring-4 focus:ring-rose-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
                   >
-                    Cancelar finalizados
+                    Cancelar pacote
                   </button>
                 ) : null}
               </>

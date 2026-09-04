@@ -28,7 +28,7 @@ test("cancelamentos exigem a permissão específica na tela de bipagem", () => {
   );
   assert.match(
     bipagemSource,
-    /\{canManageCancellations \? \([\s\S]*?Cancelar finalizados/,
+    /\{canManageCancellations \? \([\s\S]*?Cancelar pacote/,
   );
 });
 

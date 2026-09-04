@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-03-access-operation-defaults";
+export const CURRENT_RELEASE_ID = "2026-09-03-cancel-package-label";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Cancelamento mais claro",
+    description:
+      "Na tela de bipagem, a ação agora aparece como “Cancelar pacote”, deixando mais claro o que o botão faz.",
+  },
   {
     title: "Acessos editáveis e removíveis",
     description:

@@ -44,8 +44,10 @@ test("aviso usa diálogo nativo acessível e pode ser fechado pelo teclado", () 
 test("conteúdo resume as mudanças visíveis desta versão", () => {
   assert.match(
     noticeSource,
-    /CURRENT_RELEASE_ID = "2026-09-03-access-operation-defaults"/,
+    /CURRENT_RELEASE_ID = "2026-09-03-cancel-package-label"/,
   );
+  assert.match(noticeSource, /Cancelamento mais claro/);
+  assert.match(noticeSource, /Cancelar pacote/);
   assert.match(noticeSource, /Acessos editáveis e removíveis/);
   assert.match(noticeSource, /Coleta ou Postagem automática/);
   assert.match(noticeSource, /Entrar ou criar conta com Google/);
