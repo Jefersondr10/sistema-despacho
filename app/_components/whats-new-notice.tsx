@@ -3,11 +3,21 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-02-login-google";
+export const CURRENT_RELEASE_ID = "2026-09-03-access-operation-defaults";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Acessos editáveis e removíveis",
+    description:
+      "O proprietário agora pode reduzir o acesso de administradores existentes ou remover o acesso de uma pessoa, preservando o histórico das ações anteriores.",
+  },
+  {
+    title: "Coleta ou Postagem automática",
+    description:
+      "Cadastre a operação padrão de cada combinação de loja e marketplace para reduzir erros ao iniciar uma bipagem.",
+  },
   {
     title: "Entrar ou criar conta com Google",
     description:

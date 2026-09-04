@@ -233,16 +233,27 @@ function databaseErrorMessage(error: unknown, fallback: string) {
   if (text.includes("already") || text.includes("duplicate") || text.includes("23505")) {
     return "Este e-mail já está cadastrado.";
   }
+  if (text.includes("lote aberto antes de remover")) {
+    return "Finalize ou cancele o lote aberto antes de remover o acesso deste usuário.";
+  }
   if (text.includes("finalize ou cancele o lote aberto")) {
     return "Finalize ou cancele o lote aberto antes de retirar a permissão de bipagem deste usuário.";
+  }
+  if (text.includes("proprio acesso")) {
+    return "Você não pode remover o seu próprio acesso.";
+  }
+  if (text.includes("proprietario da conta")) {
+    return "O acesso do proprietário da conta não pode ser removido.";
+  }
+  if (text.includes("membro nao encontrado")) {
+    return "Usuário não encontrado nesta equipe.";
   }
   return fallback;
 }
 
-async function assertAdminCanManageMember(
+async function getTeamTargetMember(
   supabase: SupabaseClient,
   targetUserId: string,
-  nextPermissions: readonly TeamPermission[],
 ) {
   const { data, error } = await supabase.rpc("list_team_admin_snapshot_v2");
   if (error) {
@@ -260,6 +271,14 @@ async function assertAdminCanManageMember(
   if (!isRecord(target)) {
     throw requestError(404, "Usuário não encontrado nesta equipe.");
   }
+
+  return target;
+}
+
+function assertNonOwnerCanManageMember(
+  target: Record<string, unknown>,
+  nextPermissions: readonly TeamPermission[],
+) {
   const targetPermissions = Array.isArray(target.permissions)
     ? target.permissions.filter(isTeamPermission)
     : [];
@@ -379,20 +398,57 @@ export async function PATCH(request: Request) {
       throw requestError(400, "Situação inválida.");
     }
 
+    const target = await getTeamTargetMember(supabase, body.userId);
     if (context.role !== "owner") {
-      await assertAdminCanManageMember(supabase, body.userId, permissions);
+      assertNonOwnerCanManageMember(target, permissions);
     }
+
+    const nextRole =
+      target.role === "admin" &&
+      !TEAM_PERMISSIONS.every((permission) => permissions.includes(permission))
+        ? "operator"
+        : null;
 
     const { error } = await supabase.rpc("update_account_member_v2", {
       p_user_id: body.userId,
       p_display_name: name,
       p_permissions: permissions,
-      p_role: null,
+      p_role: nextRole,
       p_status: body.status,
     });
 
     if (error) {
       throw requestError(400, databaseErrorMessage(error, "Não foi possível atualizar o usuário."));
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(request: Request) {
+  try {
+    const { supabase, context } = await authenticateTeamRequest(request);
+    const body = await readJsonBody(request);
+    if (!isRecord(body) || !hasExactKeys(body, ["userId"])) {
+      throw requestError(400, "Dados da remoção inválidos.");
+    }
+    if (typeof body.userId !== "string" || !UUID_PATTERN.test(body.userId)) {
+      throw requestError(400, "Usuário inválido.");
+    }
+
+    const target = await getTeamTargetMember(supabase, body.userId);
+    if (context.role !== "owner") {
+      assertNonOwnerCanManageMember(target, []);
+    }
+
+    const { error } = await supabase.rpc("remove_account_member_v2", {
+      p_user_id: body.userId,
+    });
+
+    if (error) {
+      throw requestError(400, databaseErrorMessage(error, "Não foi possível remover o acesso do usuário."));
     }
 
     return NextResponse.json({ ok: true });

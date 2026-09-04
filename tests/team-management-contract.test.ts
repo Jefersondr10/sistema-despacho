@@ -36,18 +36,30 @@ test("cadastro usa service role apenas no servidor e desfaz login órfão", () =
   assert.match(apiSource, /auth\.admin\.deleteUser\(createdUserId\)/);
 });
 
-test("atualização de membro permanece sob RPC autenticada", () => {
+test("atualização permite ao proprietário reduzir o acesso total com segurança", () => {
   assert.match(apiSource, /export async function PATCH/);
   assert.match(apiSource, /rpc\("update_account_member_v2"/);
   assert.match(apiSource, /p_user_id: body\.userId/);
   assert.match(apiSource, /p_permissions: permissions/);
+  assert.match(apiSource, /const nextRole =/);
+  assert.match(apiSource, /target\.role === "admin"/);
+  assert.match(apiSource, /p_role: nextRole/);
   assert.match(apiSource, /p_status: body\.status/);
-  assert.match(apiSource, /assertAdminCanManageMember/);
+  assert.match(apiSource, /assertNonOwnerCanManageMember/);
   assert.match(apiSource, /Somente o proprietário pode gerenciar outros responsáveis pelos acessos/);
   assert.match(apiSource, /Finalize ou cancele o lote aberto antes de retirar a permissão de bipagem/);
 });
 
-test("tela oferece cadastro, permissões por caixa, suspensão e histórico", () => {
+test("remoção de acesso usa RPC autenticada e não apaga o usuário do Auth", () => {
+  assert.match(apiSource, /export async function DELETE/);
+  assert.match(apiSource, /hasExactKeys\(body, \["userId"\]\)/);
+  assert.match(apiSource, /rpc\("remove_account_member_v2"/);
+  assert.match(apiSource, /Finalize ou cancele o lote aberto antes de remover o acesso/);
+  const deleteHandler = apiSource.slice(apiSource.indexOf("export async function DELETE"));
+  assert.doesNotMatch(deleteHandler, /auth\.admin\.deleteUser/);
+});
+
+test("tela oferece cadastro, permissões por caixa, suspensão, remoção e histórico", () => {
   assert.match(pageSource, /title="Equipe"/);
   assert.match(viewSource, /Senha inicial/);
   assert.match(viewSource, /Cadastrar usuário/);
@@ -59,7 +71,13 @@ test("tela oferece cadastro, permissões por caixa, suspensão e histórico", ()
   assert.match(viewSource, /allowTeamManagement=\{snapshot\?\.context\.role === "owner"\}/);
   assert.match(viewSource, /Proprietário da conta/);
   assert.match(viewSource, /Acesso total/);
+  assert.match(viewSource, /canEditPermissions = canEditMember/);
+  assert.match(viewSource, /deixa de ter acesso total/);
   assert.match(viewSource, /Suspender/);
+  assert.match(viewSource, /Remover acesso/);
+  assert.match(viewSource, /<ConfirmDialog/);
+  assert.match(viewSource, /method: "DELETE"/);
+  assert.match(viewSource, /"team\.member_removed": "Acesso de usuário removido"/);
   assert.match(viewSource, /Atividades recentes/);
   assert.match(viewSource, /"itens_sessao_bipagem\.removido": "Código removido do lote"/);
   assert.match(viewSource, /"relatorio_envios\.enviado": "Relatório enviado"/);

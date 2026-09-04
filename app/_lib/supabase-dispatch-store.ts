@@ -15,12 +15,14 @@ import type {
 } from "@/app/_lib/mock-data";
 import {
   type DatabaseContext,
+  type RegraOperacaoBipagemRow,
   formatDatabaseError,
   getLojas,
   getMarketplaces,
   getMovimentacoes,
   getPacotesCanceladosComRelacionamentos,
   getPacotesComRelacionamentos,
+  getRegrasOperacaoBipagem,
   getSessoesBipagemComRelacionamentos,
   getTransportadoras,
   mapCancelamentoRowToPackageCancellation,
@@ -41,6 +43,7 @@ type CatalogState = {
   stores: Store[];
   marketplaces: Marketplace[];
   carriers: Carrier[];
+  operationRules: RegraOperacaoBipagemRow[];
 };
 
 type DispatchDataState = {
@@ -59,6 +62,7 @@ const emptyCatalogs: CatalogState = {
   stores: [],
   marketplaces: [],
   carriers: [],
+  operationRules: [],
 };
 
 function createInitialState(
@@ -130,6 +134,7 @@ export function useSupabaseDispatchData(
       ].includes(profile);
       const loadAllPackages = ["full", "bipagem"].includes(profile);
       const loadBatches = ["full", "bipagem", "romaneio"].includes(profile);
+      const loadOperationRules = profile === "bipagem";
       const loadMovements = profile === "full";
       const loadCancellations = ["full", "bipagem", "cancelados"].includes(
         profile,
@@ -139,6 +144,9 @@ export function useSupabaseDispatchData(
           getLojas({ incluirInativos: true }, databaseContext),
           getMarketplaces({ incluirInativos: true }, databaseContext),
           getTransportadoras({ incluirInativos: true }, databaseContext),
+          loadOperationRules
+            ? getRegrasOperacaoBipagem(databaseContext)
+            : Promise.resolve([] as RegraOperacaoBipagemRow[]),
           loadActivePackages
             ? getPacotesComRelacionamentos(undefined, databaseContext)
             : Promise.resolve([]),
@@ -170,6 +178,7 @@ export function useSupabaseDispatchData(
         lojasRows,
         marketplacesRows,
         transportadorasRows,
+        operationRuleRows,
         pacoteRows,
         allPacoteRows,
         sessaoRows,
@@ -206,6 +215,7 @@ export function useSupabaseDispatchData(
           stores: lojasRows.map(mapLojaRowToStore),
           marketplaces: marketplacesRows.map(mapMarketplaceRowToMarketplace),
           carriers: transportadorasRows.map(mapTransportadoraRowToCarrier),
+          operationRules: operationRuleRows,
         },
         packages,
         allPackages,

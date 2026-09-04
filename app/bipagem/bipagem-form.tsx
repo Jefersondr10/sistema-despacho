@@ -18,6 +18,10 @@ import {
   type CameraScanOutcome,
 } from "@/app/bipagem/mobile-camera-scanner";
 import { getOrCreateBipagemStationId } from "@/app/bipagem/bipagem-station";
+import {
+  findOperationDefault,
+  type OperationSelectionSource,
+} from "@/app/bipagem/operation-defaults";
 import { parseTrackingCode } from "@/app/bipagem/tracking-code-policy";
 import { useAccessibleFullscreenDialog } from "@/app/bipagem/use-accessible-fullscreen-dialog";
 import type {
@@ -161,6 +165,9 @@ export function BipagemForm() {
   const [lojaId, setLojaId] = useState("");
   const [marketplaceId, setMarketplaceId] = useState("");
   const [tipoOperacao, setTipoOperacao] = useState<OperationType | "">("");
+  const [operationSelectionSource, setOperationSelectionSource] =
+    useState<OperationSelectionSource>("none");
+  const operationSelectionSourceRef = useRef<OperationSelectionSource>("none");
   const [melhorEnvio, setMelhorEnvio] = useState(false);
   const [transportadora, setTransportadora] = useState("");
   const [activeBatchId, setActiveBatchId] = useState("");
@@ -264,6 +271,15 @@ export function BipagemForm() {
     (item) => item.name === transportadora,
   );
   const configLocked = sessionOpen || cancellationMode;
+  const matchingOperationRule = useMemo(
+    () =>
+      findOperationDefault(
+        catalogs.operationRules,
+        selectedLojaId,
+        selectedMarketplaceId,
+      ),
+    [catalogs.operationRules, selectedLojaId, selectedMarketplaceId],
+  );
   const sortedBatches = useMemo(
     () =>
       batches
@@ -535,6 +551,8 @@ export function BipagemForm() {
         setLojaId(sessao.loja_id);
         setMarketplaceId(sessao.marketplace_id);
         setTipoOperacao(sessao.tipo_operacao);
+        operationSelectionSourceRef.current = "none";
+        setOperationSelectionSource("none");
         setMelhorEnvio(sessao.melhor_envio);
         setTransportadora(sessao.transportadora?.nome ?? "");
         setActiveBatchId(sessao.id);
@@ -871,6 +889,8 @@ export function BipagemForm() {
     setLojaId("");
     setMarketplaceId("");
     setTipoOperacao("");
+    operationSelectionSourceRef.current = "none";
+    setOperationSelectionSource("none");
     setMelhorEnvio(false);
     setTransportadora("");
     setVisibleSessionPackageCount(SESSION_PACKAGE_PAGE_SIZE);
@@ -885,6 +905,42 @@ export function BipagemForm() {
     setSessionPackageActionError("");
     setSessionPackageActionStatus("");
     clearCodeField();
+  }
+
+  function applyOperationDefaultForCombination(
+    nextLojaId: string,
+    nextMarketplaceId: string,
+  ) {
+    const rule = findOperationDefault(
+      catalogs.operationRules,
+      nextLojaId,
+      nextMarketplaceId,
+    );
+
+    if (rule) {
+      setTipoOperacao(rule.tipo_operacao);
+      operationSelectionSourceRef.current = "default";
+      setOperationSelectionSource("default");
+      return;
+    }
+
+    setTipoOperacao("");
+    operationSelectionSourceRef.current = "none";
+    setOperationSelectionSource("none");
+  }
+
+  function handleLojaChange(nextLojaId: string) {
+    if (configLocked || nextLojaId === lojaId) return;
+
+    setLojaId(nextLojaId);
+    applyOperationDefaultForCombination(nextLojaId, marketplaceId);
+  }
+
+  function handleMarketplaceChange(nextMarketplaceId: string) {
+    if (configLocked || nextMarketplaceId === marketplaceId) return;
+
+    setMarketplaceId(nextMarketplaceId);
+    applyOperationDefaultForCombination(lojaId, nextMarketplaceId);
   }
 
   function handleMelhorEnvioChange(active: boolean) {
@@ -1945,7 +2001,7 @@ export function BipagemForm() {
             <SelectField
               label="Loja"
               value={selectedLojaId}
-              onChange={setLojaId}
+              onChange={handleLojaChange}
               disabled={configLocked}
               required
               placeholder="Selecione uma loja"
@@ -1958,7 +2014,7 @@ export function BipagemForm() {
             <SelectField
               label="Marketplace"
               value={selectedMarketplaceId}
-              onChange={setMarketplaceId}
+              onChange={handleMarketplaceChange}
               disabled={configLocked}
               required
               placeholder="Selecione um marketplace"
@@ -1981,6 +2037,12 @@ export function BipagemForm() {
                   disabled={configLocked}
                   onClick={() => {
                     setTipoOperacao(operation);
+                    const nextSource: OperationSelectionSource =
+                      matchingOperationRule?.tipo_operacao === operation
+                        ? "default"
+                        : "manual";
+                    operationSelectionSourceRef.current = nextSource;
+                    setOperationSelectionSource(nextSource);
                     focusCodeField();
                   }}
                   className={`min-h-14 rounded-lg border px-4 text-base font-semibold transition disabled:cursor-not-allowed ${
@@ -1994,6 +2056,21 @@ export function BipagemForm() {
               ))}
             </div>
           </fieldset>
+
+          {operationSelectionSource === "default" &&
+          matchingOperationRule &&
+          tipoOperacao === matchingOperationRule.tipo_operacao ? (
+            <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold leading-6 text-emerald-800">
+              {getOperationLabel(tipoOperacao)} selecionada automaticamente para {getCatalogStoreName(selectedLojaId)} + {selectedMarketplace}.
+              Você ainda pode alterar para este lote.
+            </p>
+          ) : operationSelectionSource === "manual" &&
+            matchingOperationRule &&
+            tipoOperacao ? (
+            <p className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold leading-6 text-amber-800">
+              Alterado manualmente para {getOperationLabel(tipoOperacao)}. O padrão desta combinação é {getOperationLabel(matchingOperationRule.tipo_operacao)}.
+            </p>
+          ) : null}
 
           <div className="mt-5 grid gap-4 md:grid-cols-[minmax(0,0.7fr)_minmax(0,1fr)] md:items-end">
             <div>

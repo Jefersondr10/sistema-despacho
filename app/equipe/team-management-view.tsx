@@ -11,6 +11,7 @@ import {
 
 import {
   Badge,
+  ConfirmDialog,
   EmptyState,
   FeedbackMessage,
   StatCard,
@@ -217,7 +218,10 @@ function formatDateTime(value: string | null) {
 
 const ACTIVITY_LABELS: Record<string, string> = {
   "team.member_added": "Usuário cadastrado na equipe",
+  "team.member_added_v2": "Usuário cadastrado na equipe",
   "team.member_updated": "Acesso de usuário atualizado",
+  "team.member_permissions_updated": "Acesso de usuário atualizado",
+  "team.member_removed": "Acesso de usuário removido",
   "sessoes_bipagem.aberta": "Bipagem iniciada",
   "sessoes_bipagem.finalizada": "Bipagem finalizada",
   "sessoes_bipagem.cancelada": "Bipagem cancelada",
@@ -365,6 +369,7 @@ function MemberCard({
   saving,
   onSave,
   onToggleStatus,
+  onRemove,
 }: {
   member: TeamMember;
   currentUserId: string;
@@ -372,6 +377,7 @@ function MemberCard({
   saving: boolean;
   onSave: (member: TeamMember, draft: MemberDraft) => Promise<void>;
   onToggleStatus: (member: TeamMember) => Promise<void>;
+  onRemove: (member: TeamMember) => void;
 }) {
   const [displayName, setDisplayName] = useState(member.display_name);
   const [permissions, setPermissions] = useState<TeamPermission[]>(
@@ -384,7 +390,7 @@ function MemberCard({
     managerRole !== "owner" &&
     (hasLegacyFullAccess || member.permissions.includes("team.manage"));
   const canEditMember = !isOwner && !isCurrentUser && !isProtectedFromManager;
-  const canEditPermissions = canEditMember && !hasLegacyFullAccess;
+  const canEditPermissions = canEditMember;
   const changed =
     displayName.trim() !== member.display_name ||
     permissions.join("|") !== member.permissions.join("|");
@@ -428,23 +434,28 @@ function MemberCard({
           />
         </label>
 
-        {hasLegacyFullAccess ? (
+        {isOwner ? (
           <div className="rounded-2xl border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-900">
-            <p className="font-bold">
-              {isOwner ? "Proprietário da conta" : "Administrador existente"}
-            </p>
+            <p className="font-bold">Proprietário da conta</p>
             <p className="mt-1 leading-6 text-violet-800">
-              Este usuário possui acesso total. As permissões individuais não podem ser reduzidas enquanto este acesso especial estiver ativo.
+              Este usuário mantém acesso total para garantir a administração da conta.
             </p>
           </div>
         ) : (
-          <PermissionChecklist
-            value={permissions}
-            onChange={setPermissions}
-            disabled={saving || !canEditPermissions}
-            allowTeamManagement={managerRole === "owner"}
-            legend="Acessos liberados"
-          />
+          <div>
+            <PermissionChecklist
+              value={permissions}
+              onChange={setPermissions}
+              disabled={saving || !canEditPermissions}
+              allowTeamManagement={managerRole === "owner"}
+              legend="Acessos liberados"
+            />
+            {member.role === "admin" && managerRole === "owner" ? (
+              <p className="mt-2 text-xs font-semibold leading-5 text-violet-700">
+                Ao desmarcar um acesso e salvar, este usuário deixa de ter acesso total e passa a usar somente as opções marcadas.
+              </p>
+            ) : null}
+          </div>
         )}
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
@@ -468,6 +479,14 @@ function MemberCard({
           >
             {member.status === "active" ? "Suspender" : "Ativar"}
           </button>
+          <button
+            type="button"
+            disabled={saving || !canEditMember}
+            onClick={() => onRemove(member)}
+            className="inline-flex min-h-11 items-center justify-center rounded-xl border border-rose-300 bg-white px-4 text-sm font-bold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+          >
+            Remover acesso
+          </button>
         </div>
       </div>
     </article>
@@ -482,6 +501,7 @@ export function TeamManagementView() {
   const [notice, setNotice] = useState<Notice | null>(null);
   const [savingUserId, setSavingUserId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [pendingRemoval, setPendingRemoval] = useState<TeamMember | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -595,6 +615,33 @@ export function TeamManagementView() {
       setNotice({
         tone: "danger",
         text: error instanceof Error ? error.message : "Não foi possível atualizar o usuário.",
+      });
+    } finally {
+      setSavingUserId(null);
+    }
+  }
+
+  async function removeMember(member: TeamMember) {
+    if (!accessToken) return;
+
+    setPendingRemoval(null);
+    setSavingUserId(member.user_id);
+    setNotice(null);
+
+    try {
+      await teamRequest(accessToken, {
+        method: "DELETE",
+        body: JSON.stringify({ userId: member.user_id }),
+      });
+      setNotice({
+        tone: "success",
+        text: `O acesso de ${member.display_name || member.email} foi removido. O histórico foi preservado.`,
+      });
+      await loadSnapshot();
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        text: error instanceof Error ? error.message : "Não foi possível remover o acesso do usuário.",
       });
     } finally {
       setSavingUserId(null);
@@ -732,6 +779,7 @@ export function TeamManagementView() {
                     target.status === "active" ? "suspended" : "active",
                   )
                 }
+                onRemove={setPendingRemoval}
               />
             ))
           ) : (
@@ -769,6 +817,22 @@ export function TeamManagementView() {
           <EmptyState>As próximas ações identificadas aparecerão aqui.</EmptyState>
         )}
       </section>
+
+      <ConfirmDialog
+        open={Boolean(pendingRemoval)}
+        title="Remover acesso"
+        message={
+          pendingRemoval
+            ? `Remover o acesso de ${pendingRemoval.display_name || pendingRemoval.email}? Essa pessoa deixará de acessar esta conta e usar o sistema imediatamente. O cadastro e o histórico das ações anteriores serão preservados.`
+            : ""
+        }
+        confirmLabel="Remover acesso"
+        tone="danger"
+        onCancel={() => setPendingRemoval(null)}
+        onConfirm={() => {
+          if (pendingRemoval) void removeMember(pendingRemoval);
+        }}
+      />
     </>
   );
 }

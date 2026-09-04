@@ -44,8 +44,10 @@ test("aviso usa diálogo nativo acessível e pode ser fechado pelo teclado", () 
 test("conteúdo resume as mudanças visíveis desta versão", () => {
   assert.match(
     noticeSource,
-    /CURRENT_RELEASE_ID = "2026-09-02-login-google"/,
+    /CURRENT_RELEASE_ID = "2026-09-03-access-operation-defaults"/,
   );
+  assert.match(noticeSource, /Acessos editáveis e removíveis/);
+  assert.match(noticeSource, /Coleta ou Postagem automática/);
   assert.match(noticeSource, /Entrar ou criar conta com Google/);
   assert.match(noticeSource, /sem perder a opção de entrar com e-mail e senha/);
   assert.match(noticeSource, /Rastreios do Mercado Livre corrigidos/);

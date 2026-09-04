@@ -7,7 +7,7 @@ export default function CadastrosPage() {
     <>
       <PageHeader
         title="Cadastros"
-        description="Cadastre lojas, marketplaces, transportadoras e destinatários de relatórios."
+        description="Cadastre lojas, marketplaces, transportadoras, destinatários e a operação padrão de cada combinação."
       />
       <CadastrosView />
     </>

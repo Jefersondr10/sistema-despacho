@@ -130,6 +130,18 @@ export type TransportadoraRow = {
   updated_at: string | null;
 };
 
+export type RegraOperacaoBipagemRow = {
+  id: string;
+  user_id: string;
+  loja_id: string;
+  marketplace_id: string;
+  tipo_operacao: TipoOperacao;
+  criado_por: string | null;
+  atualizado_por: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 export type RelatorioDestinatarioRow = {
   id: string;
   user_id: string;
@@ -1716,6 +1728,74 @@ export async function excluirMarketplaceDefinitivamente(
 
 export async function excluirMarketplace(id: string, context?: DatabaseContext) {
   return excluirMarketplaceDefinitivamente(id, context);
+}
+
+export async function getRegrasOperacaoBipagem(
+  context?: DatabaseContext,
+) {
+  const { supabase, userId } = await getDatabaseContext(context);
+  const { data, error } = await supabase
+    .from("regras_operacao_bipagem")
+    .select("*")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .returns<RegraOperacaoBipagemRow[]>();
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function salvarRegraOperacaoBipagem(
+  lojaId: string,
+  marketplaceId: string,
+  tipoOperacao: TipoOperacao,
+  context?: DatabaseContext,
+) {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "salvar_regra_operacao_bipagem",
+    {
+      p_loja_id: requireText(lojaId, "loja_id"),
+      p_marketplace_id: requireText(marketplaceId, "marketplace_id"),
+      p_tipo_operacao: validateTipoOperacao(tipoOperacao),
+    },
+  );
+
+  if (error) {
+    throw error;
+  }
+
+  const row = (Array.isArray(data) ? data[0] : data) as
+    | RegraOperacaoBipagemRow
+    | null;
+  if (!row?.id) {
+    throw new Error("Nao foi possivel salvar o padrao de operacao.");
+  }
+
+  return row;
+}
+
+export async function excluirRegraOperacaoBipagem(
+  id: string,
+  context?: DatabaseContext,
+) {
+  const { supabase } = await getDatabaseContext(context);
+  const { data, error } = await supabase.rpc(
+    "excluir_regra_operacao_bipagem",
+    { p_id: requireText(id, "regra_id") },
+  );
+
+  if (error) {
+    throw error;
+  }
+  if (data !== true) {
+    throw new Error("Nao foi possivel excluir o padrao de operacao.");
+  }
+
+  return true;
 }
 
 export async function getTransportadoras(

@@ -13,11 +13,13 @@ import {
   ConfirmDialog,
   EmptyState,
   FeedbackMessage,
+  OperationBadge,
   StatusBadge,
 } from "@/app/_components/ui";
 import { useAuth } from "@/app/_lib/auth-context";
 import { useTeam } from "@/app/_lib/team-context";
 import type { Carrier, Marketplace, Store } from "@/app/_lib/mock-data";
+import { getOperationLabel } from "@/app/_lib/mock-data";
 import { hasTeamPermission } from "@/app/equipe/team-contract";
 import {
   ativarRelatorioDestinatario,
@@ -33,6 +35,7 @@ import {
   excluirRelatorioDestinatarioDefinitivamente,
   excluirTransportadoraDefinitivamente,
   formatDatabaseError,
+  getRegrasOperacaoBipagem,
   getLojas,
   getMarketplaces,
   getRelatorioDestinatarios,
@@ -44,7 +47,11 @@ import {
   mapLojaRowToStore,
   mapMarketplaceRowToMarketplace,
   mapTransportadoraRowToCarrier,
+  excluirRegraOperacaoBipagem,
+  salvarRegraOperacaoBipagem,
+  type RegraOperacaoBipagemRow,
   type RelatorioDestinatarioRow,
+  type TipoOperacao,
   updateLoja,
   updateMarketplace,
   updateTransportadora,
@@ -80,6 +87,7 @@ type CatalogState = {
   marketplaces: Marketplace[];
   carriers: Carrier[];
   reportEmails: RelatorioDestinatarioRow[];
+  operationRules: RegraOperacaoBipagemRow[];
 };
 
 const emptyCatalogState: CatalogState = {
@@ -87,6 +95,7 @@ const emptyCatalogState: CatalogState = {
   marketplaces: [],
   carriers: [],
   reportEmails: [],
+  operationRules: [],
 };
 
 const catalogLabels: Record<ActionKind, string> = {
@@ -546,6 +555,224 @@ function ReportEmailSection({
   );
 }
 
+function OperationRulesSection({
+  stores,
+  marketplaces,
+  rules,
+  disabled,
+  saving,
+  onSave,
+  onDelete,
+}: {
+  stores: Store[];
+  marketplaces: Marketplace[];
+  rules: RegraOperacaoBipagemRow[];
+  disabled?: boolean;
+  saving?: boolean;
+  onSave: (
+    lojaId: string,
+    marketplaceId: string,
+    operation: TipoOperacao,
+  ) => Promise<boolean>;
+  onDelete: (rule: RegraOperacaoBipagemRow) => Promise<void>;
+}) {
+  const [lojaId, setLojaId] = useState("");
+  const [marketplaceId, setMarketplaceId] = useState("");
+  const [operation, setOperation] = useState<TipoOperacao>("coleta");
+  const [pendingDelete, setPendingDelete] =
+    useState<RegraOperacaoBipagemRow | null>(null);
+  const activeStores = stores.filter((item) => item.status !== "Inativa");
+  const activeMarketplaces = marketplaces.filter(
+    (item) => item.status !== "Inativo",
+  );
+
+  function updateOperationForCombination(
+    nextLojaId: string,
+    nextMarketplaceId: string,
+  ) {
+    const existingRule = rules.find(
+      (rule) =>
+        rule.loja_id === nextLojaId &&
+        rule.marketplace_id === nextMarketplaceId,
+    );
+    setOperation(existingRule?.tipo_operacao ?? "coleta");
+  }
+
+  function getStoreName(id: string) {
+    return stores.find((item) => item.id === id)?.name ?? "Loja não encontrada";
+  }
+
+  function getMarketplaceName(id: string) {
+    return (
+      marketplaces.find((item) => item.id === id)?.name ??
+      "Marketplace não encontrado"
+    );
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const saved = await onSave(lojaId, marketplaceId, operation);
+    if (saved) {
+      setLojaId("");
+      setMarketplaceId("");
+      setOperation("coleta");
+    }
+  }
+
+  return (
+    <section className="min-w-0 overflow-hidden rounded-2xl border border-teal-200/80 bg-white shadow-sm xl:col-span-2">
+      <div className="border-b border-teal-100 bg-gradient-to-r from-teal-50 to-cyan-50 p-4 sm:p-5">
+        <h2 className="text-lg font-bold tracking-tight text-slate-950">
+          Regras de coleta e postagem
+        </h2>
+        <p className="mt-1 text-sm leading-6 text-slate-600">
+          Defina a operação padrão de cada combinação. Ao escolher a loja e o marketplace na bipagem, Coleta ou Postagem será marcada automaticamente.
+        </p>
+      </div>
+
+      <div className="p-4 sm:p-5">
+        <form
+          onSubmit={submit}
+          className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(10rem,0.7fr)_auto]"
+        >
+          <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+            Loja
+            <select
+              value={lojaId}
+              onChange={(event) => {
+                const nextLojaId = event.target.value;
+                setLojaId(nextLojaId);
+                updateOperationForCombination(nextLojaId, marketplaceId);
+              }}
+              required
+              disabled={disabled || saving}
+              className="min-h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:bg-slate-100"
+            >
+              <option value="">Selecione a loja</option>
+              {activeStores.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+            Marketplace
+            <select
+              value={marketplaceId}
+              onChange={(event) => {
+                const nextMarketplaceId = event.target.value;
+                setMarketplaceId(nextMarketplaceId);
+                updateOperationForCombination(lojaId, nextMarketplaceId);
+              }}
+              required
+              disabled={disabled || saving}
+              className="min-h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:bg-slate-100"
+            >
+              <option value="">Selecione o marketplace</option>
+              {activeMarketplaces.map((item) => (
+                <option key={item.id} value={item.id}>{item.name}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className="grid gap-1.5 text-sm font-semibold text-slate-700">
+            Operação padrão
+            <select
+              value={operation}
+              onChange={(event) => setOperation(event.target.value as TipoOperacao)}
+              disabled={disabled || saving}
+              className="min-h-11 min-w-0 rounded-xl border border-slate-300 bg-white px-3.5 text-sm text-slate-950 outline-none transition focus:border-teal-600 focus:ring-4 focus:ring-teal-100 disabled:bg-slate-100"
+            >
+              <option value="coleta">Coleta</option>
+              <option value="postagem">Postagem</option>
+            </select>
+          </label>
+
+          <button
+            type="submit"
+            disabled={disabled || saving || !lojaId || !marketplaceId}
+            className="inline-flex min-h-11 items-center justify-center self-end rounded-xl bg-teal-700 px-4 text-sm font-bold text-white shadow-sm transition hover:bg-teal-800 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {saving ? "Salvando..." : "Salvar combinação"}
+          </button>
+        </form>
+
+        <div className="mt-5 border-t border-slate-100 pt-4">
+          <h3 className="text-sm font-bold text-slate-950">Combinações cadastradas</h3>
+          {rules.length ? (
+            <div className="mt-3 grid gap-2 lg:grid-cols-2">
+              {rules.map((rule) => {
+                const storeActive = activeStores.some((item) => item.id === rule.loja_id);
+                const marketplaceActive = activeMarketplaces.some(
+                  (item) => item.id === rule.marketplace_id,
+                );
+
+                return (
+                  <article
+                    key={rule.id}
+                    className="flex min-w-0 flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="break-words text-sm font-bold text-slate-950">
+                        {getStoreName(rule.loja_id)} + {getMarketplaceName(rule.marketplace_id)}
+                      </p>
+                      <div className="mt-2"><OperationBadge operation={rule.tipo_operacao} /></div>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        disabled={disabled || saving || !storeActive || !marketplaceActive}
+                        onClick={() => {
+                          setLojaId(rule.loja_id);
+                          setMarketplaceId(rule.marketplace_id);
+                          setOperation(rule.tipo_operacao);
+                        }}
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-teal-200 bg-white px-3 text-xs font-bold text-teal-800 hover:bg-teal-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={disabled || saving}
+                        onClick={() => setPendingDelete(rule)}
+                        className="inline-flex min-h-9 items-center justify-center rounded-lg border border-rose-200 bg-white px-3 text-xs font-bold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:text-slate-400"
+                      >
+                        Excluir
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="mt-3">
+              <EmptyState>Nenhuma combinação cadastrada. Sem regras, a operação continua sendo escolhida manualmente.</EmptyState>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <ConfirmDialog
+        open={Boolean(pendingDelete)}
+        title="Excluir combinação"
+        message={
+          pendingDelete
+            ? `Excluir o padrão ${getOperationLabel(pendingDelete.tipo_operacao)} de ${getStoreName(pendingDelete.loja_id)} + ${getMarketplaceName(pendingDelete.marketplace_id)}? A escolha voltará a ser manual.`
+            : ""
+        }
+        confirmLabel="Excluir combinação"
+        tone="danger"
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => {
+          const rule = pendingDelete;
+          setPendingDelete(null);
+          if (rule) void onDelete(rule);
+        }}
+      />
+    </section>
+  );
+}
+
 export function CadastrosView() {
   const { user } = useAuth();
   const { context: teamContext } = useTeam();
@@ -586,11 +813,13 @@ export function CadastrosView() {
         marketplacesRows,
         transportadorasRows,
         relatorioDestinatariosRows,
+        operationRuleRows,
       ] = await Promise.all([
         getLojas({ incluirInativos: true }, databaseContext),
         getMarketplaces({ incluirInativos: true }, databaseContext),
         getTransportadoras({ incluirInativos: true }, databaseContext),
         getRelatorioDestinatarios({ incluirInativos: true }, databaseContext),
+        getRegrasOperacaoBipagem(databaseContext),
       ]);
 
       if (!isCurrentRequest()) {
@@ -602,6 +831,7 @@ export function CadastrosView() {
         marketplaces: marketplacesRows.map(mapMarketplaceRowToMarketplace),
         carriers: transportadorasRows.map(mapTransportadoraRowToCarrier),
         reportEmails: relatorioDestinatariosRows,
+        operationRules: operationRuleRows,
       });
     } catch (error) {
       if (!isCurrentRequest()) {
@@ -785,6 +1015,85 @@ export function CadastrosView() {
     }
   }
 
+  async function handleSaveOperationRule(
+    lojaId: string,
+    marketplaceId: string,
+    operation: TipoOperacao,
+  ) {
+    if (!canManageCatalogs) {
+      setNotice({
+        tone: "warning",
+        text: "Seu acesso permite consultar, mas não alterar as combinações.",
+      });
+      return false;
+    }
+    if (!userId) {
+      setNotice({ tone: "danger", text: "Sessão expirada. Entre novamente." });
+      return false;
+    }
+    if (!lojaId || !marketplaceId) {
+      setNotice({ tone: "warning", text: "Selecione a loja e o marketplace." });
+      return false;
+    }
+
+    setSaving(true);
+    try {
+      await salvarRegraOperacaoBipagem(
+        lojaId,
+        marketplaceId,
+        operation,
+        { userId },
+      );
+      setNotice({
+        tone: "success",
+        text: `Combinação salva. ${getOperationLabel(operation)} será marcada automaticamente na bipagem.`,
+      });
+      await loadCatalogs();
+      return true;
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        text: `Erro ao salvar combinação: ${formatDatabaseError(error)}`,
+      });
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleDeleteOperationRule(
+    rule: RegraOperacaoBipagemRow,
+  ) {
+    if (!canManageCatalogs) {
+      setNotice({
+        tone: "warning",
+        text: "Seu acesso permite consultar, mas não alterar as combinações.",
+      });
+      return;
+    }
+    if (!userId) {
+      setNotice({ tone: "danger", text: "Sessão expirada. Entre novamente." });
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await excluirRegraOperacaoBipagem(rule.id, { userId });
+      setNotice({
+        tone: "success",
+        text: "Combinação excluída. A operação voltará a ser escolhida manualmente.",
+      });
+      await loadCatalogs();
+    } catch (error) {
+      setNotice({
+        tone: "danger",
+        text: `Erro ao excluir combinação: ${formatDatabaseError(error)}`,
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function runAction(action: PendingAction) {
     if (!canManageCatalogs) {
       setNotice({
@@ -917,6 +1226,15 @@ export function CadastrosView() {
           onActivate={(item) => setPendingAction({ kind: "marketplaces", item, action: "activate" })}
           onDeactivate={(item) => setPendingAction({ kind: "marketplaces", item, action: "deactivate" })}
           onDelete={(item) => setPendingAction({ kind: "marketplaces", item, action: "delete-first" })}
+        />
+        <OperationRulesSection
+          stores={visibleCatalogs.stores}
+          marketplaces={visibleCatalogs.marketplaces}
+          rules={visibleCatalogs.operationRules}
+          disabled={viewLoading || !canManageCatalogs}
+          saving={saving}
+          onSave={handleSaveOperationRule}
+          onDelete={handleDeleteOperationRule}
         />
         <CatalogSection
           title="Transportadoras"
