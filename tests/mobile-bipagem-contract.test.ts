@@ -112,7 +112,10 @@ test("formulário manual e câmera compartilham a mesma rotina segura", () => {
     bipagemSource,
     /parsedCode\.warning[\s\S]*\$\{addedMessage\} \$\{parsedCode\.warning\}/,
   );
-  assert.match(bipagemSource, /await cancelPackageByCode\(rawValue\)/);
+  assert.match(
+    bipagemSource,
+    /await cancelPackageByCode\(parsedCancellationCode\.code\)/,
+  );
   assert.match(scannerSource, /\.then\(\(outcome\) =>/);
   assert.match(scannerSource, /scanFeedback\?\.accepted/);
   assert.match(bipagemSource, /Promise<CameraScanOutcome>/);

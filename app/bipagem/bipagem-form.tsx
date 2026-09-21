@@ -22,7 +22,10 @@ import {
   findOperationDefault,
   type OperationSelectionSource,
 } from "@/app/bipagem/operation-defaults";
-import { parseTrackingCode } from "@/app/bipagem/tracking-code-policy";
+import {
+  extractMercadoLivreEnvelopeTrackingCode,
+  parseTrackingCode,
+} from "@/app/bipagem/tracking-code-policy";
 import { useAccessibleFullscreenDialog } from "@/app/bipagem/use-accessible-fullscreen-dialog";
 import type {
   DispatchPackage,
@@ -1088,7 +1091,24 @@ export function BipagemForm() {
 
     const rawValue = rawCode.trim();
     if (cancellationMode) {
-      await cancelPackageByCode(rawValue);
+      const parsedCancellationCode = parseTrackingCode(
+        extractMercadoLivreEnvelopeTrackingCode(rawValue) ?? rawValue,
+        {
+          carrier: selectedCarrierItem?.service ?? transportadora,
+          marketplace: selectedMarketplace,
+        },
+      );
+      if (!parsedCancellationCode.accepted) {
+        const outcome = reportTrackingOutcome(
+          "warning",
+          parsedCancellationCode.message,
+        );
+        clearCodeField();
+        focusCodeField();
+        return outcome;
+      }
+
+      await cancelPackageByCode(parsedCancellationCode.code);
       return {
         tone: "success",
         message: "Código processado na lista de cancelamento.",

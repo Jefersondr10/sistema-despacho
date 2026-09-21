@@ -1,6 +1,7 @@
 const CORREIOS_S10_PATTERN = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const AZUL_AWB_PATTERN = /^577\d{8}$/;
 const MERCADO_LIVRE_NUMERIC_PATTERN = /^47[89]\d{8}$/;
+const MERCADO_LIVRE_RECENT_NUMERIC_PATTERN = /^480\d{8}$/;
 const NFE_ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
 const NFE_STATE_CODES = new Set([
   "11", "12", "13", "14", "15", "16", "17",
@@ -91,17 +92,28 @@ function normalizeMarketplaceName(value: string | null | undefined) {
     .replace(/[^a-z0-9]/g, "");
 }
 
+function isMercadoLivreMarketplace(value: string | null | undefined) {
+  const marketplace = normalizeMarketplaceName(value);
+  return (
+    marketplace.startsWith("mercadolivre") ||
+    marketplace.startsWith("mercadolibre")
+  );
+}
+
 function isKnownMarketplaceTrackingCode(
   code: string,
   context: TrackingCodeContext,
+  origin: CandidateOrigin,
 ) {
   const marketplace = normalizeMarketplaceName(context.marketplace);
-  const isMercadoLivre =
-    marketplace.startsWith("mercadolivre") ||
-    marketplace.startsWith("mercadolibre");
 
-  if (isMercadoLivre) {
-    return MERCADO_LIVRE_NUMERIC_PATTERN.test(code) || /^AP\d{9}BR$/.test(code);
+  if (isMercadoLivreMarketplace(context.marketplace)) {
+    return (
+      MERCADO_LIVRE_NUMERIC_PATTERN.test(code) ||
+      (origin !== "embedded" &&
+        MERCADO_LIVRE_RECENT_NUMERIC_PATTERN.test(code)) ||
+      /^AP\d{9}BR$/.test(code)
+    );
   }
 
   if (marketplace.includes("amazon")) {
@@ -285,7 +297,7 @@ function classifyCandidate(
     return null;
   }
 
-  if (isKnownMarketplaceTrackingCode(compactCode, context)) {
+  if (isKnownMarketplaceTrackingCode(compactCode, context, origin)) {
     return { code: compactCode, kind: "carrier-code" };
   }
 
@@ -419,6 +431,7 @@ function originScore(origin: CandidateOrigin) {
 function collectStructuredValues(
   value: unknown,
   addCandidate: (value: string, origin: CandidateOrigin) => void,
+  context: TrackingCodeContext,
   keyPath = "",
 ) {
   if (typeof value === "string" || typeof value === "number") {
@@ -430,15 +443,95 @@ function collectStructuredValues(
   }
 
   if (Array.isArray(value)) {
-    value.forEach((item) => collectStructuredValues(item, addCandidate, keyPath));
+    value.forEach((item) =>
+      collectStructuredValues(item, addCandidate, context, keyPath),
+    );
     return;
   }
 
   if (typeof value === "object" && value) {
-    Object.entries(value).forEach(([entryKey, entryValue]) => {
+    const entries = Object.entries(value);
+    const mercadoLivreEnvelopeId = isMercadoLivreMarketplace(
+      context.marketplace,
+    )
+      ? getMercadoLivreEnvelopeId(entries)
+      : null;
+
+    entries.forEach(([entryKey, entryValue]) => {
+      const normalizedEntryKey = entryKey.trim().toLowerCase();
+      if (
+        mercadoLivreEnvelopeId &&
+        (normalizedEntryKey === "id" || normalizedEntryKey === "t")
+      ) {
+        return;
+      }
+
       const nextPath = keyPath ? `${keyPath}.${entryKey}` : entryKey;
-      collectStructuredValues(entryValue, addCandidate, nextPath);
+      collectStructuredValues(entryValue, addCandidate, context, nextPath);
     });
+  }
+}
+
+function getMercadoLivreEnvelopeId(
+  entries: Array<[string, unknown]>,
+) {
+  const idEntries = entries.filter(
+    ([entryKey]) => entryKey.trim().toLowerCase() === "id",
+  );
+  const typeEntries = entries.filter(
+    ([entryKey]) => entryKey.trim().toLowerCase() === "t",
+  );
+  if (idEntries.length !== 1 || typeEntries.length !== 1) return null;
+
+  const idValue = idEntries[0][1];
+  const typeValue = typeEntries[0][1];
+  const scalarId =
+    typeof idValue === "string"
+      ? idValue.trim()
+      : typeof idValue === "number" &&
+          Number.isSafeInteger(idValue) &&
+          idValue >= 0
+        ? String(idValue)
+        : "";
+  const envelopeType =
+    typeof typeValue === "string" ? typeValue.trim().toUpperCase() : "";
+
+  return scalarId && envelopeType === "LM" ? scalarId : null;
+}
+
+function collectMercadoLivreEnvelopeIds(
+  value: unknown,
+  ids = new Map<string, string>(),
+) {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectMercadoLivreEnvelopeIds(item, ids));
+    return ids;
+  }
+
+  if (typeof value !== "object" || !value) return ids;
+
+  const entries = Object.entries(value);
+  const envelopeId = getMercadoLivreEnvelopeId(entries);
+  if (envelopeId) {
+    const canonicalId = canonicalizeCandidate(envelopeId);
+    if (canonicalId && !ids.has(canonicalId)) {
+      ids.set(canonicalId, envelopeId);
+    }
+  }
+
+  entries.forEach(([, entryValue]) =>
+    collectMercadoLivreEnvelopeIds(entryValue, ids),
+  );
+  return ids;
+}
+
+export function extractMercadoLivreEnvelopeTrackingCode(rawValue: string) {
+  const decoded = decodePayload(rawValue.trim());
+  try {
+    const ids = collectMercadoLivreEnvelopeIds(JSON.parse(decoded) as unknown);
+    return ids.size === 1 ? [...ids.values()][0] : null;
+  } catch {
+    return null;
   }
 }
 
@@ -583,7 +676,16 @@ export function parseTrackingCode(
   }
 
   try {
-    collectStructuredValues(JSON.parse(decoded), addCandidate);
+    const structuredPayload = JSON.parse(decoded) as unknown;
+    const mercadoLivreEnvelopeIds = isMercadoLivreMarketplace(
+      context.marketplace,
+    )
+      ? collectMercadoLivreEnvelopeIds(structuredPayload)
+      : new Map<string, string>();
+    if (mercadoLivreEnvelopeIds.size === 1) {
+      addCandidate([...mercadoLivreEnvelopeIds.values()][0], "preferred");
+    }
+    collectStructuredValues(structuredPayload, addCandidate, context);
   } catch {
     // QR codes de transportadoras nem sempre usam JSON.
   }
@@ -652,7 +754,9 @@ export function parseTrackingCode(
   const selectedCanonical = canonicalizeCandidate(selected.code);
   let warning = selected.warning;
 
-  if (isKnownMarketplaceTrackingCode(selectedCanonical, context)) {
+  if (
+    isKnownMarketplaceTrackingCode(selectedCanonical, context, selected.origin)
+  ) {
     warning = undefined;
   } else if (/^\d{8}$/.test(selectedCanonical)) {
     warning = POSTAL_CODE_WARNING;

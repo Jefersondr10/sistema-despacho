@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  extractMercadoLivreEnvelopeTrackingCode,
   parseTrackingCode,
   type TrackingCodeContext,
 } from "../app/bipagem/tracking-code-policy.ts";
@@ -228,7 +229,7 @@ test("codigo numerico do Mercado Livre nao e acusado como CEP", () => {
     "Mercado Lívrê",
     "Mercado Libre",
   ]) {
-    for (const code of ["47809104041", "47915405326"]) {
+    for (const code of ["47809104041", "47915405326", "48055515323"]) {
       const result = accepted(code, { marketplace });
       assert.equal(result.code, code);
       assert.equal(result.warning, undefined);
@@ -258,6 +259,111 @@ test("codigo numerico do Mercado Livre nao e acusado como CEP", () => {
     marketplace: "Mercado Livre",
   });
   assert.match(checksumCollision.warning ?? "", /d.gito verificador/i);
+});
+
+test("extrai o envelope JSON do Mercado Livre sem salvar o payload inteiro", () => {
+  const nfeKey = "35190830290856000160550010000000011000000010";
+
+  for (const payload of [
+    '{"ID":"48055515323","T":"LM"}',
+    '{"id":"48055515323","t":"lm"}',
+    JSON.stringify({ etiqueta: { ID: 48055515323, T: " LM " } }),
+  ]) {
+    const result = accepted(payload, { marketplace: "Mercado Livre" });
+    assert.equal(result.code, "48055515323");
+    assert.equal(result.extracted, true);
+    assert.equal(result.warning, undefined);
+  }
+
+  for (const payload of [
+    JSON.stringify({ ID: "48055515323" }),
+    JSON.stringify({ ID: "48055515323", T: "OUTRO" }),
+    JSON.stringify({ customer: { id: "48055515323" }, T: "LM" }),
+    '{"ID":"48055515323","id":"48055515324","T":"LM"}',
+    '{"ID":"48055515323","T":"LM","t":"LM"}',
+  ]) {
+    const result = accepted(payload, { marketplace: "Mercado Livre" });
+    assert.notEqual(result.code, "48055515323");
+    assert.ok(result.warning);
+  }
+
+  const wrongMarketplace = accepted('{"ID":"48055515323","T":"LM"}', {
+    marketplace: "Amazon",
+  });
+  assert.notEqual(wrongMarketplace.code, "48055515323");
+  assert.ok(wrongMarketplace.warning);
+
+  const unsafeNumericId = accepted(
+    '{"ID":9007199254740993,"T":"LM"}',
+    { marketplace: "Mercado Livre" },
+  );
+  assert.notEqual(unsafeNumericId.code, "9007199254740992");
+
+  assert.equal(
+    rejected(JSON.stringify({ ID: nfeKey, T: "LM" }), {
+      marketplace: "Mercado Livre",
+    }).reason,
+    "nfe-access-key",
+  );
+
+  const trackingWinsOverSiblingNfe = accepted(
+    JSON.stringify({ ID: "48055515323", T: "LM", nfe: nfeKey }),
+    { marketplace: "Mercado Livre" },
+  );
+  assert.equal(trackingWinsOverSiblingNfe.code, "48055515323");
+  assert.equal(trackingWinsOverSiblingNfe.warning, undefined);
+
+  for (const unrelatedPayload of [
+    "https://example.test/etiqueta?ID=48055515323&T=LM",
+    "https://example.test/id/48055515323",
+    "https://id.gs1.org/01/07894900011517/21/48055515323",
+  ]) {
+    const result = accepted(unrelatedPayload, {
+      marketplace: "Mercado Livre",
+    });
+    assert.notEqual(result.code, "48055515323");
+    assert.ok(result.warning);
+  }
+
+  const ambiguousEnvelope = accepted(
+    JSON.stringify({
+      items: [
+        { ID: "48055515323", T: "LM" },
+        { ID: "48055515324", T: "LM" },
+      ],
+    }),
+    { marketplace: "Mercado Livre" },
+  );
+  assert.notEqual(ambiguousEnvelope.code, "48055515323");
+  assert.notEqual(ambiguousEnvelope.code, "48055515324");
+  assert.ok(ambiguousEnvelope.warning);
+});
+
+test("extrai o envelope do Mercado Livre para buscas globais de cancelamento", () => {
+  assert.equal(
+    extractMercadoLivreEnvelopeTrackingCode(
+      '{"ID":"48055515323","T":"LM"}',
+    ),
+    "48055515323",
+  );
+  assert.equal(
+    extractMercadoLivreEnvelopeTrackingCode(
+      JSON.stringify({ etiqueta: { id: "48055515323", t: "lm" } }),
+    ),
+    "48055515323",
+  );
+  assert.equal(
+    extractMercadoLivreEnvelopeTrackingCode(
+      '{"ID":"48055515323","id":"48055515324","T":"LM"}',
+    ),
+    null,
+  );
+  assert.equal(
+    extractMercadoLivreEnvelopeTrackingCode(
+      "https://example.test/etiqueta?ID=48055515323&T=LM",
+    ),
+    null,
+  );
 });
 
 test("codigo simples preserva A mesmo quando o restante parece outro formato", () => {

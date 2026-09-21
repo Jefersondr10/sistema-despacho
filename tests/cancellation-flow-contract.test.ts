@@ -39,6 +39,18 @@ test("busca de cancelamento percorre a conta sem exigir loja e trata ambiguidade
   );
 });
 
+test("cancelamento pela camera extrai o ID do QR do Mercado Livre", () => {
+  assert.match(
+    bipagemSource,
+    /extractMercadoLivreEnvelopeTrackingCode\(rawValue\) \?\? rawValue/,
+  );
+  assert.match(
+    bipagemSource,
+    /if \(!parsedCancellationCode\.accepted\)[\s\S]*await cancelPackageByCode\(parsedCancellationCode\.code\)/,
+  );
+  assert.doesNotMatch(bipagemSource, /await cancelPackageByCode\(rawValue\)/);
+});
+
 test("cancelamento em lote exige motivo geral apenas ao finalizar", () => {
   const scanSource = bipagemSource.match(
     /async function cancelPackageByCode[\s\S]*?(?=function addPendingCancellation)/,

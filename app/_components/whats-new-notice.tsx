@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-03-cancel-package-label";
+export const CURRENT_RELEASE_ID = "2026-09-21-mercado-livre-qr";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "QR do Mercado Livre corrigido",
+    description:
+      "Ao bipar ou cancelar, a leitura agora extrai somente o rastreio do campo ID nas etiquetas com T: LM, sem salvar o conteúdo JSON completo.",
+  },
   {
     title: "Cancelamento mais claro",
     description:
