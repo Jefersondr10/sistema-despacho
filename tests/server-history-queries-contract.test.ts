@@ -240,7 +240,7 @@ test("indices novos acompanham conta, filtro e ordenacao", () => {
   assert.doesNotMatch(migration, /^\s*begin;|^\s*commit;/im);
 });
 
-test("resumo ignora transportadora quando nao e Melhor Envio", () => {
+test("migração histórica agrupava sem transportadora quando não era Melhor Envio", () => {
   const definition = sqlFunction("obter_dashboard_despacho");
   assert.match(
     definition,

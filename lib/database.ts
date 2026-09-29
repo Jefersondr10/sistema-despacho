@@ -2651,14 +2651,14 @@ function normalizeDashboardSummary(value: unknown): ReportSummaryItem[] {
           item.marketplace,
           item.tipo_operacao,
           item.melhor_envio ? "Melhor Envio" : "Sem Melhor Envio",
-          item.melhor_envio ? transportadora : null,
+          transportadora,
         ]
           .filter(Boolean)
           .join(" · "),
         marketplace: item.marketplace,
         tipo_operacao: item.tipo_operacao,
         melhor_envio: item.melhor_envio,
-        transportadora: item.melhor_envio ? transportadora : null,
+        transportadora,
         packages: getSafeHistoryCount(item.packages),
         lojas,
       },

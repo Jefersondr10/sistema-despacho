@@ -952,7 +952,6 @@ export function BipagemForm() {
     }
 
     setMelhorEnvio(active);
-    setTransportadora("");
     focusCodeField();
   }
 
@@ -1029,7 +1028,7 @@ export function BipagemForm() {
       throw new Error("Marketplace nao encontrado nos cadastros.");
     }
 
-    if (melhorEnvio && !selectedCarrierItem) {
+    if ((melhorEnvio || transportadora) && !selectedCarrierItem) {
       throw new Error("Transportadora nao encontrada nos cadastros.");
     }
 
@@ -1045,7 +1044,7 @@ export function BipagemForm() {
         marketplace_id: selectedMarketplaceItem.id,
         tipo_operacao: selectedOperation,
         melhor_envio: melhorEnvio,
-        transportadora_id: melhorEnvio ? selectedCarrierItem?.id ?? null : null,
+        transportadora_id: selectedCarrierItem?.id ?? null,
         status: "aberta",
         iniciada_em: timestamp,
       },
@@ -1207,7 +1206,7 @@ export function BipagemForm() {
           marketplaceId: selectedMarketplaceId,
           marketplace: selectedMarketplace,
           melhorEnvio,
-          transportadora: melhorEnvio ? transportadora : null,
+          transportadora: transportadora || null,
           tipoOperacao: selectedOperation,
         });
         setSessionPackages((current) => [
@@ -1900,18 +1899,14 @@ export function BipagemForm() {
           {tipoOperacao ? getOperationLabel(tipoOperacao) : "Operação pendente"}
         </span>
       </div>
-      {melhorEnvio ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Badge tone="green">Melhor Envio</Badge>
+      <div className="mt-3 flex flex-wrap gap-2">
+        <MelhorEnvioBadge active={melhorEnvio} />
+        {transportadora ? (
           <Badge tone="purple">
-            Transportadora: {transportadora || "Não informada"}
+            Transportadora: {transportadora}
           </Badge>
-        </div>
-      ) : (
-        <div className="mt-3">
-          <Badge tone="neutral">Sem Melhor Envio</Badge>
-        </div>
-      )}
+        ) : null}
+      </div>
     </div>
   );
 
@@ -2123,27 +2118,23 @@ export function BipagemForm() {
               </button>
             </div>
 
-            {melhorEnvio ? (
-              <SelectField
-                label="Transportadora"
-                value={transportadora}
-                onChange={setTransportadora}
-                disabled={configLocked}
-                required
-                placeholder="Selecione a transportadora"
-                options={activeCarriers.map((carrier) => ({
+            <SelectField
+              label={melhorEnvio ? "Transportadora" : "Transportadora (opcional)"}
+              value={transportadora}
+              onChange={setTransportadora}
+              disabled={configLocked}
+              required={melhorEnvio}
+              placeholder="Selecione a transportadora"
+              options={[
+                ...(!melhorEnvio
+                  ? [{ value: "", label: "Sem transportadora" }]
+                  : []),
+                ...activeCarriers.map((carrier) => ({
                   value: carrier.name,
                   label: carrier.name,
-                }))}
-              />
-            ) : (
-              <div className="grid gap-2 text-sm font-medium text-slate-700">
-                Transportadora
-                <div className="flex min-h-11 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-500">
-                  Não se aplica
-                </div>
-              </div>
-            )}
+                })),
+              ]}
+            />
           </div>
 
           <div className="mt-5 flex flex-wrap gap-2">
@@ -2166,7 +2157,7 @@ export function BipagemForm() {
           {sessionOpen ? (
             <div className="mt-5 rounded-lg border border-teal-200 bg-teal-50 px-4 py-3 text-sm font-medium text-teal-900">
               Lote em andamento. Para alterar loja, marketplace, operação ou
-              Melhor Envio, finalize ou descarte o lote atual.
+              Melhor Envio ou transportadora, finalize ou descarte o lote atual.
             </div>
           ) : null}
         </div>
@@ -2205,7 +2196,7 @@ export function BipagemForm() {
                   <OperationBadge operation={tipoOperacao} />
                 ) : null}
                 <MelhorEnvioBadge active={melhorEnvio} />
-                {melhorEnvio ? (
+                {transportadora || melhorEnvio ? (
                   <Badge tone={transportadora ? "purple" : "amber"}>
                     {transportadora || "Transportadora pendente"}
                   </Badge>

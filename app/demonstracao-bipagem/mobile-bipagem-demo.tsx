@@ -234,7 +234,7 @@ export function MobileBipagemDemo() {
     rawCode: string,
   ): Promise<CameraScanOutcome> {
     const parsedCode = parseTrackingCode(rawCode, {
-      carrier: setup.melhorEnvio ? setup.carrier : null,
+      carrier: setup.carrier || null,
       marketplace: setup.marketplace,
     });
 
@@ -586,7 +586,6 @@ export function MobileBipagemDemo() {
                     aria-pressed={setup.melhorEnvio === value}
                     onClick={() => {
                       updateSetup("melhorEnvio", value);
-                      if (!value) updateSetup("carrier", "");
                     }}
                     className={`min-h-12 rounded-xl border px-3 text-sm font-black transition ${
                       setup.melhorEnvio === value
@@ -600,22 +599,22 @@ export function MobileBipagemDemo() {
               </div>
             </div>
 
-            {setup.melhorEnvio ? (
-              <label className="mt-5 grid gap-2 text-sm font-black text-slate-800">
-                Transportadora <span className="sr-only">obrigatória</span>
-                <select
-                  value={setup.carrier}
-                  onChange={(event) => updateSetup("carrier", event.target.value)}
-                  required
-                  className="min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
-                >
-                  <option value="">Selecione a transportadora</option>
-                  {DEMO_CARRIERS.map((carrier) => (
-                    <option key={carrier} value={carrier}>{carrier}</option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
+            <label className="mt-5 grid gap-2 text-sm font-black text-slate-800">
+              {setup.melhorEnvio ? "Transportadora" : "Transportadora (opcional)"}
+              <select
+                value={setup.carrier}
+                onChange={(event) => updateSetup("carrier", event.target.value)}
+                required={setup.melhorEnvio}
+                className="min-h-12 rounded-xl border border-slate-300 bg-white px-3 text-sm font-semibold outline-none focus:border-teal-600 focus:ring-4 focus:ring-teal-100"
+              >
+                <option value="">
+                  {setup.melhorEnvio ? "Selecione a transportadora" : "Sem transportadora"}
+                </option>
+                {DEMO_CARRIERS.map((carrier) => (
+                  <option key={carrier} value={carrier}>{carrier}</option>
+                ))}
+              </select>
+            </label>
 
             {setupError ? (
               <p
@@ -685,9 +684,8 @@ export function MobileBipagemDemo() {
             </div>
             <p className="mt-1 truncate text-xs font-bold text-slate-600">
               {setupSummary}
-              {setup.melhorEnvio
-                ? ` · Melhor Envio · ${setup.carrier}`
-                : " · Sem Melhor Envio"}
+              {setup.melhorEnvio ? " · Melhor Envio" : " · Sem Melhor Envio"}
+              {setup.carrier ? ` · ${setup.carrier}` : ""}
             </p>
           </div>
           <span className="shrink-0 rounded-xl bg-slate-950 px-3 py-2 text-sm font-black text-white" aria-label={`${packages.length} pacotes bipados`}>

@@ -238,7 +238,8 @@ test("configuração da demonstração exige os mesmos campos do lote real", () 
   assert.match(demoSource, />\s*Marketplace\s*</);
   assert.match(demoSource, /Tipo de operação/);
   assert.match(demoSource, /Usa Melhor Envio\?/);
-  assert.match(demoSource, />\s*Transportadora\s*</);
+  assert.match(demoSource, /Transportadora \(opcional\)/);
+  assert.match(demoSource, /required=\{setup\.melhorEnvio\}/);
   assert.match(demoSource, /setup\.melhorEnvio && !setup\.carrier/);
   assert.match(demoSource, /Iniciar bipagem/);
   assert.match(demoSource, /setStep\("scanning"\)/);

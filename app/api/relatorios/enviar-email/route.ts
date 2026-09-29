@@ -230,9 +230,8 @@ function getReportSummaryEntries(relatorio: Record<string, unknown>) {
         getOptionalString(item.marketplace) || "Marketplace não informado",
       operation: getReportOperation(item.tipo_operacao),
       melhorEnvio,
-      transportadora: melhorEnvio
-        ? getOptionalString(item.transportadora) || "Não informada"
-        : "Sem Melhor Envio",
+      transportadora:
+        getOptionalString(item.transportadora) || "Não informada",
       packages: getPackageCount(item.packages),
       lojas: getSummaryStores(item),
     };

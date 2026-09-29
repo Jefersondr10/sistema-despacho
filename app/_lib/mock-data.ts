@@ -285,9 +285,7 @@ export function getReportSummary(
   const grouped = new Map<string, ReportSummaryItem>();
 
   for (const item of packages) {
-    const transportadoraKey = item.melhor_envio
-      ? item.transportadora ?? "sem-transportadora"
-      : "sem-transportadora";
+    const transportadoraKey = item.transportadora ?? "sem-transportadora";
     const id = [
       item.marketplace,
       item.tipo_operacao,
@@ -318,14 +316,14 @@ export function getReportSummary(
         item.marketplace,
         getOperationLabel(item.tipo_operacao),
         item.melhor_envio ? "Melhor Envio" : "Sem Melhor Envio",
-        item.melhor_envio ? item.transportadora : null,
+        item.transportadora,
       ]
         .filter(Boolean)
         .join(" · "),
       marketplace: item.marketplace,
       tipo_operacao: item.tipo_operacao,
       melhor_envio: item.melhor_envio,
-      transportadora: item.melhor_envio ? item.transportadora : null,
+      transportadora: item.transportadora,
       packages: 1,
       lojas: [
         {

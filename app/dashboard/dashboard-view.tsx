@@ -134,7 +134,7 @@ export function DashboardView() {
                     <OperationBadge operation={item.tipo_operacao} />
                     <MelhorEnvioBadge active={item.melhor_envio} />
                   </div>
-                  {item.melhor_envio ? (
+                  {item.transportadora || item.melhor_envio ? (
                     <p className="mt-2 text-sm text-slate-500">
                       {item.transportadora || "Não informada"}
                     </p>

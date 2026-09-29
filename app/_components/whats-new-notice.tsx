@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-21-mercado-livre-qr";
+export const CURRENT_RELEASE_ID = "2026-09-29-transportadora-independente";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Transportadora independente",
+    description:
+      "Agora você pode escolher a transportadora mesmo sem usar Melhor Envio. A seleção é mantida no lote, nos relatórios e no romaneio.",
+  },
   {
     title: "QR do Mercado Livre corrigido",
     description:

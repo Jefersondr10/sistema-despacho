@@ -641,7 +641,7 @@ export function RelatoriosView({
                       <OperationBadge operation={item.tipo_operacao} />
                       <MelhorEnvioBadge active={item.melhor_envio} />
                     </div>
-                    {item.melhor_envio ? (
+                    {item.transportadora || item.melhor_envio ? (
                       <p className="mt-3 text-sm text-slate-600">
                         <span className="font-semibold text-slate-700">
                           Transportadora:
