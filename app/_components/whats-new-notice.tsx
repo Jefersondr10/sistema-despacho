@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-09-29-transportadora-independente";
+export const CURRENT_RELEASE_ID = "2026-10-05-mercado-livre-sem-prefixo-fixo";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Mercado Livre sem falsos avisos",
+    description:
+      "A leitura dos IDs numéricos de 11 dígitos do Mercado Livre não depende mais de prefixos fixos, incluindo os iniciados por 481. O bloqueio de NF-e e os alertas de duplicidade continuam ativos.",
+  },
   {
     title: "Transportadora independente",
     description:

@@ -1,7 +1,9 @@
 const CORREIOS_S10_PATTERN = /^[A-Z]{2}\d{9}[A-Z]{2}$/;
 const AZUL_AWB_PATTERN = /^577\d{8}$/;
-const MERCADO_LIVRE_NUMERIC_PATTERN = /^47[89]\d{8}$/;
-const MERCADO_LIVRE_RECENT_NUMERIC_PATTERN = /^480\d{8}$/;
+// IDs de envio não têm um prefixo fixo. No contexto de uma etiqueta do Mercado
+// Livre, os 11 dígitos observados podem coincidir com CPF, telefone ou AWB.
+// Esta compatibilidade de formato não comprova a existência do envio na API.
+const MERCADO_LIVRE_SHIPMENT_ID_PATTERN = /^[1-9]\d{10}$/;
 const NFE_ACCESS_KEY_PATTERN = /^[0-9]{6}[A-Z0-9]{12}[0-9]{26}$/;
 const NFE_STATE_CODES = new Set([
   "11", "12", "13", "14", "15", "16", "17",
@@ -104,14 +106,15 @@ function isKnownMarketplaceTrackingCode(
   code: string,
   context: TrackingCodeContext,
   origin: CandidateOrigin,
+  numericSource = code,
 ) {
   const marketplace = normalizeMarketplaceName(context.marketplace);
 
   if (isMercadoLivreMarketplace(context.marketplace)) {
     return (
-      MERCADO_LIVRE_NUMERIC_PATTERN.test(code) ||
       (origin !== "embedded" &&
-        MERCADO_LIVRE_RECENT_NUMERIC_PATTERN.test(code)) ||
+        MERCADO_LIVRE_SHIPMENT_ID_PATTERN.test(numericSource) &&
+        !hasRepeatedDigits(code)) ||
       /^AP\d{9}BR$/.test(code)
     );
   }
@@ -297,7 +300,7 @@ function classifyCandidate(
     return null;
   }
 
-  if (isKnownMarketplaceTrackingCode(compactCode, context, origin)) {
+  if (isKnownMarketplaceTrackingCode(compactCode, context, origin, normalizedCode)) {
     return { code: compactCode, kind: "carrier-code" };
   }
 
@@ -651,7 +654,7 @@ export function parseTrackingCode(
     addCandidate(value, "embedded");
   });
   upperPayload
-    .match(/\b(?:47[89]\d{8}|AP\d{9}BR|TBR[A-Z0-9]{8,24}|BR\d{10,20})\b/g)
+    .match(/\b(?:AP\d{9}BR|TBR[A-Z0-9]{8,24}|BR\d{10,20})\b/g)
     ?.forEach((value) => {
       addCandidate(value, "embedded");
     });
@@ -755,7 +758,7 @@ export function parseTrackingCode(
   let warning = selected.warning;
 
   if (
-    isKnownMarketplaceTrackingCode(selectedCanonical, context, selected.origin)
+    isKnownMarketplaceTrackingCode(selectedCanonical, context, selected.origin, selected.code)
   ) {
     warning = undefined;
   } else if (/^\d{8}$/.test(selectedCanonical)) {

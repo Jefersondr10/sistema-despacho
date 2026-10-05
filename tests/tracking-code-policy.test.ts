@@ -246,9 +246,14 @@ test("codigo numerico do Mercado Livre nao e acusado como CEP", () => {
     accepted("47915405326", { marketplace: "Amazon" }).warning,
     "O prefixo 479 só deve ser confiável no contexto do Mercado Livre",
   );
-  assert.ok(
+  assert.equal(
     accepted("52998224725", { marketplace: "Mercado Livre" }).warning,
-    "Um CPF ainda deve gerar aviso mesmo em um lote do Mercado Livre",
+    undefined,
+    "A coincidência com DV de CPF não invalida um ID de envio neste contexto",
+  );
+  assert.ok(
+    accepted("529.982.247-25", { marketplace: "Mercado Livre" }).warning,
+    "Um documento explicitamente formatado ainda deve gerar aviso",
   );
   assert.match(
     accepted("72243100", { marketplace: "Mercado Livre" }).warning ?? "",
@@ -258,7 +263,60 @@ test("codigo numerico do Mercado Livre nao e acusado como CEP", () => {
   const checksumCollision = accepted("57712345678", {
     marketplace: "Mercado Livre",
   });
-  assert.match(checksumCollision.warning ?? "", /d.gito verificador/i);
+  assert.equal(checksumCollision.warning, undefined);
+});
+
+test("Mercado Livre aceita IDs de 11 dígitos sem depender do prefixo", () => {
+  // Exemplos sintéticos: não publicar rastreios reais do relatório do usuário.
+  for (const prefix of ["100", "282", "477", "478", "479", "480", "481", "482", "490", "500", "577", "999"]) {
+    const code = `${prefix}23456789`;
+    for (const marketplace of ["MERCADO LIVRE", "Mercado-Livre", "Mercado Libre", "Mercado Livre Flex"]) {
+      for (const carrier of [null, "Correios", "Loggi"]) {
+        for (const input of [code, `${code.slice(0, 3)} ${code.slice(3)}`, JSON.stringify({ ID: code, T: "LM" }), JSON.stringify({ shipment_id: code })]) {
+          const result = accepted(input, { marketplace, carrier });
+          assert.equal(result.code, code);
+          assert.equal(result.warning, undefined, `${marketplace}: ${input}`);
+        }
+      }
+    }
+  }
+});
+
+test("compatibilidade do Mercado Livre não transforma números soltos em rastreios de outros contextos", () => {
+  for (const code of ["48123456789", "48223456789", "49023456789"]) {
+    assert.ok(accepted(code).warning);
+    assert.ok(accepted(code, { marketplace: "Amazon" }).warning);
+    for (const input of [
+      JSON.stringify({ order_id: code }),
+      JSON.stringify({ customer: { id: code } }),
+      JSON.stringify({ ID: code, T: "OUTRO" }),
+      `https://example.test/pedido/${code}`,
+      `ENDERECO CEP 72243-100 TELEFONE ${code}`,
+    ]) {
+      const result = accepted(input, { marketplace: "Mercado Livre" });
+      assert.notEqual(result.code, code);
+      assert.ok(result.warning);
+    }
+  }
+  assert.ok(accepted("11111111111", { marketplace: "Mercado Livre" }).warning);
+  assert.ok(accepted("72243100", { marketplace: "Mercado Livre" }).warning);
+});
+
+test("QR do Mercado Livre com prefixo novo mantém rastreio e proteção de NF-e", () => {
+  const code = "48123456789";
+  const context = { marketplace: "Mercado Livre" };
+  const nfe = "35190830290856000160550010000000011000000010";
+  const samePackage = [
+    code,
+    JSON.stringify({ ID: code, T: "LM" }),
+    JSON.stringify({ etiqueta: { id: Number(code), t: "lm" } }),
+    encodeURIComponent(JSON.stringify({ ID: code, T: "LM" })),
+    JSON.stringify({ ID: code, T: "LM", nfe }),
+  ].map((input) => accepted(input, context));
+  assert.deepEqual([...new Set(samePackage.map((result) => result.code))], [code]);
+  assert.ok(samePackage.every((result) => !result.warning));
+  assert.equal(rejected(nfe, context).reason, "nfe-access-key");
+  assert.equal(rejected(JSON.stringify({ ID: nfe, T: "LM" }), context).reason, "nfe-access-key");
 });
 
 test("extrai o envelope JSON do Mercado Livre sem salvar o payload inteiro", () => {
