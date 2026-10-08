@@ -3,11 +3,16 @@
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-export const CURRENT_RELEASE_ID = "2026-10-05-mercado-livre-sem-prefixo-fixo";
+export const CURRENT_RELEASE_ID = "2026-10-08-bipagem-mais-rapida";
 export const RELEASE_NOTICE_STORAGE_KEY =
   "sistema-despacho-device:novidades-versao";
 
 const releaseItems = [
+  {
+    title: "Menos espera entre pacotes",
+    description:
+      "A bipagem verifica duplicados e salva em uma única solicitação. A câmera tenta ler o próximo código mais rapidamente, mantendo o bip de confirmação somente depois de salvar.",
+  },
   {
     title: "Mercado Livre sem falsos avisos",
     description:

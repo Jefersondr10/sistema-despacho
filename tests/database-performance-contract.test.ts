@@ -55,7 +55,7 @@ test("busca normalizada nao recarrega o historico completo de pacotes", () => {
   assert.doesNotMatch(globalLookupSource, /getPacotesComRelacionamentos|\.find\(/);
 });
 
-test("bipagem verifica a conta inteira sem alterar a busca do cancelamento", () => {
+test("bipagem valida e grava atomicamente sem consulta extra e preserva o cancelamento", () => {
   const scanSource = bipagemSource.match(
     /async function processTrackingCode[\s\S]*?(?=async function finishSession)/,
   )?.[0];
@@ -65,12 +65,13 @@ test("bipagem verifica a conta inteira sem alterar a busca do cancelamento", () 
 
   assert.ok(scanSource, "fluxo de bipagem nao encontrado");
   assert.ok(cancellationSource, "fluxo de cancelamento nao encontrado");
-  assert.match(scanSource, /getPacoteAtivoGlobalPorCodigo\(/);
+  assert.doesNotMatch(scanSource, /getPacoteAtivoGlobalPorCodigo\(/);
   assert.doesNotMatch(scanSource, /getPacoteAtivoPorCodigo\(/);
-  assert.match(
-    scanSource,
-    /já foi bipado nesta conta, mesmo em outra loja ou marketplace/,
-  );
+  assert.equal(scanSource.match(/await adicionarItemSessaoBipagem\(/g)?.length, 1);
+  assert.match(scanSource, /const addedItem = itens\[0\]/);
+  assert.match(scanSource, /if \(!addedItem\)/);
+  assert.match(scanSource, /if \(addedItem\.duplicado \|\| duplicatedInSession\)/);
+  assert.match(scanSource, /Erro ao salvar pacote no lote/);
   assert.match(cancellationSource, /getPacoteAtivoPorCodigo\(/);
   assert.match(cancellationSource, /\{ loja_id: targetPackage\.loja_id \}/);
   assert.doesNotMatch(cancellationSource, /getPacoteAtivoGlobalPorCodigo\(/);

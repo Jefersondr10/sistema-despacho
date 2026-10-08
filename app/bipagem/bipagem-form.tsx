@@ -51,7 +51,6 @@ import {
   finalizarSessaoBipagemAberta,
   formatDatabaseError,
   getPacoteAtivoPorCodigo,
-  getPacoteAtivoGlobalPorCodigo,
   getPacotesFinalizadosPorCodigo,
   getSessaoBipagemAbertaComItens,
   type ItemSessaoBipagemRow,
@@ -1137,34 +1136,9 @@ export function BipagemForm() {
     const normalizedCode = normalizeTrackingCode(parsedCode.code);
     const duplicatedInSession = sessionNormalizedCodes.has(normalizedCode);
 
-    let duplicatedSavedPackage = null;
-    setCheckingPackage(true);
-    try {
-      duplicatedSavedPackage = await getPacoteAtivoGlobalPorCodigo(
-        normalizedCode,
-        databaseContext,
-      );
-    } catch (error) {
-      const outcome = reportTrackingOutcome(
-        "danger",
-        `Erro ao verificar duplicidade: ${formatDatabaseError(error)}`,
-      );
-      focusCodeField();
-      return outcome;
-    } finally {
-      setCheckingPackage(false);
-    }
-
-    if (duplicatedSavedPackage) {
-      const outcome = reportTrackingOutcome(
-        "danger",
-        "Pacote duplicado: este código já foi bipado nesta conta, mesmo em outra loja ou marketplace.",
-      );
-      clearCodeField();
-      focusCodeField();
-      return outcome;
-    }
-
+    // A RPC valida duplicados de toda a conta (inclusive outros lotes) e grava
+    // sob o mesmo lock. Uma consulta prévia repetia o trabalho e acrescentava
+    // uma ida ao servidor a cada bipagem, sem garantir a concorrência.
     setSavingSession(true);
 
     try {

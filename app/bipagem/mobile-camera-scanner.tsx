@@ -229,7 +229,7 @@ export function MobileCameraScanner({
       ]);
       const reader = new BrowserMultiFormatReader(readerHints, {
         delayBetweenScanAttempts: 180,
-        delayBetweenScanSuccess: 450,
+        delayBetweenScanSuccess: 180,
         tryPlayVideoTimeout: 5000,
       });
       reader.possibleFormats = CAMERA_LOGISTICS_BARCODE_FORMAT_NAMES.map(

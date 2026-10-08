@@ -44,8 +44,9 @@ test("aviso usa diálogo nativo acessível e pode ser fechado pelo teclado", () 
 test("conteúdo resume as mudanças visíveis desta versão", () => {
   assert.match(
     noticeSource,
-    /CURRENT_RELEASE_ID = "2026-10-05-mercado-livre-sem-prefixo-fixo"/,
+    /CURRENT_RELEASE_ID = "2026-10-08-bipagem-mais-rapida"/,
   );
+  assert.match(noticeSource, /Menos espera entre pacotes/);
   assert.match(noticeSource, /QR do Mercado Livre corrigido/);
   assert.match(noticeSource, /conteúdo JSON completo/);
   assert.match(noticeSource, /Cancelamento mais claro/);
